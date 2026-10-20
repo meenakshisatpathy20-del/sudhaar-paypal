@@ -1,0 +1,27 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# New -> Blueprint -> pick this repo. Fill in the secret env vars when prompted.
+services:
+  - type: web
+    name: sudhaar
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/config
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_KARIGAR_EMAIL
+        sync: false
+      - key: PAYPAL_SAATHI_EMAIL
+        sync: false
+      - key: PAYPAL_CUSTOMER_EMAIL
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false

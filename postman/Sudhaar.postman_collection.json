@@ -1,0 +1,487 @@
+{
+  "info": {
+    "name": "Sudhaar API (PayPal AI Hackathon)",
+    "description": "End-to-end flow: AI quote -> PayPal authorize -> OTP-gated job -> capture -> payouts -> invoice -> Resolve Hub refund.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. App config (PayPal + AI mode)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/config",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "config"
+          ]
+        },
+        "description": "Shows whether the server talks to the PayPal sandbox and Claude, or runs simulated."
+      }
+    },
+    {
+      "name": "2. AI quote + karigar offers",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/quote",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "quote"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"description\": \"Mixer grinder jar blade is loose\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const j = pm.response.json();",
+              "pm.test('quote created', () => pm.expect(j.quote.id).to.be.a('string'));",
+              "pm.collectionVariables.set('quoteId', j.quote.id);",
+              "pm.collectionVariables.set('karigarId', j.offers[0].karigar.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Book (creates PayPal order, intent AUTHORIZE)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/orders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "orders"
+          ]
+        },
+        "description": "In sandbox mode, approve the order as the sandbox buyer in the app's PayPal button before step 4. In simulated mode step 4 works directly.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"quoteId\": \"{{quoteId}}\",\n  \"karigarId\": \"{{karigarId}}\",\n  \"donation\": 1\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const j = pm.response.json();",
+              "pm.test('order created', () => pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('orderId', j.order.id);",
+              "pm.collectionVariables.set('paypalOrderId', j.paypalOrderId);",
+              "pm.collectionVariables.set('pickupOtp', j.order.pickupOtp);",
+              "pm.collectionVariables.set('deliveryOtp', j.order.deliveryOtp);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Approve -> authorize (hold funds)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/orders/{{orderId}}/approve",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "orders",
+            "{{orderId}}",
+            "approve"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"paypalOrderId\": \"{{paypalOrderId}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "5. Saathi pickup (OTP)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/orders/{{orderId}}/action",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "orders",
+            "{{orderId}}",
+            "action"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"pickup\",\n  \"otp\": \"{{pickupOtp}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "6. Saathi hands to karigar",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/orders/{{orderId}}/action",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "orders",
+            "{{orderId}}",
+            "action"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"drop_at_karigar\"\n}"
+        }
+      }
+    },
+    {
+      "name": "7. Karigar starts repair",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/orders/{{orderId}}/action",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "orders",
+            "{{orderId}}",
+            "action"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"start_repair\"\n}"
+        }
+      }
+    },
+    {
+      "name": "8. Karigar marks repaired (after photo + AI check)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/orders/{{orderId}}/action",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "orders",
+            "{{orderId}}",
+            "action"
+          ]
+        },
+        "description": "Upload a photo first with POST /api/uploads (multipart field 'file') and paste the returned file name.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"mark_repaired\",\n  \"afterPhoto\": \"<file from POST /api/uploads>\"\n}"
+        }
+      }
+    },
+    {
+      "name": "9. Out for delivery",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/orders/{{orderId}}/action",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "orders",
+            "{{orderId}}",
+            "action"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"out_for_delivery\"\n}"
+        }
+      }
+    },
+    {
+      "name": "10. Deliver (OTP) -> capture + payouts + invoice",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/orders/{{orderId}}/action",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "orders",
+            "{{orderId}}",
+            "action"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"deliver\",\n  \"otp\": \"{{deliveryOtp}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "11. Resolve Hub complaint (AI review)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/orders/{{orderId}}/complaint",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "orders",
+            "{{orderId}}",
+            "complaint"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"issue\": \"delayed\",\n  \"details\": \"Arrived a day late\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const j = pm.response.json();",
+              "pm.collectionVariables.set('complaintId', j.order.complaints[0].id);",
+              "pm.collectionVariables.set('refundAmount', j.order.complaints[0].ai.refundAmount);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12. Refund via PayPal",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/orders/{{orderId}}/resolve",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "orders",
+            "{{orderId}}",
+            "resolve"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"complaintId\": \"{{complaintId}}\",\n  \"action\": \"refund\",\n  \"amount\": \"{{refundAmount}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "13. Order details (all PayPal ids)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/orders/{{orderId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "orders",
+            "{{orderId}}"
+          ]
+        },
+        "description": ""
+      }
+    },
+    {
+      "name": "14. Repair Agent turn",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/agent",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "agent"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"My school bag zip broke. Get it fixed under $5.\"\n}"
+        }
+      }
+    },
+    {
+      "name": "15. Admin dashboard data",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/admin",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "admin"
+          ]
+        },
+        "description": ""
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "quoteId",
+      "value": ""
+    },
+    {
+      "key": "karigarId",
+      "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": ""
+    },
+    {
+      "key": "paypalOrderId",
+      "value": ""
+    },
+    {
+      "key": "pickupOtp",
+      "value": ""
+    },
+    {
+      "key": "deliveryOtp",
+      "value": ""
+    },
+    {
+      "key": "complaintId",
+      "value": ""
+    },
+    {
+      "key": "refundAmount",
+      "value": ""
+    }
+  ]
+}
