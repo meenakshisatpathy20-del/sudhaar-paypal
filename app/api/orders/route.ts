@@ -1,6 +1,7 @@
 import { readDB } from "@/lib/db";
 import { fail, ok } from "@/lib/http";
 import { createOrder, expireUnpaidOrders } from "@/lib/orders";
+import { publicOrder } from "@/lib/privacy";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +9,7 @@ export async function GET() {
   await expireUnpaidOrders();
   const db = readDB();
   return ok({
-    orders: db.orders,
+    orders: db.orders.map(publicOrder),
     quotes: Object.fromEntries(db.quotes.map((q) => [q.id, { newPrice: q.newPrice, photo: q.photo }])),
     karigars: Object.fromEntries(db.karigars.map((k) => [k.id, { name: k.name, shop: k.shop, avatarColor: k.avatarColor }])),
   });

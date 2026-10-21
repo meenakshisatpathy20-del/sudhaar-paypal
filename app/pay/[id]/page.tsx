@@ -56,7 +56,7 @@ export default function FamilyPayPage({ params }: { params: Promise<{ id: string
             <div className="min-w-0">
               <p className="font-semibold">{order.kind === "basket" && order.jobs ? t("oBasketTitle", { n: order.jobs.length }) : order.item}</p>
               <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-                {order.kind === "basket" ? order.issue : `${karigar?.shop} · ${karigar?.rating}★`} <BadgeCheck className="size-3.5 shrink-0 text-teal" />
+                {order.kind === "basket" ? order.issue : `${karigar?.shop} · ${karigar && karigar.jobsDone > 0 ? `${karigar.rating}★` : t("newKarigar")}`} <BadgeCheck className="size-3.5 shrink-0 text-teal" />
               </p>
             </div>
           </div>

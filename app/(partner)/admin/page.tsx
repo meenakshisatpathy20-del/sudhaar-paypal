@@ -6,7 +6,8 @@ import { AgGridReact } from "ag-grid-react";
 import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type ICellRendererParams } from "ag-grid-community";
 import { api, money } from "@/components/api";
 import { STATUS_LABEL } from "@/components/StatusPill";
-import type { Complaint, CompletionCheck, Karigar, Order, Saathi } from "@/lib/types";
+import { CATEGORY_LABEL } from "@/lib/pricing";
+import type { Complaint, CompletionCheck, Karigar, KarigarApplication, Order, Saathi } from "@/lib/types";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -47,8 +48,12 @@ type Row = {
 
 export default function Admin() {
   const [data, setData] = useState<AdminData | null>(null);
-  const [tab, setTab] = useState<"orders" | "resolve" | "checks" | "customers" | "karigars" | "saathis" | "payouts" | "webhooks">("orders");
-  const load = useCallback(() => api<AdminData>("/api/admin").then(setData).catch(() => {}), []);
+  const [tab, setTab] = useState<"orders" | "resolve" | "checks" | "applications" | "customers" | "karigars" | "saathis" | "payouts" | "webhooks">("orders");
+  const [apps, setApps] = useState<KarigarApplication[]>([]);
+  const load = useCallback(() => {
+    api<AdminData>("/api/admin").then(setData).catch(() => {});
+    api<{ applications: KarigarApplication[] }>("/api/applications").then((r) => setApps(r.applications)).catch(() => {});
+  }, []);
   useEffect(() => {
     load();
     const t = setInterval(load, 5000);
@@ -260,15 +265,16 @@ export default function Admin() {
         ))}
       </div>
       <div className="no-scrollbar flex gap-1 overflow-x-auto">
-        {(["orders", "resolve", "checks", "customers", "karigars", "saathis", "payouts", "webhooks"] as const).map((t) => (
+        {(["orders", "resolve", "checks", "applications", "customers", "karigars", "saathis", "payouts", "webhooks"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-1.5 text-sm font-semibold capitalize ${tab === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-            {t === "webhooks" ? "PayPal webhooks" : t === "resolve" ? `Resolve Hub (${openComplaints.length})` : t === "checks" ? `Photo checks (${photoChecks.length})` : t}
+            {t === "webhooks" ? "PayPal webhooks" : t === "resolve" ? `Resolve Hub (${openComplaints.length})` : t === "checks" ? `Photo checks (${photoChecks.length})` : t === "applications" ? `Applications (${apps.filter((a) => a.status === "pending").length})` : t}
           </button>
         ))}
       </div>
       {tab === "resolve" && <ResolveQueue items={openComplaints} onDone={load} />}
       {tab === "checks" && <PhotoCheckQueue items={photoChecks} onDone={load} />}
-      <div className={tab === "resolve" || tab === "checks" ? "hidden" : "h-[560px] overflow-hidden rounded-2xl"}>
+      {tab === "applications" && <Applications apps={apps} onDone={load} />}
+      <div className={tab === "resolve" || tab === "checks" || tab === "applications" ? "hidden" : "h-[560px] overflow-hidden rounded-2xl"}>
         {tab === "orders" && <AgGridReact<Row> theme={theme} rowData={rows} columnDefs={orderCols} pagination paginationPageSize={20} defaultColDef={{ sortable: true, resizable: true }} />}
         {tab === "payouts" && <AgGridReact theme={theme} rowData={payoutRows} columnDefs={payoutCols} defaultColDef={{ sortable: true, resizable: true }} />}
         {tab === "karigars" && <AgGridReact theme={theme} rowData={karigarRows} columnDefs={karigarCols} defaultColDef={{ sortable: true, resizable: true, filter: true }} />}
@@ -406,6 +412,87 @@ function PhotoCheckQueue({ items, onDone }: { items: PhotoCheckItem[]; onDone: (
                 Send back to karigar
               </button>
             </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+const CHECK_LABEL = { idVerified: "ID verified (in person / DigiLocker)", shopVisited: "Shop visited, location pinned", trialRepair: "Trial repair passed" } as const;
+
+/** Karigar onboarding: three KYC checks by the team, then the karigar becomes bookable. */
+function Applications({ apps: fromServer, onDone }: { apps: KarigarApplication[]; onDone: () => void }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // Show ticked checks immediately; the next load brings the saved state.
+  const [apps, setApps] = useState(fromServer);
+  useEffect(() => setApps(fromServer), [fromServer]);
+  async function act(id: string, body: { action: "check"; check: keyof typeof CHECK_LABEL; value: boolean } | { action: "approve" | "reject" }) {
+    setBusy(id);
+    setError(null);
+    if (body.action === "check") setApps((list) => list.map((a) => (a.id === id ? { ...a, checks: { ...a.checks, [body.check]: body.value } } : a)));
+    try {
+      await api(`/api/applications/${id}`, body);
+      onDone();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+  if (apps.length === 0)
+    return (
+      <p className="paper rounded-2xl p-6 text-sm text-muted-foreground">
+        No applications yet. Karigars apply from <Link href="/join" className="text-primary underline">/join</Link> (linked on the customer home page).
+      </p>
+    );
+  return (
+    <div className="space-y-3">
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {apps.map((a) => {
+        const allChecked = Object.values(a.checks).every(Boolean);
+        return (
+          <div key={a.id} className="paper space-y-2 rounded-2xl p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="font-semibold">
+                {a.shop} · {a.name} <span className="font-mono text-xs text-muted-foreground">{a.id}</span>
+              </p>
+              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${a.status === "approved" ? "bg-teal/15 text-teal" : a.status === "rejected" ? "bg-destructive/10 text-destructive" : "bg-marigold/20 text-gold"}`}>{a.status}</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {a.craft} · {a.area} · {a.yearsExperience} yrs · {a.skills.map((s) => CATEGORY_LABEL[s]).join(", ")} · {a.languages.join(", ")}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Phone {a.phone} · ID to show: {a.idType} · PayPal: {a.payoutEmail ?? "not yet (help set up at shop visit)"}
+            </p>
+            {a.bio && <p className="text-sm italic">&ldquo;{a.bio}&rdquo;</p>}
+            {a.status === "pending" ? (
+              <>
+                <div className="flex flex-wrap gap-3">
+                  {(Object.keys(CHECK_LABEL) as (keyof typeof CHECK_LABEL)[]).map((c) => (
+                    <label key={c} className="flex cursor-pointer items-center gap-1.5 text-xs">
+                      <input type="checkbox" className="size-4 accent-[#d9572b]" checked={a.checks[c]} disabled={busy === a.id} onChange={(e) => act(a.id, { action: "check", check: c, value: e.target.checked })} />
+                      {CHECK_LABEL[c]}
+                    </label>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button disabled={busy === a.id || !allChecked} onClick={() => act(a.id, { action: "approve" })} className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">
+                    Approve and list karigar
+                  </button>
+                  <button disabled={busy === a.id} onClick={() => act(a.id, { action: "reject" })} className="rounded-xl px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50">
+                    Reject
+                  </button>
+                </div>
+              </>
+            ) : (
+              a.karigarId && (
+                <Link href={`/karigars/${a.karigarId}`} className="text-xs font-semibold text-primary underline">
+                  View public profile
+                </Link>
+              )
+            )}
           </div>
         );
       })}

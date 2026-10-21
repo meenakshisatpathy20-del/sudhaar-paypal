@@ -91,7 +91,9 @@ export function offersFor(quote: Quote, at = DEMO_CUSTOMER()): KarigarOffer[] {
       const price = karigarPrice(quote.repairLow, quote.repairHigh, k);
       const readyInDays = Math.max(quote.repairDays, k.turnaroundDays);
       // Lower is better: cost, then distance and days, rewarded by rating.
-      const score = round2(price + fee + distanceKm * 0.15 + readyInDays * 0.5 - (k.rating - 4) * 2);
+      // New karigars have no rating yet: treat them as average (4.0) so they still get work.
+      const rating = k.jobsDone > 0 ? k.rating : 4;
+      const score = round2(price + fee + distanceKm * 0.15 + readyInDays * 0.5 - (rating - 4) * 2);
       return { karigar: k, distanceKm, price, pickupFee: fee, total: round2(price + fee), readyInDays, score };
     })
     .filter((o): o is KarigarOffer => o !== null)

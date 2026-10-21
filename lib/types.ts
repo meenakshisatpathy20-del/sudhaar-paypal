@@ -37,6 +37,31 @@ export interface Karigar {
   craft: string;
   services: { name: string; price: number }[];
   reviews: { name: string; rating: number; text: string }[];
+  /** Joined through the onboarding flow (not demo seed data). */
+  onboarded?: boolean;
+}
+
+/** A repairer applying through "Join as a karigar", reviewed by the Sudhaar team. */
+export interface KarigarApplication {
+  id: string;
+  createdAt: string;
+  name: string;
+  phone: string;
+  shop: string;
+  craft: string;
+  area: string;
+  skills: Category[];
+  yearsExperience: number;
+  languages: string[];
+  bio: string;
+  /** Optional: without it, sandbox payouts go to the demo karigar account. */
+  payoutEmail?: string;
+  /** Which ID they can show. We never store ID numbers; staff verify in person or via DigiLocker. */
+  idType: "aadhaar" | "voter" | "driving" | "pan" | "none";
+  status: "pending" | "approved" | "rejected";
+  checks: { idVerified: boolean; shopVisited: boolean; trialRepair: boolean };
+  karigarId?: string;
+  decidedAt?: string;
 }
 
 export interface Saathi {
@@ -203,4 +228,5 @@ export interface DB {
   quotes: Quote[];
   orders: Order[];
   webhooks: { at: string; type: string; resource?: string; verified: boolean }[];
+  applications: KarigarApplication[];
 }

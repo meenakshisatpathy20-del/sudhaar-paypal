@@ -183,7 +183,7 @@ async function runCustomTool(name: string, input: Record<string, unknown>, sessi
           .map((o) => ({
             karigar_id: o.karigar.id,
             shop: o.karigar.shop,
-            rating: o.karigar.rating,
+            rating: o.karigar.jobsDone > 0 ? o.karigar.rating : "new karigar, no ratings yet",
             distance_km: o.distanceKm,
             repair_price: o.price,
             pickup_fee: o.pickupFee,

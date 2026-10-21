@@ -248,7 +248,7 @@ function Fix() {
                         </p>
                         <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1 text-gold">
-                            <Star className="size-3 fill-gold" /> {o.karigar.rating.toFixed(1)}
+                            <Star className="size-3 fill-gold" /> {o.karigar.jobsDone > 0 ? o.karigar.rating.toFixed(1) : t("newKarigar")}
                           </span>
                           <span>{o.distanceKm} km</span>
                           <span className="flex items-center gap-1">

@@ -57,7 +57,7 @@ export default function KarigarProfile({ params }: { params: Promise<{ id: strin
               <Quote className="size-5 shrink-0 text-gold" /> {k.bio}
             </p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Fact icon={Star} v={`${k.rating.toFixed(1)}★`} l={t("kpJobs", { n: k.jobsDone })} />
+              <Fact icon={Star} v={k.jobsDone > 0 ? `${k.rating.toFixed(1)}★` : t("newKarigar")} l={t("kpJobs", { n: k.jobsDone })} />
               <Fact icon={Briefcase} v={t("kpYears", { n: k.yearsExperience })} l={t("kpExperience")} />
               <Fact icon={MapPin} v={`${k.distanceKm.toFixed(1)} km`} l={k.area} />
               <Fact icon={Languages} v={String(k.languages.length)} l={k.languages.join(", ")} />
@@ -78,6 +78,7 @@ export default function KarigarProfile({ params }: { params: Promise<{ id: strin
         <Card>
           <CardContent className="space-y-3">
             <h2 className="font-bold">{t("kpReviews")}</h2>
+            {k.reviews.length === 0 && <p className="text-sm text-muted-foreground">{t("kpNoReviews")}</p>}
             {k.reviews.map((r) => (
               <div key={r.name} className="rounded-2xl bg-muted/50 p-3 ring-1 ring-border">
                 <p className="flex items-center justify-between text-sm font-semibold">
@@ -96,6 +97,7 @@ export default function KarigarProfile({ params }: { params: Promise<{ id: strin
         <Card>
           <CardContent className="space-y-3">
             <h2 className="font-bold">{t("kpPrices")}</h2>
+            {k.services.length === 0 && <p className="text-sm text-muted-foreground">{t("kpNoPrices")}</p>}
             {k.services.map((s) => (
               <p key={s.name} className="flex justify-between border-b border-border pb-2 text-sm last:border-0">
                 <span>{s.name}</span>

@@ -115,7 +115,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                     {karigar.shop} <BadgeCheck className="size-4 text-primary" />
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {karigar.name} · {karigar.rating}★ · {order.distanceKm} km · {order.mode === "pickup" && saathi ? `${t("oSaathi")}: ${saathi.name}` : t("oHomeVisit")}
+                    {karigar.name} · {karigar.jobsDone > 0 ? `${karigar.rating}★` : t("newKarigar")} · {order.distanceKm} km · {order.mode === "pickup" && saathi ? `${t("oSaathi")}: ${saathi.name}` : t("oHomeVisit")}
                   </p>
                 </div>
               </Link>

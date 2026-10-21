@@ -291,6 +291,13 @@ export default function Home() {
         <p className="mt-3 text-sm text-muted-foreground">{t("storyBy")}</p>
       </section>
 
+      <Link href="/join" className="flex items-center justify-between gap-3 rounded-2xl bg-teal/10 p-4 text-sm font-semibold text-teal ring-1 ring-teal/25 transition hover:bg-teal/15">
+        <span className="flex items-center gap-2">
+          <WrenchIcon className="size-4 shrink-0" /> {t("joinCta")}
+        </span>
+        <ArrowRight className="size-4 shrink-0" />
+      </Link>
+
       <footer className="flex flex-col items-center justify-between gap-2 border-t border-border pt-4 text-xs text-muted-foreground md:flex-row">
         <p>{t("footerLine")}</p>
         <p>{t("footerCare")}</p>
