@@ -3,12 +3,12 @@
 **A doorstep repair marketplace for local karigars (informal repairers), built on PayPal + AI.**
 Snap a photo of something broken. AI estimates the repair cost against the price of buying new. A verified local karigar fixes it, a Repair Saathi does the pickup and delivery, and the customer's PayPal payment is **held until the repaired item is back in their hands**. On the delivery OTP, PayPal captures the money and **instantly pays out the karigar and the Saathi**.
 
-> Built for the [PayPal AI Hackathon 2026](https://paypalaihackathon.devpost.com/).
-> 🎥 Demo video: _add YouTube link_ · 🌐 Live demo: _add Render URL_
+> Built by **Meenakshi Satpathy** for the [PayPal AI Hackathon 2026](https://paypalaihackathon.devpost.com/).
+> 🎥 Demo video: _coming soon_ · 🌐 Live demo: _coming soon_
 
 ---
 
-## Why we built this
+## Why I built this
 
 This Diwali, my mother was sorting old things at home that only needed a small repair. Even though we live in a city, she struggled to find anyone to fix them. The karigars (cobblers, tailors, mixer and fan repairers) are right there in our neighbourhood, but nobody can find them online, nobody comes home to collect the items, and nobody knows what a fair price is. So people buy new and throw the old one away.
 
@@ -70,7 +70,7 @@ All calls go to the PayPal **sandbox**. Every PayPal id appears on the order pag
 | **Webhooks** | [`app/api/paypal/webhook/route.ts`](app/api/paypal/webhook/route.ts) | Verifies signatures (`verify-webhook-signature`) and logs events on the order |
 | **PayPal Agent Toolkit** | [`lib/agent.ts`](lib/agent.ts) | `get_order`, `get_invoice`, `list_invoices`, `get_refund`, `list_transactions`, `list_disputes` as agent tools |
 
-## How AI is used
+## How AI is used in the product
 
 Claude (`claude-opus-5-5`, via the official `@anthropic-ai/sdk`) with structured outputs ([`lib/ai.ts`](lib/ai.ts)):
 
@@ -80,6 +80,14 @@ Claude (`claude-opus-5-5`, via the official `@anthropic-ai/sdk`) with structured
 4. **Repair Agent**: multi-step tool use that books and pays (see above).
 
 Without an `ANTHROPIC_API_KEY`, features 1–3 fall back to a deterministic estimator that is clearly labelled "Simulated" in the UI. The agent needs a key.
+
+## How I built it (and how I used AI)
+
+I'm a solo participant, a 3rd-year Computer Science student.
+
+**My part:** I came up with the idea from a real problem at home, researched it, and designed the product and its features: OTP handovers, Repair Saathi pickup by local volunteers and students, Shiprocket-style distance pricing and tracking, Resolve Hub complaints with bill proof, KYC-verified karigars, and a fair split so karigars keep 90%. I also did the testing in the PayPal sandbox and made the demo video.
+
+**AI as my coding assistant:** I used Claude Code (Anthropic's AI coding assistant) to turn my design into code. The first commit, the initial app, was generated with Claude Code from my specification. Later commits are my own changes, fixes and new features, made with AI assistance and reviewed and tested by me.
 
 ## Sponsor tools
 
@@ -121,7 +129,7 @@ The app also runs with an **empty `.env`**: PayPal and AI calls are then simulat
 
 ## Testing instructions for judges
 
-**Hosted demo:** _Render URL_. Sandbox buyer login: `_buyer email_` / `_password_` _(team: fill in before submitting)_.
+**Hosted demo:** _coming soon_. Sandbox buyer login: _coming soon_.
 
 1. **Customer** tab → tap a sample chip (e.g. "Mixer grinder jar…") or upload a photo → **Get AI repair quote**.
 2. Pick a karigar → **Book & continue to PayPal** → pay with the sandbox buyer. The status becomes **"Paid · on hold"** (authorization id shown).
