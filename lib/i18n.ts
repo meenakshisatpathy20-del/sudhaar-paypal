@@ -225,6 +225,8 @@ export const STRINGS = {
     loadFailed: "Couldn't load your repairs. Check your internet connection; we'll keep trying.",
     fixSomething: "Fix something",
     newKarigar: "New",
+    sampleProfile: "Sample profile",
+    sampleNote: "This is a sample profile written for the demo, and its reviews are samples too. Real karigars join through \"Join as a karigar\" and start with no reviews.",
     kpNoReviews: "New on Sudhaar, so no reviews yet. Verified by our team: ID, shop visit and a trial repair.",
     kpNoPrices: "Prices come from the AI quote for each repair.",
     // Join as a karigar
@@ -508,6 +510,8 @@ export const STRINGS = {
     loadFailed: "आपकी रिपेयर लोड नहीं हो पाईं। इंटरनेट कनेक्शन देखें; हम कोशिश करते रहेंगे।",
     fixSomething: "कुछ ठीक कराएँ",
     newKarigar: "नया",
+    sampleProfile: "नमूना प्रोफ़ाइल",
+    sampleNote: "यह डेमो के लिए लिखी गई नमूना प्रोफ़ाइल है, और इसकी समीक्षाएँ भी नमूना हैं। असली कारीगर \"कारीगर के रूप में जुड़ें\" से जुड़ते हैं और बिना समीक्षा के शुरू करते हैं।",
     kpNoReviews: "Sudhaar पर नए हैं, इसलिए अभी कोई समीक्षा नहीं। हमारी टीम ने जाँचा है: पहचान, दुकान का दौरा और एक ट्रायल रिपेयर।",
     kpNoPrices: "हर रिपेयर का दाम AI कोटेशन से तय होता है।",
     // Join as a karigar

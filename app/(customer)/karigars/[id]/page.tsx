@@ -53,6 +53,11 @@ export default function KarigarProfile({ params }: { params: Promise<{ id: strin
                 </p>
               </div>
             </div>
+            {!k.onboarded && (
+              <p className="rounded-xl bg-marigold/15 px-3 py-2 text-xs text-[#7a4a06]">
+                <b>{t("sampleProfile")}:</b> {t("sampleNote")}
+              </p>
+            )}
             <p className="flex gap-2 rounded-2xl bg-muted/60 p-4 font-display text-lg leading-snug ring-1 ring-border">
               <Quote className="size-5 shrink-0 text-gold" /> {k.bio}
             </p>
@@ -77,7 +82,9 @@ export default function KarigarProfile({ params }: { params: Promise<{ id: strin
         </Card>
         <Card>
           <CardContent className="space-y-3">
-            <h2 className="font-bold">{t("kpReviews")}</h2>
+            <h2 className="font-bold">
+              {t("kpReviews")} {!k.onboarded && k.reviews.length > 0 && <span className="text-xs font-normal text-muted-foreground">({t("sampleProfile")})</span>}
+            </h2>
             {k.reviews.length === 0 && <p className="text-sm text-muted-foreground">{t("kpNoReviews")}</p>}
             {k.reviews.map((r) => (
               <div key={r.name} className="rounded-2xl bg-muted/50 p-3 ring-1 ring-border">

@@ -244,6 +244,7 @@ function Fix() {
                       <div className="min-w-0 flex-1">
                         <p className="flex flex-wrap items-center gap-1.5 font-semibold">
                           {o.karigar.shop} <BadgeCheck className="size-4 text-primary" />
+                          {!o.karigar.onboarded && <span className="rounded-full bg-muted px-1.5 text-[10px] font-medium text-muted-foreground ring-1 ring-border">{t("sampleProfile")}</span>}
                           {o.best && <Badge variant="gold">{t("bestValue")}</Badge>}
                         </p>
                         <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
