@@ -58,7 +58,7 @@ export function LoginForm({ onDone }: { onDone?: () => void }) {
         <Input placeholder={mode === "login" ? t("fPin") : t("fPinNew")} value={form.pin} onChange={set("pin")} inputMode="numeric" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} />
         {mode === "signup" && <Input placeholder={t("fAddress")} value={form.address} onChange={set("address")} autoComplete="street-address" />}
         {mode === "signup" && (
-          <Button type="button" variant="outline" size="sm" className="w-full" disabled={geo.busy} onClick={async () => setCoords((await geo.locate()) ?? coords)}>
+          <Button type="button" variant="outline" size="sm" className="h-auto min-h-8 w-full whitespace-normal py-1.5" disabled={geo.busy} onClick={async () => setCoords((await geo.locate()) ?? coords)}>
             {geo.busy ? <Loader2 className="animate-spin" /> : coords ? <Check className="text-teal" /> : <LocateFixed />} {geo.busy ? t("locLocating") : coords ? t("locAdded") : t("locUseMine")}
           </Button>
         )}

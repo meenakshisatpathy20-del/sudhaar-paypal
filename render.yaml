@@ -25,3 +25,6 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Signs login cookies; generated once by Render so logins survive restarts
+      - key: SESSION_SECRET
+        generateValue: true

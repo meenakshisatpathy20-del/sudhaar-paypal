@@ -169,6 +169,7 @@ function LocationCard() {
           <Button
             variant="outline"
             size="sm"
+            className="h-auto min-h-8 max-w-full whitespace-normal py-1.5 text-left"
             disabled={geo.busy || state === "saving"}
             onClick={async () => {
               const p = await geo.locate();

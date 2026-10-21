@@ -1,6 +1,6 @@
 import type { Account, Karigar, Order } from "./types";
 
-// Customer-facing APIs never need anyone's payout email. The demo has no staff login,
+// Customer-facing APIs never need anyone's payout email. The demo admin login is shared,
 // so even admin views mask the personal details of people who joined through onboarding.
 
 export const maskEmail = (email: string) => email.replace(/^(.)[^@]*(@.*)$/, "$1•••$2");
