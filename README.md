@@ -63,7 +63,8 @@ Many parents live alone while their children work in other cities. A parent book
 
 ### Built for real people
 - **Talk to Sudhaar**: speak in **Hindi or English** (browser speech recognition, hi-IN / en-IN) and the agent's replies are **read aloud**, for elderly users and karigars who don't type.
-- **English / हिंदी** toggle across the customer app.
+- **English / हिंदी** toggle across the whole customer journey: booking, tracking, OTPs, Resolve Hub and the Family Pay link.
+- **Prices in rupees**, with the exact USD amount PayPal handles shown under each total.
 - **Fix-or-Replace meter**: shows how much of the new price a repair saves.
 - **Item Passport**: every repaired item gets a "second life" card with money saved and waste avoided.
 - **Karigar profiles** (craft, years of experience, languages, reviews, price list) and a **neighbourhood repair map**.
@@ -114,14 +115,14 @@ I'm a solo participant, a 3rd-year Computer Science student.
 
 **Hosted demo:** open the *Website* link in this repository's About section. It runs against the PayPal sandbox. Log in to PayPal with the sandbox buyer account given in the **testing instructions on the Devpost page**. On the free hosting plan, the first load can take about a minute while the server wakes up.
 
-1. **Home** → tap a category (e.g. *Mixer & fan*), type or **speak** the problem (🎤, Hindi or English) or upload a photo → **Get AI quote** → see the **Fix-or-Replace meter**.
+1. **Home** → tap a category (e.g. *Mixer & fan*), type or **speak** the problem (🎤, Hindi or English) or upload a photo → **Get AI quote** → see the **Fix-or-Replace meter**. Tap **हिं** at the top at any point to switch the whole app to Hindi.
 2. **Choose your karigar** (list or map) → **Book & pay with PayPal** → pay with the sandbox buyer. The status becomes **"Paid · on hold"** (authorization id shown) and live tracking starts.
 3. In another tab open **`/partner`** and sign in with the demo access code **`sudhaar2026`** (the partner side is kept out of the customer app) → **Saathi app** → enter the **pickup OTP** shown on the order page → *Handed to karigar*.
-4. **Karigar app** → *Inspect & start repair* → upload an after photo → **Mark repaired** (the AI completion check runs).
+4. **Karigar app** → *Inspect & start repair* → upload an after photo → **Mark repaired** (the AI completion check runs). If the AI rejects the photo or is unavailable, the money stays held and the repair appears in **Admin console → Photo checks** for a person to approve or send back.
 5. **Saathi app** → *Collect from karigar & go* → enter the **delivery OTP** → PayPal **captures**, sends **payouts** and issues the **invoice**. The order page shows the ids and an **Item Passport**.
 6. Order page → **Resolve Hub** → *Report an issue* → AI recommends an action → in the **Admin console → Resolve Hub** tab, **Approve PayPal refund** → the customer's order shows the refund.
 7. **Ghar Safai Mode** (home page banner) → add 2–3 items (e.g. *school bag zip*, *chappal sole*, *mixer blade*) → see the one-trip saving → **Review & pay once**. Optionally tick **Someone else pays**, enter a name and open the shared `/pay/…` link to pay as the family member. In the Karigar app, switch between karigars to repair each one's items; after delivery the order shows **one capture and one payout per karigar**.
-8. **Talk** tab → tap the mic or type "My school bag zip broke. Get it fixed under $5." → approve the PayPal payment inside the chat. Replies are read aloud.
+8. **Talk** tab → tap the mic or type "My school bag zip broke. Get it fixed under ₹400." → approve the PayPal payment inside the chat. Replies are read aloud.
 9. **Admin console** (partner side) → AG Grid views of **orders, customers, karigars, Saathis, payouts and PayPal webhooks**, plus the **Resolve Hub** queue where refunds are approved and the **Photo checks** queue for repairs the AI could not pass. *Reset demo data* clears orders.
 
 ## Run it locally
@@ -181,7 +182,9 @@ scripts/            PayPal sandbox smoke test
 - **Shared demo account:** there is no login, so everyone testing the hosted demo sees the same customer ("Anita") and the same orders. Use *Reset demo data* in the Admin console for a clean start. The partner sign-in is a demo gate (code `sudhaar2026`); production would use per-partner accounts.
 - **Refund decisions are made by people:** customers raise issues in Resolve Hub; the AI recommends, and the support team approves in **Admin console → Resolve Hub**. Only the Repair Agent may auto-refund small amounts (up to $5), a limit enforced in code.
 - **Fair use:** AI endpoints are rate-limited per visitor so the public demo can't be used to burn AI credits.
+- **Unpaid bookings expire** after 2 hours (24 hours for Family Pay links) and nothing is charged, like a checkout that times out.
 - Uploaded photos are stored on the server's disk; on free hosting they reset when the server restarts.
+- Talk conversations are kept in server memory for the session, so they reset when the server restarts.
 - Data lives in a JSON file (`data/db.json`) that is re-seeded automatically, so a fresh deploy always works.
 - Built from scratch during the hackathon submission period (October–November 2026).
 
