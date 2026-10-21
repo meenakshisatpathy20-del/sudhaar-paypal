@@ -18,7 +18,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       jobKarigars: Object.fromEntries(
         (order.jobs ?? []).map((j) => {
           const k = db.karigars.find((x) => x.id === j.karigarId);
-          return [j.karigarId, { name: k?.name ?? "", shop: k?.shop ?? "", avatarColor: k?.avatarColor ?? "#d9572b" }];
+          return [j.karigarId, { name: k?.name ?? "", shop: k?.shop ?? "", avatarColor: k?.avatarColor ?? "#d9572b", lat: k?.lat ?? 0, lng: k?.lng ?? 0 }];
         }),
       ),
     });

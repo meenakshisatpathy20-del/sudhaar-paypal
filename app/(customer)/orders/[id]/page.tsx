@@ -19,11 +19,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { AVG_ITEM_KG } from "@/lib/pricing";
+import { AVG_ITEM_KG, haversineKm } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import type { Complaint, CompletionCheck, Karigar, Order, OrderStatus, Quote, Saathi } from "@/lib/types";
 
-type Data = { order: Order; karigar?: Karigar; saathi?: Saathi; quote?: Quote; jobKarigars?: Record<string, { name: string; shop: string; avatarColor: string }> };
+type Data = { order: Order; karigar?: Karigar; saathi?: Saathi; quote?: Quote; jobKarigars?: Record<string, { name: string; shop: string; avatarColor: string; lat: number; lng: number }> };
 
 const ISSUES: { id: Complaint["issue"]; label: string }[] = [
   { id: "repair_failed", label: "Repair failed" },
@@ -70,6 +70,12 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       : 0;
   const keptKg = order.jobs?.length ? order.jobs.reduce((s, j) => s + AVG_ITEM_KG[j.category], 0) : AVG_ITEM_KG[order.category];
   const jobKarigars = Object.entries(data.jobKarigars ?? {});
+  const mapPins =
+    order.kind === "basket" && jobKarigars.length
+      ? jobKarigars.map(([id, k]) => ({ id, name: k.name, lat: k.lat, lng: k.lng, color: k.avatarColor, label: k.shop }))
+      : karigar
+        ? [{ id: karigar.id, name: karigar.name, lat: karigar.lat, lng: karigar.lng, color: karigar.avatarColor, label: karigar.shop }]
+        : [];
 
   return (
     <div className="grid gap-5 lg:grid-cols-[1.15fr_1fr]">
@@ -167,8 +173,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
               </div>
               <NeighbourhoodMap
                 center={{ lat: order.customer.lat, lng: order.customer.lng }}
-                pins={[{ id: karigar.id, name: karigar.name, lat: karigar.lat, lng: karigar.lng, color: karigar.avatarColor, label: karigar.shop }]}
-                selected={karigar.id}
+                pins={mapPins}
+                route={nearestFirst({ lat: order.customer.lat, lng: order.customer.lng }, mapPins).map((p) => p.id)}
                 saathiProgress={order.mode === "pickup" ? SAATHI_POS[order.status] : undefined}
                 className="aspect-[400/220]"
               />
@@ -298,6 +304,20 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       </section>
     </div>
   );
+}
+
+/** Saathi stop order for a basket: always ride to the closest remaining karigar next. */
+function nearestFirst<P extends { lat: number; lng: number }>(from: { lat: number; lng: number }, pins: P[]): P[] {
+  const left = [...pins];
+  const out: P[] = [];
+  let at = from;
+  while (left.length) {
+    left.sort((a, b) => haversineKm(at, a) - haversineKm(at, b));
+    const next = left.shift()!;
+    out.push(next);
+    at = next;
+  }
+  return out;
 }
 
 function Breakdown({ order }: { order: Order }) {
