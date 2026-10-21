@@ -271,8 +271,25 @@ async function mutate(orderId: string, fn: (o: Order) => Promise<void> | void): 
   });
 }
 
+// Unpaid bookings are released after a while, like a cart that times out. Family Pay gets
+// longer because a relative in another city may only open the link later in the day.
+const UNPAID_TTL_MS = 2 * 60 * 60 * 1000;
+const FAMILY_PAY_TTL_MS = 24 * 60 * 60 * 1000;
+
+export async function expireUnpaidOrders(): Promise<void> {
+  const cutoff = (o: Order) => Date.parse(o.createdAt) + (o.familyPay ? FAMILY_PAY_TTL_MS : UNPAID_TTL_MS);
+  if (!readDB().orders.some((o) => o.status === "awaiting_payment" && cutoff(o) < Date.now())) return;
+  await updateDB((db) => {
+    for (const o of db.orders) {
+      if (o.status !== "awaiting_payment" || cutoff(o) >= Date.now()) continue;
+      log(o, { status: "cancelled", actor: "system", message: "Payment was not completed in time, so the booking was released. Nothing was charged." });
+    }
+  });
+}
+
 export async function approveOrder(orderId: string, paypalOrderId: string): Promise<Order> {
   return mutate(orderId, async (o) => {
+    if (o.status === "cancelled") throw new FlowError("This booking has expired or was cancelled. Please book again; nothing was charged.", 409);
     if (o.status !== "awaiting_payment") return; // idempotent
     if (o.paypal.orderId !== paypalOrderId) throw new FlowError("PayPal order id does not match this booking");
     try {

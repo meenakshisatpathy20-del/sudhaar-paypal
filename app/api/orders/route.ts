@@ -1,10 +1,11 @@
 import { readDB } from "@/lib/db";
 import { fail, ok } from "@/lib/http";
-import { createOrder } from "@/lib/orders";
+import { createOrder, expireUnpaidOrders } from "@/lib/orders";
 
 export const dynamic = "force-dynamic";
 
-export function GET() {
+export async function GET() {
+  await expireUnpaidOrders();
   const db = readDB();
   return ok({
     orders: db.orders,
