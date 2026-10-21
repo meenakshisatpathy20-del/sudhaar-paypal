@@ -41,9 +41,10 @@ export interface Karigar {
   onboarded?: boolean;
 }
 
-/** A repairer applying through "Join as a karigar", reviewed by the Sudhaar team. */
+/** A karigar ("Join as a karigar") or Saathi ("Become a Repair Saathi") applying, reviewed by the Sudhaar team. */
 export interface KarigarApplication {
   id: string;
+  kind?: "karigar" | "saathi";
   createdAt: string;
   name: string;
   phone: string;
@@ -59,9 +60,15 @@ export interface KarigarApplication {
   /** Which ID they can show. We never store ID numbers; staff verify in person or via DigiLocker. */
   idType: "aadhaar" | "voter" | "driving" | "pan" | "none";
   status: "pending" | "approved" | "rejected";
-  checks: { idVerified: boolean; shopVisited: boolean; trialRepair: boolean };
+  /** Karigars: ID, shop visit, trial repair. Saathis: ID, OTP-handover training, trial trip. */
+  checks: Partial<Record<"idVerified" | "shopVisited" | "trialRepair" | "trained" | "trialTrip", boolean>>;
   karigarId?: string;
+  saathiId?: string;
   decidedAt?: string;
+  /** Saathi applicants only. */
+  vehicle?: SaathiVehicle;
+  hours?: ("mornings" | "evenings" | "weekends" | "full_day")[];
+  student?: boolean;
 }
 
 export interface Saathi {
@@ -69,7 +76,13 @@ export interface Saathi {
   name: string;
   rating: number;
   payoutEmail: string;
+  /** Joined through "Become a Repair Saathi" (not demo seed data). */
+  onboarded?: boolean;
+  area?: string;
+  vehicle?: SaathiVehicle;
 }
+
+export type SaathiVehicle = "bicycle" | "scooter" | "motorbike" | "walk";
 
 export interface Quote {
   id: string;

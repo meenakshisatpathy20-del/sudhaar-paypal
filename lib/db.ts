@@ -21,7 +21,7 @@ function load(): DB {
     // updates and the payout emails from .env apply to an existing database too. Karigars who
     // joined through onboarding are real records and are kept.
     cache.karigars = [...seedKarigars(), ...(cache.karigars ?? []).filter((k) => k.onboarded)];
-    cache.saathis = seedSaathis();
+    cache.saathis = [...seedSaathis(), ...(cache.saathis ?? []).filter((s) => s.onboarded)];
     cache.applications ??= [];
     cache.accounts ??= [];
     if (ensureDemoAccounts(cache)) persist(cache);
@@ -69,11 +69,12 @@ export function updateDB<T>(fn: (db: DB) => T | Promise<T>): Promise<T> {
 
 /** Clears orders and test data. Customer sign-ups and onboarded karigars are kept. */
 export function resetDB() {
-  const keep = cache ? { accounts: cache.accounts, karigars: cache.karigars.filter((k) => k.onboarded), applications: cache.applications } : null;
+  const keep = cache ? { accounts: cache.accounts, karigars: cache.karigars.filter((k) => k.onboarded), saathis: cache.saathis.filter((x) => x.onboarded), applications: cache.applications } : null;
   cache = seedDB();
   if (keep) {
     cache.accounts = keep.accounts;
     cache.karigars.push(...keep.karigars);
+    cache.saathis.push(...keep.saathis);
     cache.applications = keep.applications;
   }
   ensureDemoAccounts(cache);

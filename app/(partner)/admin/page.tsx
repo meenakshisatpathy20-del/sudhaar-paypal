@@ -419,7 +419,14 @@ function PhotoCheckQueue({ items, onDone }: { items: PhotoCheckItem[]; onDone: (
   );
 }
 
-const CHECK_LABEL = { idVerified: "ID verified (in person / DigiLocker)", shopVisited: "Shop visited, location pinned", trialRepair: "Trial repair passed" } as const;
+const CHECK_LABEL = {
+  idVerified: "ID verified (in person / DigiLocker)",
+  shopVisited: "Shop visited, location pinned",
+  trialRepair: "Trial repair passed",
+  trained: "Trained on OTP handovers",
+  trialTrip: "Trial trip done",
+} as const;
+const CHECKS_FOR = { karigar: ["idVerified", "shopVisited", "trialRepair"], saathi: ["idVerified", "trained", "trialTrip"] } as const;
 
 /** Karigar onboarding: three KYC checks by the team, then the karigar becomes bookable. */
 function Applications({ apps: fromServer, onDone }: { apps: KarigarApplication[]; onDone: () => void }) {
@@ -446,7 +453,7 @@ function Applications({ apps: fromServer, onDone }: { apps: KarigarApplication[]
   if (apps.length === 0)
     return (
       <p className="paper rounded-2xl p-6 text-sm text-muted-foreground">
-        No applications yet. Karigars apply from <Link href="/join" className="text-primary underline">/join</Link> (linked on the customer home page).
+        No applications yet. Karigars and Saathis apply from <Link href="/join" className="text-primary underline">/join</Link> (linked on the customer home page).
       </p>
     );
   return (
@@ -461,17 +468,21 @@ function Applications({ apps: fromServer, onDone }: { apps: KarigarApplication[]
         </div>
       )}
       {apps.map((a) => {
-        const allChecked = Object.values(a.checks).every(Boolean);
+        const kind = a.kind ?? "karigar";
+        const allChecked = CHECKS_FOR[kind].every((c) => a.checks[c]);
         return (
           <div key={a.id} className="paper space-y-2 rounded-2xl p-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p className="font-semibold">
-                {a.shop} · {a.name} <span className="font-mono text-xs text-muted-foreground">{a.id}</span>
+                <span className={`mr-1.5 rounded-full px-2 py-0.5 text-[11px] ${kind === "saathi" ? "bg-marigold/20 text-gold" : "bg-teal/15 text-teal"}`}>{kind === "saathi" ? "Saathi" : "Karigar"}</span>
+                {kind === "saathi" ? a.name : `${a.shop} · ${a.name}`} <span className="font-mono text-xs text-muted-foreground">{a.id}</span>
               </p>
               <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${a.status === "approved" ? "bg-teal/15 text-teal" : a.status === "rejected" ? "bg-destructive/10 text-destructive" : "bg-marigold/20 text-gold"}`}>{a.status}</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              {a.craft} · {a.area} · {a.yearsExperience} yrs · {a.skills.map((s) => CATEGORY_LABEL[s]).join(", ")} · {a.languages.join(", ")}
+              {kind === "saathi"
+                ? `${a.area} · ${a.vehicle} · free: ${(a.hours ?? []).join(", ")}${a.student ? " · student" : ""} · ${a.languages.join(", ")}`
+                : `${a.craft} · ${a.area} · ${a.yearsExperience} yrs · ${a.skills.map((s) => CATEGORY_LABEL[s]).join(", ")} · ${a.languages.join(", ")}`}
             </p>
             <p className="text-xs text-muted-foreground">
               Phone {a.phone} · ID to show: {a.idType} · PayPal: {a.payoutEmail ?? "not yet (help set up at shop visit)"}
@@ -480,16 +491,16 @@ function Applications({ apps: fromServer, onDone }: { apps: KarigarApplication[]
             {a.status === "pending" ? (
               <>
                 <div className="flex flex-wrap gap-3">
-                  {(Object.keys(CHECK_LABEL) as (keyof typeof CHECK_LABEL)[]).map((c) => (
+                  {CHECKS_FOR[kind].map((c) => (
                     <label key={c} className="flex cursor-pointer items-center gap-1.5 text-xs">
-                      <input type="checkbox" className="size-4 accent-[#d9572b]" checked={a.checks[c]} disabled={busy === a.id} onChange={(e) => act(a.id, { action: "check", check: c, value: e.target.checked })} />
+                      <input type="checkbox" className="size-4 accent-[#d9572b]" checked={Boolean(a.checks[c])} disabled={busy === a.id} onChange={(e) => act(a.id, { action: "check", check: c, value: e.target.checked })} />
                       {CHECK_LABEL[c]}
                     </label>
                   ))}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button disabled={busy === a.id || !allChecked} onClick={() => act(a.id, { action: "approve" })} className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">
-                    Approve and list karigar
+                    {kind === "saathi" ? "Approve Saathi" : "Approve and list karigar"}
                   </button>
                   <button disabled={busy === a.id} onClick={() => act(a.id, { action: "reject" })} className="rounded-xl px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50">
                     Reject
@@ -497,7 +508,7 @@ function Applications({ apps: fromServer, onDone }: { apps: KarigarApplication[]
                 </div>
               </>
             ) : (
-              a.karigarId && (
+              a.karigarId && kind === "karigar" && (
                 <Link href={`/karigars/${a.karigarId}`} className="text-xs font-semibold text-primary underline">
                   View public profile
                 </Link>

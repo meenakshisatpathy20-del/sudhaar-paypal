@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowRight, BadgeCheck, Camera, HeartHandshake, Leaf, PiggyBank, ShieldCheck, Sparkles, Wrench as WrenchIcon } from "lucide-react";
+import { ArrowRight, BadgeCheck, Bike, Camera, HeartHandshake, Leaf, PiggyBank, ShieldCheck, Sparkles, Wrench as WrenchIcon } from "lucide-react";
 import { api } from "@/components/api";
 import { CATEGORY_ICON } from "@/components/CategoryIcon";
 import { Chappal, Diya, HomeHeart, Mixer, NeedleThread, SaathiCycle, Sparkle, Squiggle, Wrench } from "@/components/Doodles";
@@ -291,12 +291,20 @@ export default function Home() {
         <p className="mt-3 text-sm text-muted-foreground">{t("storyBy")}</p>
       </section>
 
-      <Link href="/join" className="flex items-center justify-between gap-3 rounded-2xl bg-teal/10 p-4 text-sm font-semibold text-teal ring-1 ring-teal/25 transition hover:bg-teal/15">
-        <span className="flex items-center gap-2">
-          <WrenchIcon className="size-4 shrink-0" /> {t("joinCta")}
-        </span>
-        <ArrowRight className="size-4 shrink-0" />
-      </Link>
+      <div className="grid gap-3 md:grid-cols-2">
+        <Link href="/join" className="flex items-center justify-between gap-3 rounded-2xl bg-teal/10 p-4 text-sm font-semibold text-teal ring-1 ring-teal/25 transition hover:bg-teal/15">
+          <span className="flex items-center gap-2">
+            <WrenchIcon className="size-4 shrink-0" /> {t("joinCta")}
+          </span>
+          <ArrowRight className="size-4 shrink-0" />
+        </Link>
+        <Link href="/join?as=saathi" className="flex items-center justify-between gap-3 rounded-2xl bg-marigold/15 p-4 text-sm font-semibold text-[#7a4a06] ring-1 ring-marigold/30 transition hover:bg-marigold/20">
+          <span className="flex items-center gap-2">
+            <Bike className="size-4 shrink-0" /> {t("saCta")}
+          </span>
+          <ArrowRight className="size-4 shrink-0" />
+        </Link>
+      </div>
 
       <footer className="flex flex-col items-center justify-between gap-2 border-t border-border pt-4 text-xs text-muted-foreground md:flex-row">
         <p>{t("footerLine")}</p>
