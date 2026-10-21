@@ -20,7 +20,7 @@ import { Progress } from "@/components/ui/progress";
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { AVG_ITEM_KG } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
-import type { Complaint, Karigar, Order, OrderStatus, Quote, Saathi } from "@/lib/types";
+import type { Complaint, CompletionCheck, Karigar, Order, OrderStatus, Quote, Saathi } from "@/lib/types";
 
 type Data = { order: Order; karigar?: Karigar; saathi?: Saathi; quote?: Quote; jobKarigars?: Record<string, { name: string; shop: string; avatarColor: string }> };
 
@@ -99,7 +99,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                   ))}
                 </div>
                 <p className="min-w-0 text-xs text-muted-foreground">
-                  <b className="text-foreground">{jobKarigars.length} karigars</b> · {jobKarigars.map(([, k]) => k.shop).join(", ")}
+                  <b className="text-foreground">{jobKarigars.length} karigar{jobKarigars.length === 1 ? "" : "s"}</b> · {jobKarigars.map(([, k]) => k.shop).join(", ")}
                   {saathi ? ` · Saathi: ${saathi.name}` : ""}
                 </p>
               </div>
@@ -197,6 +197,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                         <p className="truncate text-xs text-muted-foreground">
                           {jk?.shop} · {money(j.price)}
                         </p>
+                        {j.completionCheck && !j.completionCheck.passed && <PhotoCheck check={j.completionCheck} compact />}
                       </div>
                       <Badge variant={j.status === "repaired" ? "solid" : j.status === "repairing" ? "gold" : "outline"}>{j.status}</Badge>
                     </li>
@@ -215,11 +216,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 <Photo label="Before" file={order.beforePhoto} />
                 <Photo label="After" file={order.afterPhoto} />
               </div>
-              {order.completionCheck && (
-                <p className={cn("rounded-2xl p-3 text-sm", order.completionCheck.passed ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive")}>
-                  <b>AI check {order.completionCheck.passed ? "passed" : "failed"}</b> ({order.completionCheck.source}): {order.completionCheck.reasoning}
-                </p>
-              )}
+              {order.completionCheck && <PhotoCheck check={order.completionCheck} />}
             </CardContent>
           </Card>
         )}
@@ -354,6 +351,22 @@ function OtpCard({ label, otp, active, hint }: { label: string; otp: string; act
         <p className="text-[11px] text-muted-foreground">{hint}</p>
       </CardContent>
     </Card>
+  );
+}
+
+/** Customer-facing view of the before/after check that gates the PayPal capture. */
+function PhotoCheck({ check, compact }: { check: CompletionCheck; compact?: boolean }) {
+  const by = check.source === "admin" ? "Sudhaar team" : check.source === "claude" ? "AI" : "Simulated AI";
+  const [tone, title, body] = check.passed
+    ? ["bg-primary/10 text-primary", `Repair verified (${by})`, check.reasoning]
+    : check.needsReview
+      ? ["bg-marigold/15 text-gold", "The Sudhaar team is checking the photos", "Your money stays on hold with PayPal until the repair is confirmed."]
+      : ["bg-marigold/15 text-gold", "Repair not accepted yet", `${check.reasoning} Your money stays on hold with PayPal.`];
+  if (compact) return <p className={cn("mt-1 rounded-lg px-2 py-1 text-[11px]", tone)}>{title}</p>;
+  return (
+    <p className={cn("rounded-2xl p-3 text-sm", tone)}>
+      <b>{title}.</b> {body}
+    </p>
   );
 }
 

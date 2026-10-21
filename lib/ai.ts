@@ -6,7 +6,7 @@ import * as z from "zod/v4";
 import { aiEnabled, config } from "./config";
 import { uploadsDir } from "./db";
 import { REFERENCE, round2 } from "./pricing";
-import type { Category, ItemSize, Order } from "./types";
+import type { Category, CompletionCheck, ItemSize, Order } from "./types";
 
 // Claude powers three decisions in Sudhaar:
 //   1. Snap & Quote   - photo -> item, damage, repair-cost range vs. new price
@@ -136,7 +136,7 @@ const CompletionSchema = z.object({
   reasoning: z.string().describe("One or two sentences"),
 });
 
-export async function checkCompletion(order: Order): Promise<{ passed: boolean; reasoning: string; source: "claude" | "simulated" }> {
+export async function checkCompletion(order: Order): Promise<CompletionCheck> {
   if (aiEnabled() && order.afterPhoto) {
     try {
       const out = await ask(
@@ -151,9 +151,12 @@ export async function checkCompletion(order: Order): Promise<{ passed: boolean; 
         ],
         "low",
       );
-      return { ...out, source: "claude" };
+      // A failed check also goes to a human, so a karigar is never stuck on an AI mistake.
+      return { ...out, source: "claude", needsReview: !out.passed };
     } catch (e) {
-      return { passed: true, reasoning: `AI check unavailable (${(e as Error).message}); passed on karigar confirmation.`, source: "simulated" };
+      // Never release money on an error: hold the payment and ask a person to compare the photos.
+      console.error("Completion check failed:", (e as Error).message);
+      return { passed: false, needsReview: true, reasoning: "The AI photo check is unavailable right now.", source: "claude" };
     }
   }
   return {

@@ -6,7 +6,7 @@ import { AgGridReact } from "ag-grid-react";
 import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type ICellRendererParams } from "ag-grid-community";
 import { api, money } from "@/components/api";
 import { STATUS_LABEL } from "@/components/StatusPill";
-import type { Complaint, Karigar, Order, Saathi } from "@/lib/types";
+import type { Complaint, CompletionCheck, Karigar, Order, Saathi } from "@/lib/types";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -47,7 +47,7 @@ type Row = {
 
 export default function Admin() {
   const [data, setData] = useState<AdminData | null>(null);
-  const [tab, setTab] = useState<"orders" | "resolve" | "customers" | "karigars" | "saathis" | "payouts" | "webhooks">("orders");
+  const [tab, setTab] = useState<"orders" | "resolve" | "checks" | "customers" | "karigars" | "saathis" | "payouts" | "webhooks">("orders");
   const load = useCallback(() => api<AdminData>("/api/admin").then(setData).catch(() => {}), []);
   useEffect(() => {
     load();
@@ -214,6 +214,15 @@ export default function Admin() {
   );
 
   const openComplaints = (data?.orders ?? []).flatMap((o) => o.complaints.filter((c) => !c.resolution).map((c) => ({ order: o, complaint: c })));
+  const photoChecks = (data?.orders ?? []).flatMap((o): PhotoCheckItem[] =>
+    o.jobs?.length
+      ? o.jobs
+          .filter((j) => j.status === "repairing" && j.afterPhoto && j.completionCheck?.needsReview)
+          .map((j) => ({ order: o, jobId: j.id, item: j.item, issue: j.issue, before: j.beforePhoto, after: j.afterPhoto, check: j.completionCheck! }))
+      : o.status === "repairing" && o.afterPhoto && o.completionCheck?.needsReview
+        ? [{ order: o, item: o.item, issue: o.issue, before: o.beforePhoto, after: o.afterPhoto, check: o.completionCheck }]
+        : [],
+  );
   if (!data) return <p className="paper rounded-2xl p-5 text-muted-foreground">Loading dashboard…</p>;
   const i = data.impact;
 
@@ -251,14 +260,15 @@ export default function Admin() {
         ))}
       </div>
       <div className="no-scrollbar flex gap-1 overflow-x-auto">
-        {(["orders", "resolve", "customers", "karigars", "saathis", "payouts", "webhooks"] as const).map((t) => (
+        {(["orders", "resolve", "checks", "customers", "karigars", "saathis", "payouts", "webhooks"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-1.5 text-sm font-semibold capitalize ${tab === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-            {t === "webhooks" ? "PayPal webhooks" : t === "resolve" ? `Resolve Hub (${openComplaints.length})` : t}
+            {t === "webhooks" ? "PayPal webhooks" : t === "resolve" ? `Resolve Hub (${openComplaints.length})` : t === "checks" ? `Photo checks (${photoChecks.length})` : t}
           </button>
         ))}
       </div>
       {tab === "resolve" && <ResolveQueue items={openComplaints} onDone={load} />}
-      <div className={tab === "resolve" ? "hidden" : "h-[560px] overflow-hidden rounded-2xl"}>
+      {tab === "checks" && <PhotoCheckQueue items={photoChecks} onDone={load} />}
+      <div className={tab === "resolve" || tab === "checks" ? "hidden" : "h-[560px] overflow-hidden rounded-2xl"}>
         {tab === "orders" && <AgGridReact<Row> theme={theme} rowData={rows} columnDefs={orderCols} pagination paginationPageSize={20} defaultColDef={{ sortable: true, resizable: true }} />}
         {tab === "payouts" && <AgGridReact theme={theme} rowData={payoutRows} columnDefs={payoutCols} defaultColDef={{ sortable: true, resizable: true }} />}
         {tab === "karigars" && <AgGridReact theme={theme} rowData={karigarRows} columnDefs={karigarCols} defaultColDef={{ sortable: true, resizable: true, filter: true }} />}
@@ -328,6 +338,77 @@ function ResolveQueue({ items, onDone }: { items: { order: Order; complaint: Com
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+type PhotoCheckItem = { order: Order; jobId?: string; item: string; issue: string; before?: string; after?: string; check: CompletionCheck };
+
+/** Repairs the AI could not pass. A person compares the photos; the money stays held until then. */
+function PhotoCheckQueue({ items, onDone }: { items: PhotoCheckItem[]; onDone: () => void }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  async function review(x: PhotoCheckItem, approve: boolean) {
+    const key = x.jobId ?? x.order.id;
+    setBusy(key);
+    setError(null);
+    try {
+      await api(`/api/orders/${x.order.id}/review`, { jobId: x.jobId, approve });
+      onDone();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+  if (items.length === 0) return <p className="paper rounded-2xl p-6 text-sm text-muted-foreground">No repair photos waiting for review. 🎉</p>;
+  return (
+    <div className="space-y-3">
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {items.map((x) => {
+        const key = x.jobId ?? x.order.id;
+        return (
+          <div key={key} className="paper space-y-3 rounded-2xl p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="font-semibold">
+                {x.item}{" "}
+                <Link href={`/orders/${x.order.id}`} className="font-mono text-xs text-primary underline">
+                  {x.order.id}
+                </Link>
+              </p>
+              <span className="text-xs text-muted-foreground">held by PayPal · {money(x.order.total)}</span>
+            </div>
+            <p className="text-sm text-muted-foreground">Reported issue: {x.issue}</p>
+            <div className="grid max-w-md grid-cols-2 gap-3">
+              {[
+                ["Before", x.before],
+                ["After", x.after],
+              ].map(([label, file]) => (
+                <figure key={label} className="space-y-1">
+                  {file ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={`/api/uploads/${file}`} alt={`${label} photo`} className="aspect-square w-full rounded-xl object-cover ring-1 ring-border" />
+                  ) : (
+                    <div className="grid aspect-square w-full place-items-center rounded-xl bg-muted text-xs text-muted-foreground">No photo</div>
+                  )}
+                  <figcaption className="text-xs text-muted-foreground">{label}</figcaption>
+                </figure>
+              ))}
+            </div>
+            <p className="rounded-xl bg-marigold/15 p-2 text-xs">
+              <b>{x.check.source === "admin" ? "Reviewer" : "AI"}:</b> {x.check.reasoning}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button disabled={busy === key} onClick={() => review(x, true)} className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">
+                Repair looks good, approve
+              </button>
+              <button disabled={busy === key} onClick={() => review(x, false)} className="rounded-xl px-3 py-2 text-xs font-semibold ring-1 ring-border hover:bg-muted disabled:opacity-50">
+                Send back to karigar
+              </button>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

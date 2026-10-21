@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { PhotoPicker } from "@/components/PhotoPicker";
 import { StatusPill } from "@/components/StatusPill";
 import { useOrders } from "@/components/useOrders";
-import type { Karigar, Order } from "@/lib/types";
+import type { CompletionCheck, Karigar, Order } from "@/lib/types";
 
 export default function KarigarPage() {
   return (
@@ -118,7 +118,7 @@ function KarigarJob({ order, onDone }: { order: Order; onDone: () => void }) {
       )}
       {order.status === "repairing" && (
         <>
-          {order.completionCheck && !order.completionCheck.passed && <p className="rounded-lg bg-destructive/10 p-2 text-xs text-destructive">Last check: {order.completionCheck.reasoning}</p>}
+          {order.completionCheck && !order.completionCheck.passed && <CheckNote check={order.completionCheck} />}
           <PhotoPicker compact label="Photo of the repaired item" onUploaded={(f) => setPhoto(f)} />
           <Button className="w-full" disabled={busy || !photo} onClick={() => run("mark_repaired", { afterPhoto: photo })}>
             {busy ? "AI is checking the repair…" : "Mark repaired"}
@@ -179,7 +179,7 @@ function BasketJobs({ order, karigarId, onDone }: { order: Order; karigarId: str
             <span className="text-xs text-muted-foreground">earn {money(j.price * 0.9)}</span>
           </p>
           <p className="text-xs text-muted-foreground">{j.issue}</p>
-          {j.completionCheck && !j.completionCheck.passed && <p className="rounded-lg bg-destructive/10 p-2 text-xs text-destructive">{j.completionCheck.reasoning}</p>}
+          {j.completionCheck && !j.completionCheck.passed && <CheckNote check={j.completionCheck} />}
           {atKarigar && j.status === "waiting" && (
             <Button className="w-full" size="sm" disabled={busy === j.id} onClick={() => run(j.id, "start_repair")}>
               Inspect & start repair
@@ -198,5 +198,14 @@ function BasketJobs({ order, karigarId, onDone }: { order: Order; karigarId: str
       ))}
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
+  );
+}
+
+function CheckNote({ check }: { check: CompletionCheck }) {
+  return (
+    <p className="rounded-lg bg-destructive/10 p-2 text-xs text-destructive">
+      {check.reasoning}
+      {check.needsReview && " Sent to the Sudhaar team for review. You can also upload a clearer photo."}
+    </p>
   );
 }

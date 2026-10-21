@@ -117,6 +117,15 @@ export interface Complaint {
   };
 }
 
+/** The before/after photo check that gates the PayPal capture. */
+export interface CompletionCheck {
+  passed: boolean;
+  reasoning: string;
+  source: "claude" | "simulated" | "admin";
+  /** True when the AI could not decide (or failed) and a Sudhaar reviewer must compare the photos. */
+  needsReview?: boolean;
+}
+
 /** One item inside a Ghar Safai basket order. */
 export interface Job {
   id: string;
@@ -131,7 +140,7 @@ export interface Job {
   beforePhoto?: string;
   afterPhoto?: string;
   status: "waiting" | "repairing" | "repaired";
-  completionCheck?: { passed: boolean; reasoning: string; source: "claude" | "simulated" };
+  completionCheck?: CompletionCheck;
 }
 
 /** Family Pay: someone else (e.g. a son in another city) approves the PayPal payment. */
@@ -181,7 +190,7 @@ export interface Order {
   };
   beforePhoto?: string;
   afterPhoto?: string;
-  completionCheck?: { passed: boolean; reasoning: string; source: "claude" | "simulated" };
+  completionCheck?: CompletionCheck;
   payouts: PayoutLine[];
   complaints: Complaint[];
   events: OrderEvent[];

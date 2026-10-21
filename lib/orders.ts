@@ -374,7 +374,7 @@ export async function advance(orderId: string, action: Action, opts: { otp?: str
       const check = await checkCompletion(o);
       o.completionCheck = check;
       if (!check.passed) {
-        log(o, { status: "repairing", actor: "system", kind: "ai", message: `AI completion check did not pass: ${check.reasoning} Payment stays on hold.` });
+        log(o, { status: "repairing", actor: "system", kind: "ai", message: `AI completion check did not pass: ${check.reasoning} Payment stays on hold${check.needsReview ? " while a Sudhaar reviewer checks the photos" : ""}.` });
       } else {
         log(o, { actor: "system", kind: "ai", message: `AI completion check passed: ${check.reasoning}` });
       }
@@ -414,19 +414,47 @@ async function advanceJob(o: Order, action: "start_repair" | "mark_repaired", op
   const check = await checkCompletion({ ...o, item: job.item, issue: job.issue, beforePhoto: job.beforePhoto, afterPhoto: job.afterPhoto });
   job.completionCheck = check;
   if (!check.passed) {
-    log(o, { actor: "system", kind: "ai", message: `AI check did not pass for ${job.item}: ${check.reasoning}` });
+    log(o, { actor: "system", kind: "ai", message: `AI check did not pass for ${job.item}: ${check.reasoning}${check.needsReview ? " A Sudhaar reviewer will check the photos." : ""}` });
     return;
   }
-  job.status = "repaired";
   log(o, { actor: "system", kind: "ai", message: `${job.item} repaired. AI check passed: ${check.reasoning}` });
+  finishJob(o, job);
+}
+
+function finishJob(o: Order, job: Job) {
+  job.status = "repaired";
   const left = (o.jobs ?? []).filter((j) => j.status !== "repaired").length;
   if (left === 0) {
     o.afterPhoto = job.afterPhoto;
-    o.completionCheck = { passed: true, reasoning: "Every item in the basket passed its AI photo check.", source: check.source };
+    o.completionCheck = { passed: true, reasoning: "Every item in the basket passed its photo check.", source: job.completionCheck?.source ?? "simulated" };
     log(o, { status: "repaired", actor: "system", message: "All basket items repaired. The Saathi will collect everything in one trip." });
   } else {
     log(o, { actor: "system", message: `${left} item${left > 1 ? "s" : ""} still in repair.` });
   }
+}
+
+/**
+ * Human review of a photo check the AI could not pass. Approving releases the item for
+ * delivery (the money is still only captured after the delivery OTP); "redo" sends it back.
+ */
+export async function reviewCompletion(orderId: string, input: { jobId?: string; approve: boolean }): Promise<Order> {
+  return mutate(orderId, (o) => {
+    const job = input.jobId ? o.jobs?.find((j) => j.id === input.jobId) : undefined;
+    if (input.jobId && !job) throw new FlowError("Item not found in this basket", 404);
+    const target = job ?? o;
+    const waiting = job ? job.status === "repairing" : o.status === "repairing";
+    if (!waiting || !target.afterPhoto || !target.completionCheck?.needsReview) throw new FlowError("Nothing to review for this repair");
+    const item = job?.item ?? o.item;
+    if (input.approve) {
+      target.completionCheck = { passed: true, reasoning: "Approved by a Sudhaar reviewer after comparing the before and after photos.", source: "admin" };
+      log(o, { actor: "admin", message: `Sudhaar reviewer approved the repair photos for ${item}.` });
+      if (job) finishJob(o, job);
+      else log(o, { status: "repaired", actor: "admin", message: "Repair confirmed. Ready for delivery." });
+    } else {
+      target.completionCheck = { passed: false, reasoning: "A Sudhaar reviewer asked the karigar to finish the repair and upload a clearer after photo.", source: "admin" };
+      log(o, { actor: "admin", message: `Sudhaar reviewer sent ${item} back to the karigar. Payment stays on hold.` });
+    }
+  });
 }
 
 // ---------- Settlement: capture -> payouts -> invoice ----------
