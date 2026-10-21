@@ -4,6 +4,7 @@ import path from "node:path";
 import { config } from "./config";
 import { readDB, updateDB } from "./db";
 import { FlowError } from "./orders";
+import { validLatLng } from "./geo";
 import { hashPin, pinMatches } from "./pin";
 import { rateLimit } from "./ratelimit";
 import type { Account, Role } from "./types";
@@ -111,7 +112,7 @@ export function login(req: Request, input: { phone?: unknown; pin?: unknown }, r
   return account;
 }
 
-export async function signUpCustomer(req: Request, input: { name?: unknown; phone?: unknown; pin?: unknown; address?: unknown }): Promise<Account> {
+export async function signUpCustomer(req: Request, input: { name?: unknown; phone?: unknown; pin?: unknown; address?: unknown; lat?: unknown; lng?: unknown }): Promise<Account> {
   rateLimit(req, "signup", 10);
   const name = typeof input.name === "string" ? input.name.trim().slice(0, 60) : "";
   const phone = normalisePhone(input.phone);
@@ -130,8 +131,8 @@ export async function signUpCustomer(req: Request, input: { name?: unknown; phon
       pinHash,
       createdAt: new Date().toISOString(),
       address: address || undefined,
-      lat: config.demoCenter.lat,
-      lng: config.demoCenter.lng,
+      // Only a location they chose to share; until then maps use the demo neighbourhood.
+      ...(validLatLng(input.lat, input.lng) && { lat: input.lat, lng: input.lng as number }),
     };
     db.accounts.push(account);
     return account;
@@ -140,6 +141,6 @@ export async function signUpCustomer(req: Request, input: { name?: unknown; phon
 
 /** What the browser may know about the logged-in account. */
 export function publicAccount(a: Account) {
-  return { id: a.id, role: a.role, name: a.name, phone: `•••••• ${a.phone.slice(-4)}`, address: a.address, karigarId: a.karigarId, saathiId: a.saathiId, demo: a.demo ?? false };
+  return { id: a.id, role: a.role, name: a.name, phone: `•••••• ${a.phone.slice(-4)}`, address: a.address, lat: a.lat, lng: a.lng, karigarId: a.karigarId, saathiId: a.saathiId, demo: a.demo ?? false };
 }
 export type PublicAccount = ReturnType<typeof publicAccount>;

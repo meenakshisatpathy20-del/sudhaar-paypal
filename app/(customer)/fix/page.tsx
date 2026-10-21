@@ -69,8 +69,10 @@ function Fix() {
       setDescription(t(catExKey(c)));
       setCategory(c);
     }
-    api<{ center: { lat: number; lng: number } }>("/api/karigars").then((r) => setCenter(r.center)).catch(() => {});
   }, [params, t]);
+  useEffect(() => {
+    api<{ center: { lat: number; lng: number } }>("/api/karigars").then((r) => setCenter(r.center)).catch(() => {});
+  }, [account?.id, account?.lat, account?.lng]);
 
   async function getQuote() {
     setError(null);

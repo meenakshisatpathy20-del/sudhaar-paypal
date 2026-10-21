@@ -3,6 +3,7 @@ import { fail, ok } from "@/lib/http";
 import { assertCanView } from "@/lib/access";
 import { requireRole } from "@/lib/auth";
 import { expireUnpaidOrders, getOrder } from "@/lib/orders";
+import { placeNear } from "@/lib/location";
 import { orderFor, publicKarigar } from "@/lib/privacy";
 
 export const dynamic = "force-dynamic";
@@ -17,13 +18,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const karigar = db.karigars.find((k) => k.id === order.karigarId);
     return ok({
       order: orderFor(account, order),
-      karigar: karigar && publicKarigar(karigar),
+      karigar: karigar && placeNear(publicKarigar(karigar), order.customer),
       saathi: ((s) => s && { id: s.id, name: s.name, rating: s.rating })(db.saathis.find((s) => s.id === order.saathiId)),
       quote: db.quotes.find((q) => q.id === order.quoteId),
       jobKarigars: Object.fromEntries(
         (order.jobs ?? []).map((j) => {
           const k = db.karigars.find((x) => x.id === j.karigarId);
-          return [j.karigarId, { name: k?.name ?? "", shop: k?.shop ?? "", avatarColor: k?.avatarColor ?? "#d9572b", lat: k?.lat ?? 0, lng: k?.lng ?? 0 }];
+          const at = k ? placeNear(k, order.customer) : { lat: 0, lng: 0 };
+          return [j.karigarId, { name: k?.name ?? "", shop: k?.shop ?? "", avatarColor: k?.avatarColor ?? "#d9572b", lat: at.lat, lng: at.lng }];
         }),
       ),
     });

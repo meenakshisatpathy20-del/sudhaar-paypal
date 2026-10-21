@@ -2,6 +2,7 @@ import type { Dict } from "../i18n";
 
 // Marathi (मराठी). New translation: please report anything that reads oddly.
 const dict: Dict = {
+  location: "डेमो परिसर",
   navHome: "होम",
   navRepairs: "माझ्या दुरुस्त्या",
   navTalk: "बोला",
@@ -411,6 +412,17 @@ const dict: Dict = {
   kpQuote: "{name} कडून कोटेशन घ्या",
   demoShared: "डेमो खातं: परीक्षक हेच लॉगिन वापरतात, त्यामुळे इतरांच्या चाचणी दुरुस्त्याही दिसू शकतात.",
   demoProfile: "हॅकॅथॉन परीक्षकांसाठी सामायिक डेमो खातं.",
+  locTitle: "तुमचं लोकेशन",
+  locUseMine: "माझं सध्याचं लोकेशन वापरा",
+  locLocating: "तुम्हाला शोधत आहोत…",
+  locAdded: "लोकेशन जोडलं",
+  locDenied: "लोकेशनची परवानगी मिळाली नाही. तुम्ही पत्ता टाइप करू शकता.",
+  locFailed: "लोकेशन मिळालं नाही. कृपया पुन्हा प्रयत्न करा.",
+  locLive: "नकाशा आणि अंतर तुमच्या सेव्ह केलेल्या लोकेशनपासून मोजलं जातं.",
+  locDemo: "तुमचं लोकेशन शेअर करा, म्हणजे नकाशा आणि अंतर तुमच्या घरापासून सुरू होईल.",
+  locSave: "सेव्ह करा",
+  locSaved: "सेव्ह झालं",
+  locSet: "लोकेशन सेट करा",
   footerLine: "Sudhaar · फेकू नका, दुरुस्त करा · PayPal सँडबॉक्सवर चालतं, त्यामुळे खरे पैसे कापले जात नाहीत.",
   footerCare: "स्थानिक कारागिरांसाठी प्रेमाने बनवलं.",
   agentNeedsKey: "AI एजंटसाठी सर्व्हरवर ANTHROPIC_API_KEY हवा.",

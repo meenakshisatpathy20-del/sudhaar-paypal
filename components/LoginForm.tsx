@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { KeyRound, Sparkles } from "lucide-react";
+import { Check, KeyRound, LocateFixed, Loader2, Sparkles } from "lucide-react";
 import { api } from "./api";
 import { useLang } from "./LanguageProvider";
 import { useSession } from "./SessionProvider";
+import { useGeolocate } from "./useGeolocate";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,8 @@ export function LoginForm({ onDone }: { onDone?: () => void }) {
   const [form, setForm] = useState({ name: "", phone: "", pin: "", address: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const geo = useGeolocate();
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: k === "pin" ? e.target.value.replace(/\D/g, "").slice(0, 4) : e.target.value }));
 
   async function go(path: string, body: unknown) {
@@ -47,13 +50,19 @@ export function LoginForm({ onDone }: { onDone?: () => void }) {
         className="space-y-2"
         onSubmit={(e) => {
           e.preventDefault();
-          if (ready) go(mode === "login" ? "/api/auth/login" : "/api/auth/signup", mode === "login" ? { phone: form.phone, pin: form.pin } : form);
+          if (ready) go(mode === "login" ? "/api/auth/login" : "/api/auth/signup", mode === "login" ? { phone: form.phone, pin: form.pin } : { ...form, ...coords });
         }}
       >
         {mode === "signup" && <Input placeholder={t("joinName")} value={form.name} onChange={set("name")} autoComplete="name" />}
         <Input placeholder={t("joinPhonePh")} value={form.phone} onChange={set("phone")} inputMode="tel" autoComplete="tel" />
         <Input placeholder={mode === "login" ? t("fPin") : t("fPinNew")} value={form.pin} onChange={set("pin")} inputMode="numeric" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} />
         {mode === "signup" && <Input placeholder={t("fAddress")} value={form.address} onChange={set("address")} autoComplete="street-address" />}
+        {mode === "signup" && (
+          <Button type="button" variant="outline" size="sm" className="w-full" disabled={geo.busy} onClick={async () => setCoords((await geo.locate()) ?? coords)}>
+            {geo.busy ? <Loader2 className="animate-spin" /> : coords ? <Check className="text-teal" /> : <LocateFixed />} {geo.busy ? t("locLocating") : coords ? t("locAdded") : t("locUseMine")}
+          </Button>
+        )}
+        {mode === "signup" && geo.error && <p className="text-xs text-muted-foreground">{geo.error}</p>}
         <Button className="w-full" size="lg" type="submit" disabled={!ready || busy}>
           <KeyRound /> {mode === "login" ? t("btnLogin") : t("btnSignup")}
         </Button>

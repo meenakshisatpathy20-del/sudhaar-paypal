@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { checkCompletion, quoteItem, reviewComplaint } from "./ai";
 import { config } from "./config";
+import { placeNear } from "./geo";
 import { readDB, updateDB } from "./db";
 import {
   authorizeOrder,
@@ -86,7 +87,7 @@ export function offersFor(quote: Quote, at: { lat: number; lng: number } = DEMO_
   const offers = db.karigars
     .filter((k) => k.verified && k.skills.includes(quote.category) && !(db.offline ?? []).includes(k.id))
     .map((k) => {
-      const distanceKm = haversineKm(at, k);
+      const distanceKm = haversineKm(at, placeNear(k, at));
       const fee = pickupFee(distanceKm, quote.size, mode);
       if (fee === null) return null;
       const price = karigarPrice(quote.repairLow, quote.repairHigh, k);

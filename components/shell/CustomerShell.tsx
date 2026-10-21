@@ -26,12 +26,13 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-border bg-background/70 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
           <Logo />
-          <button className="ml-1 hidden items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs text-muted-foreground ring-1 ring-border sm:flex">
-            <MapPin className="size-3.5 text-primary" /> {t("location")}
-          </button>
+          <Link href={account?.role === "customer" ? "/profile#location" : "/login"} className="ml-1 hidden max-w-44 items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs text-muted-foreground ring-1 ring-border hover:text-foreground sm:flex">
+            <MapPin className="size-3.5 shrink-0 text-primary" />
+            <span className="truncate">{account?.role === "customer" ? (account.address ?? (account.lat !== undefined ? t("locTitle") : t("locSet"))) : t("location")}</span>
+          </Link>
           <nav className="mx-auto hidden items-center gap-1 md:flex">
             {tabs.map((tb) => (
-              <Link key={tb.href} href={tb.href} className={cn("flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition", tb.active ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground")}>
+              <Link key={tb.href} href={tb.href} className={cn("flex items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-medium transition", tb.active ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground")}>
                 <tb.icon className="size-4" /> {tb.label}
               </Link>
             ))}

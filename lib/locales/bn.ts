@@ -2,6 +2,7 @@ import type { Dict } from "../i18n";
 
 // Bengali (বাংলা). New translation: please report anything that reads oddly.
 const dict: Dict = {
+  location: "ডেমো এলাকা",
   navHome: "হোম",
   navRepairs: "আমার মেরামত",
   navTalk: "কথা বলুন",
@@ -411,6 +412,17 @@ const dict: Dict = {
   kpQuote: "{name}-এর কাছ থেকে কোটেশন নিন",
   demoShared: "ডেমো অ্যাকাউন্ট: বিচারকরা এই লগইন ভাগ করে ব্যবহার করেন, তাই অন্যদের পরীক্ষার মেরামতও দেখতে পারেন।",
   demoProfile: "হ্যাকাথনের বিচারকদের জন্য ভাগ করা ডেমো অ্যাকাউন্ট।",
+  locTitle: "আপনার লোকেশন",
+  locUseMine: "আমার বর্তমান লোকেশন নিন",
+  locLocating: "আপনাকে খোঁজা হচ্ছে…",
+  locAdded: "লোকেশন যোগ হয়েছে",
+  locDenied: "লোকেশনের অনুমতি পাওয়া যায়নি। আপনি ঠিকানা টাইপ করতে পারেন।",
+  locFailed: "লোকেশন পাওয়া যায়নি। আবার চেষ্টা করুন।",
+  locLive: "ম্যাপ ও দূরত্ব আপনার সেভ করা লোকেশন থেকে মাপা হয়।",
+  locDemo: "লোকেশন শেয়ার করুন, যাতে ম্যাপ ও দূরত্ব আপনার বাড়ি থেকে শুরু হয়।",
+  locSave: "সেভ করুন",
+  locSaved: "সেভ হয়েছে",
+  locSet: "লোকেশন সেট করুন",
   footerLine: "Sudhaar · ফেলে দেবেন না, সারিয়ে নিন · PayPal স্যান্ডবক্সে চলে, তাই আসল টাকা কাটে না।",
   footerCare: "স্থানীয় কারিগরদের জন্য যত্ন নিয়ে তৈরি।",
   agentNeedsKey: "AI এজেন্টের জন্য সার্ভারে ANTHROPIC_API_KEY দরকার।",

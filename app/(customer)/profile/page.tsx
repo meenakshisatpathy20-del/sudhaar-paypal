@@ -3,7 +3,7 @@
 import { rupees } from "@/components/Inr";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Handshake, Leaf, LogOut, MapPin, PiggyBank, ShieldCheck, Volume2, Wrench } from "lucide-react";
+import { Check, Handshake, Leaf, Loader2, LocateFixed, LogOut, MapPin, PiggyBank, ShieldCheck, Volume2, Wrench } from "lucide-react";
 import { api } from "@/components/api";
 import { LangToggle } from "@/components/LangToggle";
 import { useLang } from "@/components/LanguageProvider";
@@ -13,6 +13,8 @@ import { useSession } from "@/components/SessionProvider";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { useGeolocate } from "@/components/useGeolocate";
 import { AVG_ITEM_KG } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import type { Order } from "@/lib/types";
@@ -74,6 +76,8 @@ function ProfileInner() {
         </CardContent>
       </Card>
 
+      <LocationCard />
+
       {impact && (
         <Card>
           <CardContent className="space-y-3">
@@ -125,5 +129,71 @@ function ProfileInner() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/** Where this customer's pickups start and maps are centred: the device location plus an editable address. */
+function LocationCard() {
+  const { t } = useLang();
+  const { account, refresh } = useSession();
+  const geo = useGeolocate();
+  const [address, setAddress] = useState(account?.address ?? "");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
+  const [error, setError] = useState<string | null>(null);
+  const at = coords ?? (account?.lat !== undefined && account?.lng !== undefined ? { lat: account.lat, lng: account.lng } : null);
+
+  async function save(next: { lat: number; lng: number } | null) {
+    if (!next) return;
+    setState("saving");
+    setError(null);
+    try {
+      await api("/api/me/location", { ...next, address });
+      await refresh();
+      setState("saved");
+    } catch (e) {
+      setError((e as Error).message);
+      setState("idle");
+    }
+  }
+
+  return (
+    <Card id="location">
+      <CardContent className="space-y-3">
+        <h2 className="flex items-center gap-2 font-bold">
+          <MapPin className="size-4 text-primary" /> {t("locTitle")}
+        </h2>
+        <p className="text-xs text-muted-foreground">{at ? t("locLive") : t("locDemo")}</p>
+        <Input placeholder={t("fAddress")} value={address} onChange={(e) => (setAddress(e.target.value), setState("idle"))} autoComplete="street-address" />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={geo.busy || state === "saving"}
+            onClick={async () => {
+              const p = await geo.locate();
+              if (p) {
+                setCoords(p);
+                await save(p);
+              }
+            }}
+          >
+            {geo.busy ? <Loader2 className="animate-spin" /> : <LocateFixed />} {geo.busy ? t("locLocating") : t("locUseMine")}
+          </Button>
+          {at && (
+            <Button size="sm" disabled={state === "saving" || !address.trim() || address.trim() === account?.address} onClick={() => save(at)}>
+              {t("locSave")}
+            </Button>
+          )}
+          {state === "saved" && (
+            <span className="flex items-center gap-1 text-xs font-semibold text-teal">
+              <Check className="size-3.5" /> {t("locSaved")}
+            </span>
+          )}
+        </div>
+        {at && <p className="font-mono text-[11px] text-muted-foreground">{at.lat.toFixed(4)}, {at.lng.toFixed(4)}</p>}
+        {(geo.error || error) && <p className="text-xs text-destructive">{geo.error ?? error}</p>}
+      </CardContent>
+    </Card>
   );
 }

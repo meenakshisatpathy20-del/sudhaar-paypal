@@ -25,7 +25,7 @@ export const langMeta = (l: Lang) => LANGS.find((x) => x.code === l) ?? LANGS[0]
 // and fall back to English for any string they don't have yet. The admin console stays English.
 const BASE = {
   en: {
-    location: "Lake View Apartments",
+    location: "Demo neighbourhood",
     navHome: "Home",
     navRepairs: "My Repairs",
     navTalk: "Talk",
@@ -448,6 +448,17 @@ const BASE = {
     // Misc
     demoShared: "Demo account: judges share this login, so you may see other testers' repairs too.",
     demoProfile: "Shared demo account for hackathon judges.",
+    locTitle: "Your location",
+    locUseMine: "Use my current location",
+    locLocating: "Finding you…",
+    locAdded: "Location added",
+    locDenied: "Location permission was denied. You can still type your address.",
+    locFailed: "Couldn't get your location. Please try again.",
+    locLive: "Maps and distances are measured from your saved location.",
+    locDemo: "Share your location so maps and distances start from your home.",
+    locSave: "Save",
+    locSaved: "Saved",
+    locSet: "Set location",
     footerLine: "Sudhaar · Repair, don't replace · Runs on the PayPal sandbox, so no real money moves.",
     footerCare: "Made with care for local karigars.",
     agentNeedsKey: "The AI agent needs ANTHROPIC_API_KEY on the server.",
@@ -457,7 +468,7 @@ const BASE = {
     gharErrNoKarigar: "No karigar nearby for \"{item}\" yet.",
   },
   hi: {
-    location: "लेक व्यू अपार्टमेंट्स",
+    location: "डेमो इलाका",
     navHome: "होम",
     navRepairs: "मेरी रिपेयर",
     navTalk: "बात करें",
@@ -876,6 +887,17 @@ const BASE = {
     // Misc
     demoShared: "डेमो अकाउंट: जज यही लॉगिन इस्तेमाल करते हैं, इसलिए आपको दूसरों की टेस्ट रिपेयर भी दिख सकती हैं।",
     demoProfile: "हैकाथॉन जजों के लिए साझा डेमो अकाउंट।",
+    locTitle: "आपकी लोकेशन",
+    locUseMine: "मेरी मौजूदा लोकेशन लें",
+    locLocating: "आपको ढूँढ रहे हैं…",
+    locAdded: "लोकेशन जुड़ गई",
+    locDenied: "लोकेशन की अनुमति नहीं मिली। आप पता टाइप कर सकते हैं।",
+    locFailed: "लोकेशन नहीं मिल पाई। कृपया फिर कोशिश करें।",
+    locLive: "नक्शा और दूरी आपकी सेव की गई लोकेशन से मापी जाती है।",
+    locDemo: "अपनी लोकेशन साझा करें ताकि नक्शा और दूरी आपके घर से शुरू हो।",
+    locSave: "सेव करें",
+    locSaved: "सेव हो गया",
+    locSet: "लोकेशन सेट करें",
     footerLine: "Sudhaar · फेंको मत, ठीक कराओ · PayPal सैंडबॉक्स पर चलता है, इसलिए असली पैसा नहीं कटता।",
     footerCare: "स्थानीय कारीगरों के लिए प्यार से बनाया गया।",
     agentNeedsKey: "AI एजेंट के लिए सर्वर पर ANTHROPIC_API_KEY चाहिए।",

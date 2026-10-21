@@ -13,6 +13,7 @@ import { KarigarCard } from "@/components/KarigarCard";
 import { useLang } from "@/components/LanguageProvider";
 import { MicButton } from "@/components/MicButton";
 import { NeighbourhoodMap } from "@/components/NeighbourhoodMap";
+import { useSession } from "@/components/SessionProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { catKey } from "@/lib/i18n";
@@ -45,7 +46,9 @@ export default function Home() {
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [impact, setImpact] = useState<Impact | null>(null);
+  const { account } = useSession();
 
+  // Refetch when the customer logs in or shares a new location: distances and the map follow them.
   useEffect(() => {
     api<{ karigars: KarigarWithDistance[]; center: { lat: number; lng: number } }>("/api/karigars")
       .then((r) => {
@@ -56,7 +59,7 @@ export default function Home() {
     api<{ impact: Impact }>("/api/impact")
       .then((r) => setImpact(r.impact))
       .catch(() => {});
-  }, []);
+  }, [account?.id, account?.lat, account?.lng]);
 
   const go = (q: string) => router.push(q.trim() ? `/fix?d=${encodeURIComponent(q.trim())}` : "/fix");
   const sel = karigars.find((k) => k.id === selected);
