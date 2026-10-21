@@ -33,7 +33,10 @@ export default function Repairs() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      <h1 className="text-3xl font-bold">{t("repairsTitle")}</h1>
+      <div>
+        <h1 className="text-3xl font-bold">{t("repairsTitle")}</h1>
+        <p className="text-xs text-muted-foreground">Demo account: everyone trying Sudhaar shares this account, so you may see other testers&apos; repairs too.</p>
+      </div>
       <Tabs defaultValue="active">
         <TabsList>
           <TabsTrigger value="active">

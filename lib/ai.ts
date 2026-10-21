@@ -70,7 +70,7 @@ Prices are in USD because payments run through the PayPal sandbox; convert from 
 Be honest: if the item is clearly not worth repairing, set repairable=false. Never invent damage you cannot see; lower the confidence instead.
 The estimate is a range; the karigar confirms the final price after inspecting the item.`;
 
-export async function quoteItem(input: { photo?: string; description?: string }): Promise<QuoteResult> {
+export async function quoteItem(input: { photo?: string; description?: string; category?: Category }): Promise<QuoteResult> {
   if (aiEnabled()) {
     try {
       const out = await ask(
@@ -78,16 +78,16 @@ export async function quoteItem(input: { photo?: string; description?: string })
         QUOTE_SYSTEM,
         [
           ...imageBlock(input.photo),
-          { type: "text", text: `Customer description: ${input.description?.trim() || "(none — use the photo)"}` },
+          { type: "text", text: `Customer description: ${input.description?.trim() || "(none — use the photo)"}${input.category ? `\nCustomer says the item is in this category: ${input.category}` : ""}` },
         ],
         "low",
       );
       return { ...sanitiseQuote(out), source: "claude" };
     } catch (e) {
-      return { ...simulateQuote(input.description), warning: `AI unavailable, used estimate table: ${(e as Error).message}` };
+      return { ...simulateQuote(input.description, input.category), warning: `AI unavailable, used estimate table: ${(e as Error).message}` };
     }
   }
-  return simulateQuote(input.description);
+  return simulateQuote(input.description, input.category);
 }
 
 function sanitiseQuote(q: z.infer<typeof QuoteSchema>) {
@@ -107,10 +107,12 @@ const KEYWORDS: [Category, RegExp][] = [
   ["small-appliance", /mixer|grinder|fan|iron|kettle|toaster|blender|cooler|jar/i],
 ];
 
-export function simulateQuote(description = ""): QuoteResult {
-  const category = KEYWORDS.find(([, re]) => re.test(description))?.[0] ?? "small-appliance";
+const CATEGORY_NAME: Record<Category, string> = { shoes: "Footwear", bags: "Bag", clothes: "Clothing", "small-appliance": "Small appliance", electronics: "Phone / gadget", furniture: "Furniture", plumbing: "Plumbing job", electrical: "Electrical job" };
+
+export function simulateQuote(description = "", hint?: Category): QuoteResult {
+  const category = hint ?? KEYWORDS.find(([, re]) => re.test(description))?.[0] ?? "small-appliance";
   const ref = REFERENCE[category];
-  const item = description.trim() ? description.trim().split(/[.,!\n]/)[0].slice(0, 60) : "Household item";
+  const item = description.trim() ? description.trim().split(/[.,!\n]/)[0].slice(0, 60) : CATEGORY_NAME[category];
   return {
     item,
     category,

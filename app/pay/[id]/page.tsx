@@ -6,6 +6,7 @@ import { BadgeCheck, HeartHandshake, ShieldCheck } from "lucide-react";
 import { api, money } from "@/components/api";
 import { HomeHeart } from "@/components/Doodles";
 import { Logo } from "@/components/Logo";
+import { Inr } from "@/components/Inr";
 import { PayPalCheckout } from "@/components/PayPalCheckout";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -66,7 +67,10 @@ export default function FamilyPayPage({ params }: { params: Promise<{ id: string
             )}
             <p className="flex justify-between border-t border-border pt-1 font-semibold">
               <span>Total</span>
-              <span className="font-display text-lg">{money(order.total)}</span>
+              <span className="text-right">
+                <span className="block font-display text-lg">{money(order.total)}</span>
+                <Inr usd={order.total} />
+              </span>
             </p>
           </div>
           <p className="flex gap-2 rounded-2xl bg-[#e6f0ff] p-3 text-xs text-paypal-blue">

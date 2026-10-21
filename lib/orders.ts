@@ -14,7 +14,7 @@ import {
   voidAuthorization,
 } from "./paypal";
 import { AVG_ITEM_KG, basketPickupFee, computeSplit, haversineKm, karigarPrice, pickupFee, round2, serviceModeFor } from "./pricing";
-import type { Complaint, FamilyPay, Job, Karigar, Order, OrderEvent, OrderStatus, Quote } from "./types";
+import type { Category, Complaint, FamilyPay, Job, Karigar, Order, OrderEvent, OrderStatus, Quote } from "./types";
 
 export class FlowError extends Error {
   constructor(message: string, public status = 400) {
@@ -41,7 +41,7 @@ export const DEMO_CUSTOMER = () => ({
 
 // ---------- Quotes ----------
 
-export async function createQuote(input: { photo?: string; description?: string }): Promise<Quote & { warning?: string }> {
+export async function createQuote(input: { photo?: string; description?: string; category?: Category }): Promise<Quote & { warning?: string }> {
   const q = await quoteItem(input);
   const quote: Quote = {
     id: id("Q"),

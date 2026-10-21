@@ -177,7 +177,11 @@ scripts/            PayPal sandbox smoke test
 ```
 
 ## Notes
-- Prices are in **USD** because the demo runs on the PayPal sandbox; they mirror real street-repair rates in Indian cities (roughly ₹85 = $1).
+- Prices are in **USD** because the demo runs on the PayPal sandbox; they mirror real street-repair rates in Indian cities, and the app shows an approximate **₹ value** next to key prices (≈ ₹85 = $1).
+- **Shared demo account:** there is no login, so everyone testing the hosted demo sees the same customer ("Anita") and the same orders. Use *Reset demo data* in Operations for a clean start.
+- **Refund decisions are made by people:** customers raise issues in Resolve Hub; the AI recommends, and the support team approves in **Operations → Resolve Hub**. Only the Repair Agent may auto-refund small amounts (up to $5), a limit enforced in code.
+- **Fair use:** AI endpoints are rate-limited per visitor so the public demo can't be used to burn AI credits.
+- Uploaded photos are stored on the server's disk; on free hosting they reset when the server restarts.
 - Data lives in a JSON file (`data/db.json`) that is re-seeded automatically, so a fresh deploy always works.
 - Built from scratch during the hackathon submission period (October–November 2026).
 

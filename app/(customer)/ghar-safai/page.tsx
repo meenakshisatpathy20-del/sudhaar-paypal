@@ -5,7 +5,9 @@ import { useState } from "react";
 import { Bike, Leaf, PiggyBank, Plus, Trash2 } from "lucide-react";
 import { api, money } from "@/components/api";
 import { Chappal, Diya, Mixer, NeedleThread } from "@/components/Doodles";
+import { CategoryChips } from "@/components/CategoryChips";
 import { FamilyPayPicker, type FamilyPayValue } from "@/components/FamilyPay";
+import { Inr } from "@/components/Inr";
 import { useLang } from "@/components/LanguageProvider";
 import { MicButton } from "@/components/MicButton";
 import { PhotoPicker } from "@/components/PhotoPicker";
@@ -15,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/input";
 import { AVG_ITEM_KG, basketPickupFee, HOME_VISIT_CATEGORIES } from "@/lib/pricing";
-import type { Karigar, Order, Quote } from "@/lib/types";
+import type { Category, Karigar, Order, Quote } from "@/lib/types";
 
 type Offer = { karigar: Karigar; distanceKm: number; price: number; pickupFee: number; readyInDays: number; best?: boolean };
 type Line = { quote: Quote; offers: Offer[]; karigarId: string };
@@ -26,6 +28,7 @@ export default function GharSafai() {
   const [photo, setPhoto] = useState<string>();
   const [photoKey, setPhotoKey] = useState(0);
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<Category | null>(null);
   const [adding, setAdding] = useState(false);
   const [lines, setLines] = useState<Line[]>([]);
   const [donate, setDonate] = useState(true);
@@ -37,12 +40,13 @@ export default function GharSafai() {
     setError(null);
     setAdding(true);
     try {
-      const r = await api<{ quote: Quote; offers: Offer[] }>("/api/quote", { photo, description });
+      const r = await api<{ quote: Quote; offers: Offer[] }>("/api/quote", { photo, description, category: category ?? undefined });
       if (HOME_VISIT_CATEGORIES.includes(r.quote.category)) throw new Error(`"${r.quote.item}" needs a home visit, so book it from the Home tab.`);
       if (!r.quote.repairable) throw new Error(`"${r.quote.item}" doesn't look worth repairing. We'll suggest recycling it instead.`);
       if (r.offers.length === 0) throw new Error(`No karigar nearby for "${r.quote.item}" yet.`);
       setLines((l) => [...l, { quote: r.quote, offers: r.offers, karigarId: (r.offers.find((o) => o.best) ?? r.offers[0]).karigar.id }]);
       setDescription("");
+      setCategory(null);
       setPhoto(undefined);
       setPhotoKey((k) => k + 1);
     } catch (e) {
@@ -98,7 +102,8 @@ export default function GharSafai() {
               <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("askPlaceholder")} />
               <MicButton onText={setDescription} />
             </div>
-            <Button className="w-full" size="lg" onClick={add} disabled={adding || (!photo && !description.trim())}>
+            <CategoryChips value={category} onChange={setCategory} exclude={HOME_VISIT_CATEGORIES} />
+            <Button className="w-full" size="lg" onClick={add} disabled={adding || (!photo && !description.trim()) || (!!photo && !description.trim() && !category)}>
               {adding ? t("gharAdding") : t("gharAdd")}
             </Button>
             {error && <p className="text-sm text-destructive">{error}</p>}
@@ -187,7 +192,10 @@ export default function GharSafai() {
                   </label>
                   <div className="flex justify-between border-t border-border pt-1.5 font-semibold">
                     <span>{t("total")}</span>
-                    <span className="font-display text-lg">{money(total)}</span>
+                    <span className="text-right">
+                      <span className="block font-display text-lg">{money(total)}</span>
+                      <Inr usd={total} />
+                    </span>
                   </div>
                 </div>
                 <FamilyPayPicker value={family} onChange={setFamily} />

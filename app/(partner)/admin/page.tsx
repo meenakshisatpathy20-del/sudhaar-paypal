@@ -6,7 +6,7 @@ import { AgGridReact } from "ag-grid-react";
 import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type ICellRendererParams } from "ag-grid-community";
 import { api, money } from "@/components/api";
 import { STATUS_LABEL } from "@/components/StatusPill";
-import type { Karigar, Order, Saathi } from "@/lib/types";
+import type { Complaint, Karigar, Order, Saathi } from "@/lib/types";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -47,7 +47,7 @@ type Row = {
 
 export default function Admin() {
   const [data, setData] = useState<AdminData | null>(null);
-  const [tab, setTab] = useState<"orders" | "payouts" | "karigars" | "webhooks">("orders");
+  const [tab, setTab] = useState<"orders" | "resolve" | "payouts" | "karigars" | "webhooks">("orders");
   const load = useCallback(() => api<AdminData>("/api/admin").then(setData).catch(() => {}), []);
   useEffect(() => {
     load();
@@ -145,6 +145,7 @@ export default function Admin() {
     [],
   );
 
+  const openComplaints = (data?.orders ?? []).flatMap((o) => o.complaints.filter((c) => !c.resolution).map((c) => ({ order: o, complaint: c })));
   if (!data) return <p className="paper rounded-2xl p-5 text-muted-foreground">Loading dashboard…</p>;
   const i = data.impact;
 
@@ -182,18 +183,81 @@ export default function Admin() {
         ))}
       </div>
       <div className="flex gap-1">
-        {(["orders", "payouts", "karigars", "webhooks"] as const).map((t) => (
+        {(["orders", "resolve", "payouts", "karigars", "webhooks"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-1.5 text-sm font-semibold capitalize ${tab === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-            {t === "webhooks" ? "PayPal webhooks" : t}
+            {t === "webhooks" ? "PayPal webhooks" : t === "resolve" ? `Resolve Hub (${openComplaints.length})` : t}
           </button>
         ))}
       </div>
-      <div className="h-[560px] overflow-hidden rounded-2xl">
+      {tab === "resolve" && <ResolveQueue items={openComplaints} onDone={load} />}
+      <div className={tab === "resolve" ? "hidden" : "h-[560px] overflow-hidden rounded-2xl"}>
         {tab === "orders" && <AgGridReact<Row> theme={theme} rowData={rows} columnDefs={orderCols} pagination paginationPageSize={20} defaultColDef={{ sortable: true, resizable: true }} />}
         {tab === "payouts" && <AgGridReact theme={theme} rowData={payoutRows} columnDefs={payoutCols} defaultColDef={{ sortable: true, resizable: true }} />}
         {tab === "karigars" && <AgGridReact<Karigar> theme={theme} rowData={data.karigars} columnDefs={karigarCols} defaultColDef={{ sortable: true, resizable: true, filter: true }} />}
         {tab === "webhooks" && <AgGridReact theme={theme} rowData={data.webhooks} columnDefs={hookCols} defaultColDef={{ sortable: true, resizable: true }} />}
       </div>
+    </div>
+  );
+}
+
+/** Support desk: humans approve the AI's recommendation before any PayPal refund is sent. */
+function ResolveQueue({ items, onDone }: { items: { order: Order; complaint: Complaint }[]; onDone: () => void }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  async function resolve(o: Order, c: Complaint, action: "refund" | "re_repair" | "rejected", amount?: number) {
+    setBusy(c.id);
+    setError(null);
+    try {
+      await api(`/api/orders/${o.id}/resolve`, { complaintId: c.id, action, amount });
+      onDone();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+  if (items.length === 0) return <p className="paper rounded-2xl p-6 text-sm text-muted-foreground">No open complaints. 🎉</p>;
+  return (
+    <div className="space-y-3">
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {items.map(({ order: o, complaint: c }) => (
+        <div key={c.id} className="paper space-y-2 rounded-2xl p-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="font-semibold">
+              {c.issue.replaceAll("_", " ")} · {o.item}{" "}
+              <Link href={`/orders/${o.id}`} className="font-mono text-xs text-primary underline">
+                {o.id}
+              </Link>
+            </p>
+            <span className="text-xs text-muted-foreground">
+              paid {money(o.total)} · capture <span className="font-mono">{o.paypal.captureId}</span>
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground">&ldquo;{c.details}&rdquo;</p>
+          {c.ai && (
+            <p className="rounded-xl bg-primary/10 p-2 text-xs">
+              <b>
+                AI recommends {c.ai.recommendation.replaceAll("_", " ")}
+                {c.ai.refundAmount ? ` of ${money(c.ai.refundAmount)}` : ""}
+              </b>{" "}
+              ({c.ai.source}): {c.ai.reasoning}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {c.ai && c.ai.refundAmount > 0 && (
+              <button disabled={busy === c.id} onClick={() => resolve(o, c, "refund", c.ai!.refundAmount)} className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">
+                Approve PayPal refund {money(c.ai.refundAmount)}
+              </button>
+            )}
+            <button disabled={busy === c.id} onClick={() => resolve(o, c, "re_repair")} className="rounded-xl px-3 py-2 text-xs font-semibold ring-1 ring-border hover:bg-muted disabled:opacity-50">
+              Free re-repair
+            </button>
+            <button disabled={busy === c.id} onClick={() => resolve(o, c, "rejected")} className="rounded-xl px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50">
+              Close without refund
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
