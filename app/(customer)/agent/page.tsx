@@ -187,6 +187,7 @@ function AgentCardView({ card }: { card: AgentCard }) {
 
 function BookingCard({ card }: { card: Extract<AgentCard, { type: "booking" }> }) {
   const [order, setOrder] = useState<Order | null>(null);
+  const { t } = useLang();
   const refresh = () => api<{ order: Order }>(`/api/orders/${card.orderId}`).then((r) => setOrder(r.order)).catch(() => {});
   useEffect(() => {
     refresh();
@@ -207,9 +208,9 @@ function BookingCard({ card }: { card: Extract<AgentCard, { type: "booking" }> }
       {order?.status === "awaiting_payment" && !card.familyPayer && card.paypalOrderId && <PayPalCheckout orderId={card.orderId} paypalOrderId={card.paypalOrderId} total={card.total} onApproved={refresh} />}
       {order && order.status !== "awaiting_payment" && (
         <p className="text-muted-foreground">
-          Payment held by PayPal. Pickup OTP <b className="font-mono text-foreground">{order.pickupOtp}</b> ·{" "}
+          {t("agentHeld")} <b className="font-mono text-foreground">{order.pickupOtp}</b> ·{" "}
           <Link className="text-primary underline" href={`/orders/${card.orderId}`}>
-            Track it
+            {t("trackIt")}
           </Link>
         </p>
       )}

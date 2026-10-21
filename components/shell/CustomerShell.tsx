@@ -8,6 +8,7 @@ import { LangToggle } from "../LangToggle";
 import { useLang } from "../LanguageProvider";
 import { Logo } from "../Logo";
 import { ModeBadges } from "../ModeBadges";
+import { OfflineBanner } from "../OfflineBanner";
 
 export function CustomerShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
@@ -41,6 +42,7 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+      <OfflineBanner />
       <main className="mx-auto w-full max-w-6xl px-4 pt-5">{children}</main>
       <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-4 rounded-2xl border border-border bg-card/95 p-1.5 shadow-2xl backdrop-blur-xl md:hidden">
         {tabs.map((tb) => (
