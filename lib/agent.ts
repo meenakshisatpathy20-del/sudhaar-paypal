@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { PayPalAgentToolkit } from "@paypal/agent-toolkit/openai";
 import { aiEnabled, config, paypalEnabled } from "./config";
 import { readDB } from "./db";
+import { INR_PER_USD } from "./pricing";
 import { advance, createBasketOrder, createOrder, createQuote, FlowError, offersFor, raiseComplaint, resolveComplaint } from "./orders";
 import type { Complaint, Order } from "./types";
 
@@ -62,7 +63,8 @@ You act on the customer's behalf, not just advise:
 5. For problems after delivery, use raise_warranty_claim. If the AI review recommends a refund of at most $${AUTO_REFUND_LIMIT}, you may call issue_refund. Larger refunds go to the support desk.
 6. Use the PayPal lookup tools (get_order, get_invoice, list_invoices, get_refund, list_transactions) when the customer asks about bills, payments or refunds.
 
-Keep replies short and friendly (2-5 sentences), because they are often read aloud by voice. Use plain language, show amounts as $X.XX, and reply in the language the customer uses (Hindi or English). Never invent order ids, prices or PayPal ids: only use what tools return.`;
+Keep replies short and friendly (2-5 sentences), because they are often read aloud by voice. Use plain language and reply in the language the customer uses (Hindi or English). Never invent order ids, prices or PayPal ids: only use what tools return.
+Money: tools work in USD because PayPal sandbox settles in USD. Speak to the customer in rupees, converting at ₹${INR_PER_USD} per $1 and rounding to the nearest rupee (e.g. "₹338, which PayPal charges as $3.98" for a total). If the customer gives a budget in rupees, convert it to USD before comparing offers.`;
 
 const CUSTOM_TOOLS: Anthropic.Beta.BetaTool[] = [
   {
@@ -86,7 +88,7 @@ const CUSTOM_TOOLS: Anthropic.Beta.BetaTool[] = [
       properties: {
         quote_id: { type: "string" },
         karigar_id: { type: "string" },
-        add_tool_fund_donation: { type: "boolean", description: "Add $1 to the karigar tool fund. Only true if the customer agreed." },
+        add_tool_fund_donation: { type: "boolean", description: `Add $1 (about ₹${INR_PER_USD}) to the karigar tool fund. Only true if the customer agreed.` },
         family_payer_name: { type: "string", description: "Family Pay: name of the family member who should pay (e.g. 'Rahul'). Empty string if the customer pays." },
         family_payer_relation: { type: "string", description: "Family Pay: relation to the customer, e.g. 'son', 'daughter'. Empty string if not used." },
       },
@@ -251,7 +253,7 @@ export async function agentTurn(input: { sessionId?: string; message: string; ph
   const session = sessions.get(sessionId) ?? { messages: [], updatedAt: Date.now() };
   sessions.set(sessionId, session);
   if (input.photo) session.photo = input.photo;
-  const langNote = input.lang === "hi" ? "\n\n[The customer's app is set to Hindi: reply in simple Hindi (Devanagari). Keep prices as $X.XX.]" : "";
+  const langNote = input.lang === "hi" ? "\n\n[The customer's app is set to Hindi: reply in simple Hindi (Devanagari). Show prices in rupees (₹).]" : "";
   session.messages.push({ role: "user", content: `${input.message}${input.photo ? "\n\n[Customer attached a photo of the item]" : ""}${langNote}` });
 
   const tk = paypalToolkit();

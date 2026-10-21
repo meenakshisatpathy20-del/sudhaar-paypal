@@ -1,5 +1,6 @@
 "use client";
 
+import { rupees, rupeeTotal, UsdNote } from "@/components/Inr";
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { BadgeCheck, ChevronDown, LifeBuoy, Leaf, PiggyBank, Receipt, ShieldCheck, Sparkles, XCircle } from "lucide-react";
@@ -133,7 +134,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                   <p className="text-sm">
                     Waiting for <b>{order.familyPay.name}</b> ({order.familyPay.relation}) to pay. Send them the link: they approve it with their own PayPal from anywhere.
                   </p>
-                  <FamilyPayShare orderId={order.id} name={order.familyPay.name} item={order.item} total={money(order.total)} />
+                  <FamilyPayShare orderId={order.id} name={order.familyPay.name} item={order.item} total={rupees(order.total)} />
                   <button className="text-xs font-semibold text-primary underline" onClick={() => setPayMyself(true)}>
                     Or pay yourself
                   </button>
@@ -195,7 +196,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold">{j.item}</p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {jk?.shop} · {money(j.price)}
+                          {jk?.shop} · {rupees(j.price)}
                         </p>
                         {j.completionCheck && !j.completionCheck.passed && <PhotoCheck check={j.completionCheck} compact />}
                       </div>
@@ -227,7 +228,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
               <p className="text-xs font-semibold uppercase tracking-widest text-gold">Item Passport · second life</p>
               <h2 className="text-xl font-bold">{order.item}</h2>
               <div className="grid grid-cols-3 gap-2 text-center">
-                <Stat icon={PiggyBank} v={money(saved)} l="saved" />
+                <Stat icon={PiggyBank} v={rupees(saved)} l="saved" />
                 <Stat icon={Leaf} v={`${keptKg.toFixed(1)} kg`} l="kept from landfill" />
                 <Stat icon={BadgeCheck} v="15 days" l="warranty" />
               </div>
@@ -300,14 +301,18 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 }
 
 function Breakdown({ order }: { order: Order }) {
+  const repairs = order.jobs?.length ? order.jobs.map((j) => j.price) : [order.repairCharge];
   return (
     <div className="space-y-1.5">
-      <Row k="Repair" v={money(order.repairCharge)} />
-      <Row k={order.kind === "basket" ? "One Saathi trip for everything" : order.mode === "pickup" ? `Pickup & delivery (${order.distanceKm} km)` : "Home visit"} v={money(order.pickupFee)} />
-      {order.donation > 0 && <Row k="Karigar tool fund" v={money(order.donation)} />}
+      <Row k="Repair" v={rupeeTotal(...repairs)} />
+      <Row k={order.kind === "basket" ? "One Saathi trip for everything" : order.mode === "pickup" ? `Pickup & delivery (${order.distanceKm} km)` : "Home visit"} v={rupees(order.pickupFee)} />
+      {order.donation > 0 && <Row k="Karigar tool fund" v={rupees(order.donation)} />}
       <div className="flex justify-between border-t border-border pt-1.5 font-semibold">
         <span>Total</span>
-        <span>{money(order.total)}</span>
+        <span className="text-right">
+          <span className="block">{rupeeTotal(...repairs, order.pickupFee, order.donation)}</span>
+          <UsdNote usd={order.total} />
+        </span>
       </div>
     </div>
   );
@@ -358,7 +363,7 @@ function OtpCard({ label, otp, active, hint }: { label: string; otp: string; act
 function PhotoCheck({ check, compact }: { check: CompletionCheck; compact?: boolean }) {
   const by = check.source === "admin" ? "Sudhaar team" : check.source === "claude" ? "AI" : "Simulated AI";
   const [tone, title, body] = check.passed
-    ? ["bg-primary/10 text-primary", `Repair verified (${by})`, check.reasoning]
+    ? ["bg-teal/10 text-teal", `Repair verified (${by})`, check.reasoning]
     : check.needsReview
       ? ["bg-marigold/15 text-gold", "The Sudhaar team is checking the photos", "Your money stays on hold with PayPal until the repair is confirmed."]
       : ["bg-marigold/15 text-gold", "Repair not accepted yet", `${check.reasoning} Your money stays on hold with PayPal.`];
@@ -459,7 +464,7 @@ function ResolveHub({ order, refunded, onChange }: { order: Order; refunded: num
               <p className="rounded-xl bg-primary/10 p-2 text-xs text-primary">
                 <b>
                   AI recommends {c.ai.recommendation.replaceAll("_", " ")}
-                  {c.ai.refundAmount ? ` of ${money(c.ai.refundAmount)}` : ""}
+                  {c.ai.refundAmount ? ` of ${rupees(c.ai.refundAmount)}` : ""}
                 </b>{" "}
                 ({c.ai.source}): {c.ai.reasoning}
               </p>
@@ -467,7 +472,7 @@ function ResolveHub({ order, refunded, onChange }: { order: Order; refunded: num
             {c.resolution ? (
               <p className="text-xs font-semibold text-primary">
                 Resolved: {c.resolution.action.replaceAll("_", " ")}
-                {c.resolution.amount ? ` ${money(c.resolution.amount)}` : ""} {c.resolution.refundId && <span className="font-mono">({c.resolution.refundId})</span>}
+                {c.resolution.amount ? ` ${rupees(c.resolution.amount)}` : ""} {c.resolution.refundId && <span className="font-mono">({c.resolution.refundId})</span>}
               </p>
             ) : (
               <p className="rounded-xl bg-marigold/15 p-2.5 text-xs text-[#7a4a06]">

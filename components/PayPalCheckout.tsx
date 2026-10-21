@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { loadCoreSdkScript } from "@paypal/paypal-js/sdk-v6";
 import { api, money } from "./api";
+import { rupees } from "./Inr";
 import { useAppConfig } from "./useAppConfig";
 
 /**
@@ -87,7 +88,7 @@ export function PayPalCheckout({ orderId, paypalOrderId, total, onApproved }: { 
             }
           }}
         >
-          {status === "working" ? "Authorizing…" : `Pay ${money(total)} with PayPal (simulated)`}
+          {status === "working" ? "Authorizing…" : `Pay ${rupees(total)} (${money(total)}) with PayPal (simulated)`}
         </button>
         <p className="text-xs text-gold">Simulation mode: add PayPal sandbox keys to use the real PayPal checkout.</p>
         {error && <p className="text-xs text-destructive">{error}</p>}

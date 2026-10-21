@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Bike, MapPin } from "lucide-react";
-import { api, money } from "@/components/api";
+import { api } from "@/components/api";
+import { rupees, UsdNote } from "@/components/Inr";
 import { StatusPill } from "@/components/StatusPill";
 import { useOrders } from "@/components/useOrders";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,8 @@ export default function SaathiApp() {
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <Bike className="size-4 text-primary" /> Repair Saathi
           </p>
-          <p className="font-display text-4xl font-bold">{money(earned)}</p>
+          <p className="font-display text-4xl font-bold">{rupees(earned)}</p>
+          <UsdNote usd={earned} verb="pays" />
           <p className="text-xs text-muted-foreground">75% of every pickup fee, paid instantly to your PayPal when the customer confirms delivery.</p>
         </CardContent>
       </Card>
@@ -76,7 +78,7 @@ function SaathiJob({ order, onDone }: { order: Order; onDone: () => void }) {
             </Link>
             <p className="font-semibold">{order.item}</p>
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin className="size-3" /> {order.customer.address} · {order.distanceKm} km · earn {money(order.split.saathi)}
+              <MapPin className="size-3" /> {order.customer.address} · {order.distanceKm} km · earn {rupees(order.split.saathi)}
             </p>
           </div>
           <StatusPill status={order.status} />

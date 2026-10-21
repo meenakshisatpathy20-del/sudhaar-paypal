@@ -1,8 +1,9 @@
 "use client";
 
+import { rupees } from "@/components/Inr";
 import { useEffect, useState } from "react";
 import { Handshake, Leaf, MapPin, PiggyBank, ShieldCheck, Volume2, Wrench } from "lucide-react";
-import { api, money } from "@/components/api";
+import { api } from "@/components/api";
 import { LangToggle } from "@/components/LangToggle";
 import { useLang } from "@/components/LanguageProvider";
 import { ModeBadges } from "@/components/ModeBadges";
@@ -44,8 +45,8 @@ export default function Profile() {
               {[
                 { icon: Wrench, v: String(impact.itemsRepaired), l: t("impactItems") },
                 { icon: Leaf, v: `${impact.kgSaved} kg`, l: t("impactKg") },
-                { icon: PiggyBank, v: money(impact.moneySaved), l: t("impactSaved") },
-                { icon: Handshake, v: money(impact.karigarEarnings), l: t("impactKarigar") },
+                { icon: PiggyBank, v: rupees(impact.moneySaved), l: t("impactSaved") },
+                { icon: Handshake, v: rupees(impact.karigarEarnings), l: t("impactKarigar") },
               ].map((x) => (
                 <div key={x.l} className="rounded-2xl bg-muted/60 p-3 ring-1 ring-border">
                   <x.icon className="size-4 text-gold" />

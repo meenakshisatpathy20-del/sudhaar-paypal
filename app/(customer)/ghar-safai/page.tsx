@@ -3,11 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Bike, Leaf, PiggyBank, Plus, Trash2 } from "lucide-react";
-import { api, money } from "@/components/api";
+import { api } from "@/components/api";
 import { Chappal, Diya, Mixer, NeedleThread } from "@/components/Doodles";
 import { CategoryChips } from "@/components/CategoryChips";
 import { FamilyPayPicker, type FamilyPayValue } from "@/components/FamilyPay";
-import { Inr } from "@/components/Inr";
+import { rupees, rupeeTotal, UsdNote } from "@/components/Inr";
 import { useLang } from "@/components/LanguageProvider";
 import { MicButton } from "@/components/MicButton";
 import { PhotoPicker } from "@/components/PhotoPicker";
@@ -61,7 +61,8 @@ export default function GharSafai() {
   const fees = chosen.map((c) => c.offer.pickupFee);
   const oneTrip = basketPickupFee(fees, stops);
   const separate = fees.reduce((a, b) => a + b, 0);
-  const repairSum = chosen.reduce((s, c) => s + c.offer.price, 0);
+  const itemPrices = chosen.map((c) => c.offer.price);
+  const repairSum = itemPrices.reduce((s, p) => s + p, 0);
   const savedVsNew = chosen.reduce((s, c) => s + Math.max(0, c.line.quote.newPrice - c.offer.price), 0);
   const kg = chosen.reduce((s, c) => s + AVG_ITEM_KG[c.line.quote.category], 0);
   const total = repairSum + oneTrip + (donate ? 1 : 0);
@@ -149,12 +150,12 @@ export default function GharSafai() {
                     >
                       {line.offers.map((o) => (
                         <option key={o.karigar.id} value={o.karigar.id}>
-                          {o.karigar.shop} · {money(o.price)} · {o.distanceKm} km{o.best ? " · best" : ""}
+                          {o.karigar.shop} · {rupees(o.price)} · {o.distanceKm} km{o.best ? " · best" : ""}
                         </option>
                       ))}
                     </select>
                   </div>
-                  <p className="font-display text-lg font-bold">{money(offer.price)}</p>
+                  <p className="font-display text-lg font-bold">{rupees(offer.price)}</p>
                   <button onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive" aria-label="Remove">
                     <Trash2 className="size-4" />
                   </button>
@@ -167,12 +168,12 @@ export default function GharSafai() {
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="rounded-2xl bg-teal/10 p-2.5">
                     <Bike className="mx-auto size-4 text-teal" />
-                    <p className="font-display text-lg font-bold">{money(Math.max(0, separate - oneTrip))}</p>
+                    <p className="font-display text-lg font-bold">{rupees(Math.max(0, separate - oneTrip))}</p>
                     <p className="text-[10px] leading-tight text-muted-foreground">{t("gharTripSaving")}</p>
                   </div>
                   <div className="rounded-2xl bg-marigold/15 p-2.5">
                     <PiggyBank className="mx-auto size-4 text-gold" />
-                    <p className="font-display text-lg font-bold">{money(savedVsNew)}</p>
+                    <p className="font-display text-lg font-bold">{rupees(savedVsNew)}</p>
                     <p className="text-[10px] leading-tight text-muted-foreground">{t("impactSaved")}</p>
                   </div>
                   <div className="rounded-2xl bg-primary/10 p-2.5">
@@ -182,25 +183,25 @@ export default function GharSafai() {
                   </div>
                 </div>
                 <div className="space-y-1.5 rounded-2xl p-3 text-sm ring-1 ring-border">
-                  <Row k={`${t("repairCost")} (${lines.length} ${t("gharItems")})`} v={money(repairSum)} />
-                  <Row k={t("gharOneTrip")} v={money(oneTrip)} strike={separate > oneTrip ? money(separate) : undefined} />
+                  <Row k={`${t("repairCost")} (${lines.length} ${t("gharItems")})`} v={rupeeTotal(...itemPrices)} />
+                  <Row k={t("gharOneTrip")} v={rupees(oneTrip)} strike={separate > oneTrip ? rupees(separate) : undefined} />
                   <label className="flex cursor-pointer items-center justify-between">
                     <span className="flex items-center gap-2">
                       <input type="checkbox" className="size-4 accent-[#d9572b]" checked={donate} onChange={(e) => setDonate(e.target.checked)} /> {t("toolFund")}
                     </span>
-                    <span>{money(donate ? 1 : 0)}</span>
+                    <span>{rupees(donate ? 1 : 0)}</span>
                   </label>
                   <div className="flex justify-between border-t border-border pt-1.5 font-semibold">
                     <span>{t("total")}</span>
                     <span className="text-right">
-                      <span className="block font-display text-lg">{money(total)}</span>
-                      <Inr usd={total} />
+                      <span className="block font-display text-lg">{rupeeTotal(...itemPrices, oneTrip, donate ? 1 : 0)}</span>
+                      <UsdNote usd={total} />
                     </span>
                   </div>
                 </div>
                 <FamilyPayPicker value={family} onChange={setFamily} />
                 <Button size="lg" className="w-full" onClick={book} disabled={booking || (family !== null && !family.name.trim())}>
-                  {booking ? t("creating") : `${t("gharReview")} · ${money(total)}`}
+                  {booking ? t("creating") : `${t("gharReview")} · ${rupeeTotal(...itemPrices, oneTrip, donate ? 1 : 0)}`}
                 </Button>
               </>
             )}

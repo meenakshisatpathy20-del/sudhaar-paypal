@@ -1,11 +1,12 @@
 "use client";
 
+import { rupees } from "@/components/Inr";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArrowRight, BadgeCheck, Camera, HeartHandshake, Leaf, PiggyBank, ShieldCheck, Sparkles, Wrench as WrenchIcon } from "lucide-react";
-import { api, money } from "@/components/api";
+import { api } from "@/components/api";
 import { CATEGORY_ICON } from "@/components/CategoryIcon";
 import { Chappal, Diya, HomeHeart, Mixer, NeedleThread, SaathiCycle, Sparkle, Squiggle, Wrench } from "@/components/Doodles";
 import { KarigarCard } from "@/components/KarigarCard";
@@ -224,7 +225,7 @@ export default function Home() {
             </span>
             <div className="min-w-0 space-y-1.5">
               <p className="font-display text-lg font-bold">{t("talkTitle")}</p>
-              <p className="text-xs italic text-muted-foreground">“{lang === "hi" ? "मेरा मिक्सर शुक्रवार तक 8 डॉलर में ठीक करवा दो" : "Get my mixer fixed under $8 by Friday"}”</p>
+              <p className="text-xs italic text-muted-foreground">“{lang === "hi" ? "मेरा मिक्सर शुक्रवार तक ₹700 में ठीक करवा दो" : "Get my mixer fixed under ₹700 by Friday"}”</p>
               <p className="flex flex-wrap gap-1 text-[10px] font-semibold">
                 <span className="rounded-full bg-card px-2 py-0.5 ring-1 ring-border">🎤 हिंदी / English</span>
                 <span className="rounded-full bg-card px-2 py-0.5 ring-1 ring-border">🔊 {lang === "hi" ? "बोलकर जवाब" : "Speaks back"}</span>
@@ -267,8 +268,8 @@ export default function Home() {
             {[
               { icon: WrenchIcon, v: String(impact.itemsRepaired), l: t("impactItems"), c: "text-primary" },
               { icon: Leaf, v: `${impact.kgSaved}`, l: t("impactKg"), c: "text-teal" },
-              { icon: PiggyBank, v: money(impact.moneySaved), l: t("impactSaved"), c: "text-gold" },
-              { icon: HeartHandshake, v: money(impact.karigarEarnings), l: t("impactKarigar"), c: "text-primary" },
+              { icon: PiggyBank, v: rupees(impact.moneySaved), l: t("impactSaved"), c: "text-gold" },
+              { icon: HeartHandshake, v: rupees(impact.karigarEarnings), l: t("impactKarigar"), c: "text-primary" },
             ].map((x) => (
               <Card key={x.l}>
                 <CardContent className="space-y-0.5">

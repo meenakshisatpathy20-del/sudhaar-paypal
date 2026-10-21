@@ -39,6 +39,9 @@ export const SPLIT = {
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/** PayPal sandbox settles in USD; customers see rupees at this approximate rate. */
+export const INR_PER_USD = 85;
+
 export function computeSplit(repairCharge: number, fee: number, donation: number) {
   const karigar = round2(repairCharge * SPLIT.karigarShareOfRepair);
   const saathi = round2(fee * SPLIT.saathiShareOfPickup);

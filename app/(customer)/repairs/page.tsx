@@ -1,9 +1,10 @@
 "use client";
 
+import { rupees } from "@/components/Inr";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowRight, Leaf, PiggyBank, Wrench } from "lucide-react";
-import { api, money } from "@/components/api";
+import { api } from "@/components/api";
 import { CATEGORY_ICON } from "@/components/CategoryIcon";
 import { useLang } from "@/components/LanguageProvider";
 import { STATUS_PROGRESS, StatusPill } from "@/components/StatusPill";
@@ -62,7 +63,7 @@ export default function Repairs() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-semibold">{o.item}</p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {k?.shop} · {money(o.total)} · {o.id}
+                          {k?.shop} · {rupees(o.total)} · {o.id}
                         </p>
                       </div>
                       <StatusPill status={o.status} />
@@ -98,7 +99,7 @@ export default function Repairs() {
                     </div>
                     <div className="flex gap-4 text-sm">
                       <span className="flex items-center gap-1.5">
-                        <PiggyBank className="size-4 text-gold" /> {money(saved)} {t("savedLabel")}
+                        <PiggyBank className="size-4 text-gold" /> {rupees(saved)} {t("savedLabel")}
                       </span>
                       <span className="flex items-center gap-1.5">
                         <Leaf className="size-4 text-primary" /> {AVG_ITEM_KG[o.category]} kg

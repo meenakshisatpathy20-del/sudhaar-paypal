@@ -177,7 +177,7 @@ scripts/            PayPal sandbox smoke test
 ```
 
 ## Notes
-- Prices are in **USD** because the demo runs on the PayPal sandbox; they mirror real street-repair rates in Indian cities, and the app shows an approximate **₹ value** next to key prices (≈ ₹85 = $1).
+- **Rupees for people, USD for PayPal:** customers, karigars and Saathis see prices in **₹**, based on real street-repair rates in Indian cities. The PayPal sandbox settles in **USD**, so every total also shows the exact amount PayPal holds and captures, at ₹85 = $1 (`INR_PER_USD` in `lib/pricing.ts`). The Admin console and PayPal records stay in USD so they match the sandbox dashboard.
 - **Shared demo account:** there is no login, so everyone testing the hosted demo sees the same customer ("Anita") and the same orders. Use *Reset demo data* in the Admin console for a clean start. The partner sign-in is a demo gate (code `sudhaar2026`); production would use per-partner accounts.
 - **Refund decisions are made by people:** customers raise issues in Resolve Hub; the AI recommends, and the support team approves in **Admin console → Resolve Hub**. Only the Repair Agent may auto-refund small amounts (up to $5), a limit enforced in code.
 - **Fair use:** AI endpoints are rate-limited per visitor so the public demo can't be used to burn AI credits.

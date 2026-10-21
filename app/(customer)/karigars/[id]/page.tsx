@@ -1,9 +1,10 @@
 "use client";
 
+import { rupees } from "@/components/Inr";
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { ArrowRight, BadgeCheck, Briefcase, Languages, MapPin, Quote, Star } from "lucide-react";
-import { api, money } from "@/components/api";
+import { api } from "@/components/api";
 import { NeighbourhoodMap } from "@/components/NeighbourhoodMap";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -95,7 +96,7 @@ export default function KarigarProfile({ params }: { params: Promise<{ id: strin
             {k.services.map((s) => (
               <p key={s.name} className="flex justify-between border-b border-border pb-2 text-sm last:border-0">
                 <span>{s.name}</span>
-                <span className="font-semibold">{money(s.price)}</span>
+                <span className="font-semibold">{rupees(s.price)}</span>
               </p>
             ))}
             <p className="text-xs text-muted-foreground">Final price is confirmed after inspection. Any change needs your approval.</p>

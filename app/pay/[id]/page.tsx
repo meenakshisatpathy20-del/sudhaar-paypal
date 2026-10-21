@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { BadgeCheck, HeartHandshake, ShieldCheck } from "lucide-react";
-import { api, money } from "@/components/api";
+import { api } from "@/components/api";
 import { HomeHeart } from "@/components/Doodles";
 import { Logo } from "@/components/Logo";
-import { Inr } from "@/components/Inr";
+import { rupees, rupeeTotal, UsdNote } from "@/components/Inr";
 import { PayPalCheckout } from "@/components/PayPalCheckout";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ export default function FamilyPayPage({ params }: { params: Promise<{ id: string
   if (!data) return null;
   const { order, karigar } = data;
   const fp = order.familyPay;
+  const repairs = order.jobs?.length ? order.jobs.map((j) => j.price) : [order.repairCharge];
   const expired = order.status === "cancelled";
   const paid = !expired && order.status !== "awaiting_payment";
 
@@ -56,23 +57,23 @@ export default function FamilyPayPage({ params }: { params: Promise<{ id: string
           <div className="space-y-1 text-sm">
             <p className="flex justify-between">
               <span className="text-muted-foreground">Repair</span>
-              <span>{money(order.repairCharge)}</span>
+              <span>{rupeeTotal(...repairs)}</span>
             </p>
             <p className="flex justify-between">
               <span className="text-muted-foreground">Doorstep pickup & delivery</span>
-              <span>{money(order.pickupFee)}</span>
+              <span>{rupees(order.pickupFee)}</span>
             </p>
             {order.donation > 0 && (
               <p className="flex justify-between">
                 <span className="text-muted-foreground">Karigar tool fund</span>
-                <span>{money(order.donation)}</span>
+                <span>{rupees(order.donation)}</span>
               </p>
             )}
             <p className="flex justify-between border-t border-border pt-1 font-semibold">
               <span>Total</span>
               <span className="text-right">
-                <span className="block font-display text-lg">{money(order.total)}</span>
-                <Inr usd={order.total} />
+                <span className="block font-display text-lg">{rupeeTotal(...repairs, order.pickupFee, order.donation)}</span>
+                <UsdNote usd={order.total} />
               </span>
             </p>
           </div>
