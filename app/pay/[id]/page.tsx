@@ -21,7 +21,9 @@ export default function FamilyPayPage({ params }: { params: Promise<{ id: string
   const load = useCallback(() => {
     api<{ order: Order; karigar?: Karigar }>(`/api/orders/${id}`).then(setData).catch((e) => setError(e.message));
   }, [id]);
-  useEffect(load, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   if (error) return <p className="p-6 text-destructive">{error}</p>;
   if (!data) return null;

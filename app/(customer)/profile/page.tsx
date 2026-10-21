@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight, Handshake, Leaf, MapPin, PiggyBank, ShieldCheck, Volume2, Wrench } from "lucide-react";
+import { Handshake, Leaf, MapPin, PiggyBank, ShieldCheck, Volume2, Wrench } from "lucide-react";
 import { api, money } from "@/components/api";
 import { LangToggle } from "@/components/LangToggle";
 import { useLang } from "@/components/LanguageProvider";
@@ -84,13 +83,7 @@ export default function Profile() {
             </span>
             <ModeBadges />
           </div>
-          <Link href="/partner" className="flex items-center justify-between p-4 text-sm font-medium hover:bg-muted">
-            <span>
-              {t("partners")}
-              <span className="block text-xs text-muted-foreground">{t("partnersSub")}</span>
-            </span>
-            <ArrowRight className="size-4 text-primary" />
-          </Link>
+
         </CardContent>
       </Card>
     </div>

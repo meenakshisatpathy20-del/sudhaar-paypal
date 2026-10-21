@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 const APPS = [
   { href: "/saathi", icon: Bike, title: "Repair Saathi app", who: "Local students & youth", text: "Pickups and deliveries with OTP handover. Earn 75% of every pickup fee, paid instantly by PayPal Payouts." },
   { href: "/karigar", icon: Hammer, title: "Karigar app", who: "Verified repairers", text: "Accept jobs, upload the after photo for the AI check, and get 90% of the repair charge the moment it's delivered." },
-  { href: "/admin", icon: LayoutDashboard, title: "Operations dashboard", who: "Sudhaar team", text: "Every PayPal hold, capture, payout, invoice, refund and webhook, plus impact metrics, in AG Grid." },
+  { href: "/admin", icon: LayoutDashboard, title: "Admin console", who: "Sudhaar team", text: "Manage customers, karigars and Saathis, every order and PayPal transaction, and approve Resolve Hub refunds. Built on AG Grid." },
 ];
 
 export default function PartnerHub() {
@@ -14,8 +14,7 @@ export default function PartnerHub() {
       <div className="max-w-2xl">
         <h1 className="text-3xl font-bold">Sudhaar partner apps</h1>
         <p className="mt-2 text-muted-foreground">
-          In production these are separate apps for karigars, Saathis and the operations team. They live here so judges can play every role in one demo. Book a repair in
-          the customer app, then open these in other tabs.
+          Separate from the customer app: karigars, Saathis and the Sudhaar team sign in here. Judges can play every role in one demo: book a repair in the customer app, then open these in another tab.
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-3">

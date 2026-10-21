@@ -68,7 +68,7 @@ Many parents live alone while their children work in other cities. A parent book
 - **Item Passport**: every repaired item gets a "second life" card with money saved and waste avoided.
 - **Karigar profiles** (craft, years of experience, languages, reviews, price list) and a **neighbourhood repair map**.
 - Warm, hand-drawn **doodle illustrations** with a light **three.js** scene, designed for everyday phones.
-- A **customer app** (Home · My Repairs · Talk · Profile) kept separate from the **partner apps** (Saathi, Karigar, Operations), the way real marketplaces work.
+- A **customer app** (Home · My Repairs · Talk · Profile) kept separate from the **partner side** (Saathi app, Karigar app, Admin console) behind a staff sign-in, the way real marketplaces work.
 
 ## How PayPal is used
 
@@ -106,7 +106,7 @@ I'm a solo participant, a 3rd-year Computer Science student.
 
 ## Sponsor tools
 
-- **AG Grid**: the operations dashboard at `/admin` (in the partner apps) (orders, payouts, karigars, PayPal webhooks) with sorting, filtering and pagination.
+- **AG Grid**: the Admin console at `/admin` (partner side) (orders, payouts, karigars, PayPal webhooks) with sorting, filtering and pagination.
 - **Render**: one-click deploy via [`render.yaml`](render.yaml).
 - **Postman**: [`postman/Sudhaar.postman_collection.json`](postman/Sudhaar.postman_collection.json) drives the whole flow through the API.
 
@@ -116,13 +116,13 @@ I'm a solo participant, a 3rd-year Computer Science student.
 
 1. **Home** → tap a category (e.g. *Mixer & fan*), type or **speak** the problem (🎤, Hindi or English) or upload a photo → **Get AI quote** → see the **Fix-or-Replace meter**.
 2. **Choose your karigar** (list or map) → **Book & pay with PayPal** → pay with the sandbox buyer. The status becomes **"Paid · on hold"** (authorization id shown) and live tracking starts.
-3. Open the **partner apps** (footer link *For karigars, Saathis & judges*, or `/partner`) in another tab → **Saathi app** → enter the **pickup OTP** shown on the order page → *Handed to karigar*.
+3. In another tab open **`/partner`** and sign in with the demo access code **`sudhaar2026`** (the partner side is kept out of the customer app) → **Saathi app** → enter the **pickup OTP** shown on the order page → *Handed to karigar*.
 4. **Karigar app** → *Inspect & start repair* → upload an after photo → **Mark repaired** (the AI completion check runs).
 5. **Saathi app** → *Collect from karigar & go* → enter the **delivery OTP** → PayPal **captures**, sends **payouts** and issues the **invoice**. The order page shows the ids and an **Item Passport**.
-6. Order page → **Resolve Hub** → *Report an issue* → AI recommends an action → **Approve PayPal refund**.
+6. Order page → **Resolve Hub** → *Report an issue* → AI recommends an action → in the **Admin console → Resolve Hub** tab, **Approve PayPal refund** → the customer's order shows the refund.
 7. **Ghar Safai Mode** (home page banner) → add 2–3 items (e.g. *school bag zip*, *chappal sole*, *mixer blade*) → see the one-trip saving → **Review & pay once**. Optionally tick **Someone else pays**, enter a name and open the shared `/pay/…` link to pay as the family member. In the Karigar app, switch between karigars to repair each one's items; after delivery the order shows **one capture and one payout per karigar**.
 8. **Talk** tab → tap the mic or type "My school bag zip broke. Get it fixed under $5." → approve the PayPal payment inside the chat. Replies are read aloud.
-9. **Operations** (partner apps) → AG Grid views of orders, payouts, karigars and PayPal webhooks. *Reset demo data* clears orders.
+9. **Admin console** (partner side) → AG Grid views of **orders, customers, karigars, Saathis, payouts and PayPal webhooks**, plus the **Resolve Hub** queue where refunds are approved. *Reset demo data* clears orders.
 
 ## Run it locally
 
@@ -161,7 +161,7 @@ The app also runs with an **empty `.env`**: PayPal and AI calls are then simulat
 ```
 app/(customer)/     Customer app: home, fix flow, ghar-safai (basket), orders/[id] tracking, repairs, talk (agent), profile, karigars/[id]
 app/pay/[id]        Family Pay page the family member opens to pay with PayPal
-app/(partner)/      Partner apps: partner hub, saathi, karigar, admin (AG Grid)
+app/(partner)/      Partner side (staff sign-in): partner hub, saathi, karigar, admin console (AG Grid)
 app/api/            quote, baskets, orders (+approve/action/complaint/resolve), agent, karigars, admin, uploads, paypal/webhook
 components/         UI (shadcn/ui components, doodles, three.js hero, PayPal SDK v6 checkout, voice, map, Family Pay, Fix-or-Replace meter…)
 lib/
@@ -178,8 +178,8 @@ scripts/            PayPal sandbox smoke test
 
 ## Notes
 - Prices are in **USD** because the demo runs on the PayPal sandbox; they mirror real street-repair rates in Indian cities, and the app shows an approximate **₹ value** next to key prices (≈ ₹85 = $1).
-- **Shared demo account:** there is no login, so everyone testing the hosted demo sees the same customer ("Anita") and the same orders. Use *Reset demo data* in Operations for a clean start.
-- **Refund decisions are made by people:** customers raise issues in Resolve Hub; the AI recommends, and the support team approves in **Operations → Resolve Hub**. Only the Repair Agent may auto-refund small amounts (up to $5), a limit enforced in code.
+- **Shared demo account:** there is no login, so everyone testing the hosted demo sees the same customer ("Anita") and the same orders. Use *Reset demo data* in the Admin console for a clean start. The partner sign-in is a demo gate (code `sudhaar2026`); production would use per-partner accounts.
+- **Refund decisions are made by people:** customers raise issues in Resolve Hub; the AI recommends, and the support team approves in **Admin console → Resolve Hub**. Only the Repair Agent may auto-refund small amounts (up to $5), a limit enforced in code.
 - **Fair use:** AI endpoints are rate-limited per visitor so the public demo can't be used to burn AI credits.
 - Uploaded photos are stored on the server's disk; on free hosting they reset when the server restarts.
 - Data lives in a JSON file (`data/db.json`) that is re-seeded automatically, so a fresh deploy always works.

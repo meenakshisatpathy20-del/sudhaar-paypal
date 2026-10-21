@@ -15,7 +15,9 @@ export function MicButton({ onText, onFinal, className, size = "md" }: { onText:
   const stopRef = useRef<() => void>(() => {});
   const lastText = useRef("");
 
-  useEffect(() => setSupported(speechSupported()), []);
+  useEffect(() => {
+    setSupported(speechSupported());
+  }, []);
 
   function toggle() {
     if (listening) {
