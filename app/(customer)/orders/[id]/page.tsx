@@ -5,6 +5,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import { BadgeCheck, ChevronDown, LifeBuoy, Leaf, PiggyBank, Receipt, ShieldCheck, Sparkles, XCircle } from "lucide-react";
 import { api, money } from "@/components/api";
 import { EventLog } from "@/components/EventLog";
+import { FamilyPayShare } from "@/components/FamilyPay";
 import { NeighbourhoodMap } from "@/components/NeighbourhoodMap";
 import { PayPalCheckout } from "@/components/PayPalCheckout";
 import { PhotoPicker } from "@/components/PhotoPicker";
@@ -21,7 +22,7 @@ import { AVG_ITEM_KG } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import type { Complaint, Karigar, Order, OrderStatus, Quote, Saathi } from "@/lib/types";
 
-type Data = { order: Order; karigar?: Karigar; saathi?: Saathi; quote?: Quote };
+type Data = { order: Order; karigar?: Karigar; saathi?: Saathi; quote?: Quote; jobKarigars?: Record<string, { name: string; shop: string; avatarColor: string }> };
 
 const ISSUES: { id: Complaint["issue"]; label: string }[] = [
   { id: "repair_failed", label: "Repair failed" },
@@ -39,6 +40,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
+  const [payMyself, setPayMyself] = useState(false);
 
   const load = useCallback(() => {
     api<Data>(`/api/orders/${id}`)
@@ -60,7 +62,13 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const { order, karigar, saathi, quote } = data;
   const captured = Boolean(order.paypal.captureId);
   const refunded = order.paypal.refunds.reduce((s, r) => s + r.amount, 0);
-  const saved = quote && quote.newPrice > 0 ? Math.max(0, quote.newPrice - order.repairCharge) : 0;
+  const saved = order.jobs?.length
+    ? order.jobs.reduce((s, j) => s + Math.max(0, j.newPrice - j.price), 0)
+    : quote && quote.newPrice > 0
+      ? Math.max(0, quote.newPrice - order.repairCharge)
+      : 0;
+  const keptKg = order.jobs?.length ? order.jobs.reduce((s, j) => s + AVG_ITEM_KG[j.category], 0) : AVG_ITEM_KG[order.category];
+  const jobKarigars = Object.entries(data.jobKarigars ?? {});
 
   return (
     <div className="grid gap-5 lg:grid-cols-[1.15fr_1fr]">
@@ -83,8 +91,21 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
               <StatusPill status={order.status} />
             </div>
             {order.status !== "cancelled" && <Progress value={STATUS_PROGRESS[order.status]} />}
-            {karigar && (
-              <Link href={`/karigars/${karigar.id}`} className="flex items-center gap-3 rounded-2xl bg-white/[0.04] p-3 ring-1 ring-white/10 hover:bg-white/[0.07]">
+            {order.kind === "basket" && jobKarigars.length > 0 && (
+              <div className="flex items-center gap-3 rounded-2xl bg-muted/60 p-3 ring-1 ring-border">
+                <div className="flex -space-x-3">
+                  {jobKarigars.map(([id, k]) => (
+                    <Avatar key={id} name={k.name} color={k.avatarColor} className="size-10 ring-2 ring-card" />
+                  ))}
+                </div>
+                <p className="min-w-0 text-xs text-muted-foreground">
+                  <b className="text-foreground">{jobKarigars.length} karigars</b> · {jobKarigars.map(([, k]) => k.shop).join(", ")}
+                  {saathi ? ` · Saathi: ${saathi.name}` : ""}
+                </p>
+              </div>
+            )}
+            {karigar && order.kind !== "basket" && (
+              <Link href={`/karigars/${karigar.id}`} className="flex items-center gap-3 rounded-2xl bg-muted/60 p-3 ring-1 ring-border hover:bg-muted">
                 <Avatar name={karigar.name} color={karigar.avatarColor} />
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1 font-semibold">
@@ -104,10 +125,22 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             <CardContent className="space-y-3">
               <h2 className="text-lg font-bold">Pay securely with PayPal</h2>
               <Breakdown order={order} />
-              <p className="flex gap-2 rounded-2xl bg-[#0070e0]/10 p-3 text-xs text-[#9cc9ff]">
+              <p className="flex gap-2 rounded-2xl bg-[#0070e0]/10 p-3 text-xs text-paypal-blue">
                 <ShieldCheck className="size-4 shrink-0" /> Your money is authorized and held, not taken. PayPal captures it only after you share the delivery OTP. Cancel before pickup and the hold is released.
               </p>
-              <PayPalCheckout orderId={order.id} paypalOrderId={order.paypal.orderId} total={order.total} onApproved={load} />
+              {order.familyPay && !payMyself ? (
+                <div className="space-y-3 rounded-2xl bg-teal/10 p-3 ring-1 ring-teal/30">
+                  <p className="text-sm">
+                    Waiting for <b>{order.familyPay.name}</b> ({order.familyPay.relation}) to pay. Send them the link: they approve it with their own PayPal from anywhere.
+                  </p>
+                  <FamilyPayShare orderId={order.id} name={order.familyPay.name} item={order.item} total={money(order.total)} />
+                  <button className="text-xs font-semibold text-primary underline" onClick={() => setPayMyself(true)}>
+                    Or pay yourself
+                  </button>
+                </div>
+              ) : (
+                <PayPalCheckout orderId={order.id} paypalOrderId={order.paypal.orderId} total={order.total} onApproved={load} />
+              )}
             </CardContent>
           </Card>
         )}
@@ -148,7 +181,33 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           </Card>
         )}
 
-        {(order.beforePhoto || order.afterPhoto) && (
+        {order.kind === "basket" && order.jobs && (
+          <Card>
+            <CardContent className="space-y-3">
+              <h2 className="font-bold">🪔 Ghar Safai basket · {order.jobs.length} items</h2>
+              <ul className="space-y-2">
+                {order.jobs.map((j) => {
+                  const jk = data.jobKarigars?.[j.karigarId];
+                  return (
+                    <li key={j.id} className="flex items-center gap-3 rounded-2xl bg-muted/50 p-2.5 ring-1 ring-border">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      {j.afterPhoto || j.beforePhoto ? <img src={`/api/uploads/${j.afterPhoto ?? j.beforePhoto}`} alt="" className="size-11 rounded-xl object-cover" /> : <Avatar name={jk?.name ?? "K"} color={jk?.avatarColor} className="size-11" />}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">{j.item}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {jk?.shop} · {money(j.price)}
+                        </p>
+                      </div>
+                      <Badge variant={j.status === "repaired" ? "solid" : j.status === "repairing" ? "gold" : "outline"}>{j.status}</Badge>
+                    </li>
+                  );
+                })}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
+
+        {order.kind !== "basket" && (order.beforePhoto || order.afterPhoto) && (
           <Card>
             <CardContent className="space-y-3">
               <h2 className="font-bold">Before & after</h2>
@@ -166,17 +225,17 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
         )}
 
         {order.status === "paid_out" && (
-          <Card className="relative overflow-hidden bg-gradient-to-br from-primary/15 via-transparent to-gold/10">
+          <Card className="relative overflow-hidden bg-gradient-to-br from-marigold/15 via-card to-teal/10">
             <CardContent className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-widest text-gold">Item Passport · second life</p>
               <h2 className="text-xl font-bold">{order.item}</h2>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <Stat icon={PiggyBank} v={money(saved)} l="saved" />
-                <Stat icon={Leaf} v={`${AVG_ITEM_KG[order.category]} kg`} l="kept from landfill" />
+                <Stat icon={Leaf} v={`${keptKg.toFixed(1)} kg`} l="kept from landfill" />
                 <Stat icon={BadgeCheck} v="15 days" l="warranty" />
               </div>
               <p className="text-xs text-muted-foreground">
-                Fixed by {karigar?.name} on {new Date(order.events.findLast((e) => e.status === "paid_out")?.at ?? order.createdAt).toLocaleDateString()}.
+                Fixed by {order.kind === "basket" ? jobKarigars.map(([, k]) => k.name.split(" ")[0]).join(", ") : karigar?.name} on {new Date(order.events.findLast((e) => e.status === "paid_out")?.at ?? order.createdAt).toLocaleDateString()}.
               </p>
             </CardContent>
           </Card>
@@ -211,10 +270,10 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
               </Button>
             )}
             {order.payouts.length > 0 && (
-              <div className="space-y-1 rounded-2xl bg-white/[0.03] p-3 text-xs ring-1 ring-white/10">
+              <div className="space-y-1 rounded-2xl bg-muted/50 p-3 text-xs ring-1 ring-border">
                 <p className="mb-1 font-semibold">Instant split via PayPal Payouts</p>
                 {order.payouts.map((p) => (
-                  <Row key={p.to} k={p.to === "karigar" ? "Karigar (90% of repair)" : "Saathi (75% of pickup)"} v={`${money(p.amount)} · ${p.status}`} />
+                  <Row key={`${p.to}-${p.label ?? ""}`} k={p.to === "karigar" ? `${p.label ?? "Karigar"} (90% of repair)` : `${p.label ?? "Saathi"} (75% of pickup)`} v={`${money(p.amount)} · ${p.status}`} />
                 ))}
                 <Row k="Sudhaar" v={money(order.split.platform)} />
                 {order.donation > 0 && <Row k="Karigar tool fund" v={money(order.donation)} />}
@@ -247,9 +306,9 @@ function Breakdown({ order }: { order: Order }) {
   return (
     <div className="space-y-1.5">
       <Row k="Repair" v={money(order.repairCharge)} />
-      <Row k={order.mode === "pickup" ? `Pickup & delivery (${order.distanceKm} km)` : "Home visit"} v={money(order.pickupFee)} />
+      <Row k={order.kind === "basket" ? "One Saathi trip for everything" : order.mode === "pickup" ? `Pickup & delivery (${order.distanceKm} km)` : "Home visit"} v={money(order.pickupFee)} />
       {order.donation > 0 && <Row k="Karigar tool fund" v={money(order.donation)} />}
-      <div className="flex justify-between border-t border-white/10 pt-1.5 font-semibold">
+      <div className="flex justify-between border-t border-border pt-1.5 font-semibold">
         <span>Total</span>
         <span>{money(order.total)}</span>
       </div>
@@ -278,7 +337,7 @@ function Ref({ k, v }: { k: string; v?: string }) {
 
 function Stat({ icon: Icon, v, l }: { icon: React.ComponentType<{ className?: string }>; v: string; l: string }) {
   return (
-    <div className="rounded-2xl bg-white/[0.04] p-3 ring-1 ring-white/10">
+    <div className="rounded-2xl bg-muted/60 p-3 ring-1 ring-border">
       <Icon className="mx-auto size-4 text-gold" />
       <p className="mt-1 font-display text-lg font-bold">{v}</p>
       <p className="text-[10px] text-muted-foreground">{l}</p>
@@ -303,9 +362,9 @@ function Photo({ label, file }: { label: string; file?: string }) {
     <figure>
       {file ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={`/api/uploads/${file}`} alt={label} className="aspect-square w-full rounded-2xl object-cover ring-1 ring-white/10" />
+        <img src={`/api/uploads/${file}`} alt={label} className="aspect-square w-full rounded-2xl object-cover ring-1 ring-border" />
       ) : (
-        <div className="grid aspect-square w-full place-items-center rounded-2xl bg-white/[0.03] text-xs text-muted-foreground ring-1 ring-white/10">No photo</div>
+        <div className="grid aspect-square w-full place-items-center rounded-2xl bg-muted/50 text-xs text-muted-foreground ring-1 ring-border">No photo</div>
       )}
       <figcaption className="mt-1 text-xs text-muted-foreground">{label}</figcaption>
     </figure>
@@ -367,12 +426,12 @@ function ResolveHub({ order, refunded, onChange }: { order: Order; refunded: num
               <SheetDescription>AI reviews your complaint, the bill and the photos, then suggests a fair fix.</SheetDescription>
               <div className="flex flex-wrap gap-1.5">
                 {ISSUES.map((i) => (
-                  <button key={i.id} onClick={() => setIssue(i.id)} className={cn("rounded-full px-3 py-1 text-xs font-semibold ring-1", issue === i.id ? "bg-primary text-primary-foreground ring-primary" : "ring-white/15")}>
+                  <button key={i.id} onClick={() => setIssue(i.id)} className={cn("rounded-full px-3 py-1 text-xs font-semibold ring-1", issue === i.id ? "bg-primary text-primary-foreground ring-primary" : "ring-border")}>
                     {i.label}
                   </button>
                 ))}
               </div>
-              <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.03] p-3 text-xs">
+              <div className="rounded-2xl border border-dashed border-border bg-muted/50 p-3 text-xs">
                 <p className="font-semibold">Bill attached automatically</p>
                 <p className="text-muted-foreground">
                   Invoice <span className="font-mono">{order.paypal.invoiceId ?? "pending"}</span> · capture <span className="font-mono">{order.paypal.captureId}</span> · paid {money(order.total)}
@@ -390,7 +449,7 @@ function ResolveHub({ order, refunded, onChange }: { order: Order; refunded: num
         </div>
 
         {order.complaints.map((c) => (
-          <div key={c.id} className="space-y-2 rounded-2xl bg-white/[0.03] p-3 text-sm ring-1 ring-white/10">
+          <div key={c.id} className="space-y-2 rounded-2xl bg-muted/50 p-3 text-sm ring-1 ring-border">
             <p className="font-semibold">
               {ISSUES.find((i) => i.id === c.issue)?.label} <span className="font-mono text-xs text-muted-foreground">{c.id}</span>
             </p>
@@ -410,7 +469,7 @@ function ResolveHub({ order, refunded, onChange }: { order: Order; refunded: num
                 {c.resolution.amount ? ` ${money(c.resolution.amount)}` : ""} {c.resolution.refundId && <span className="font-mono">({c.resolution.refundId})</span>}
               </p>
             ) : (
-              <div className="space-y-1.5 rounded-xl bg-black/20 p-2">
+              <div className="space-y-1.5 rounded-xl bg-muted p-2">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Support desk</p>
                 <div className="flex flex-wrap gap-1.5">
                   {c.ai && c.ai.refundAmount > 0 && (

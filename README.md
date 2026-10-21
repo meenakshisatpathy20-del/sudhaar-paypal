@@ -55,12 +55,19 @@ sequenceDiagram
 ### Repair Agent (agentic commerce)
 `/agent` is a Claude tool-use agent that **acts for the customer**: *"My mixer jar blade is loose, get it fixed under $8 by Friday."* It quotes the job (with vision if a photo is attached), picks the karigar against the budget and deadline, **books it and creates the PayPal order**, tracks status, files warranty claims and **issues refunds up to a $5 policy limit that is enforced in code**. It uses **PayPal Agent Toolkit** tools for PayPal lookups (orders, invoices, refunds, transactions, disputes). The customer approves every payment in the PayPal popup, so the agent can never spend money on its own.
 
+### 🪔 Ghar Safai Mode (my favourite feature)
+Born from my mother's Diwali cleaning: walk around the house and snap every broken thing (a bag zip, a chappal, the mixer). Claude quotes each item, the best karigar is picked for each, **one Repair Saathi collects everything in one trip** (cheaper than separate pickups), and the customer makes **one PayPal payment**. On delivery PayPal captures it once and **Payouts splits it to every karigar for their own items** plus the Saathi. Each karigar repairs only their items in the Karigar app, with an AI photo check per item.
+
+### 💞 Family Pay
+Many parents live alone while their children work in other cities. A parent books the repair (even by voice), picks *Someone else pays*, and shares a WhatsApp link. The son or daughter opens `/pay/<order>` and **approves the PayPal payment from their own account**. The money is still only held until the item is back home.
+
 ### Built for real people
 - **Talk to Sudhaar**: speak in **Hindi or English** (browser speech recognition, hi-IN / en-IN) and the agent's replies are **read aloud**, for elderly users and karigars who don't type.
 - **English / हिंदी** toggle across the customer app.
 - **Fix-or-Replace meter**: shows how much of the new price a repair saves.
 - **Item Passport**: every repaired item gets a "second life" card with money saved and waste avoided.
 - **Karigar profiles** (craft, years of experience, languages, reviews, price list) and a **neighbourhood repair map**.
+- Warm, hand-drawn **doodle illustrations** with a light **three.js** scene, designed for everyday phones.
 - A **customer app** (Home · My Repairs · Talk · Profile) kept separate from the **partner apps** (Saathi, Karigar, Operations), the way real marketplaces work.
 
 ## How PayPal is used
@@ -72,7 +79,7 @@ All calls go to the PayPal **sandbox**. Every PayPal id appears on the order pag
 | **JavaScript SDK v6** (`paypal-payments`, `<paypal-button>`) | [`components/PayPalCheckout.tsx`](components/PayPalCheckout.tsx) | Checkout popup on the order page and inside the agent chat |
 | **Orders v2, intent `AUTHORIZE`** | [`lib/paypal.ts`](lib/paypal.ts) `createAuthorizeOrder`, `authorizeOrder` | Holds the customer's money at booking, works like escrow |
 | **Payments v2 capture / void** | `captureAuthorization`, `voidAuthorization` | Captures only after the delivery OTP; voids if the customer cancels before pickup |
-| **Payouts v1** | `sendPayouts` | Instant split to the karigar and the Saathi the moment the job is confirmed |
+| **Payouts v1** | `sendPayouts` | Instant split to the karigar(s) and the Saathi the moment the job is confirmed. A Ghar Safai basket pays several karigars from one payment |
 | **Invoicing v2** | `createPaidInvoice` | Generates, sends and marks paid a PayPal invoice: the "digital bill" used by Resolve Hub |
 | **Refunds (Payments v2)** | `refundCapture` | Partial or full refunds from Resolve Hub (support desk or agent within limit) |
 | **Webhooks** | [`app/api/paypal/webhook/route.ts`](app/api/paypal/webhook/route.ts) | Verifies signatures (`verify-webhook-signature`) and logs events on the order |
@@ -113,8 +120,9 @@ I'm a solo participant, a 3rd-year Computer Science student.
 4. **Karigar app** → *Inspect & start repair* → upload an after photo → **Mark repaired** (the AI completion check runs).
 5. **Saathi app** → *Collect from karigar & go* → enter the **delivery OTP** → PayPal **captures**, sends **payouts** and issues the **invoice**. The order page shows the ids and an **Item Passport**.
 6. Order page → **Resolve Hub** → *Report an issue* → AI recommends an action → **Approve PayPal refund**.
-7. **Talk** tab → tap the mic or type "My school bag zip broke. Get it fixed under $5." → approve the PayPal payment inside the chat. Replies are read aloud.
-8. **Operations** (partner apps) → AG Grid views of orders, payouts, karigars and PayPal webhooks. *Reset demo data* clears orders.
+7. **Ghar Safai Mode** (home page banner) → add 2–3 items (e.g. *school bag zip*, *chappal sole*, *mixer blade*) → see the one-trip saving → **Review & pay once**. Optionally tick **Someone else pays**, enter a name and open the shared `/pay/…` link to pay as the family member. In the Karigar app, switch between karigars to repair each one's items; after delivery the order shows **one capture and one payout per karigar**.
+8. **Talk** tab → tap the mic or type "My school bag zip broke. Get it fixed under $5." → approve the PayPal payment inside the chat. Replies are read aloud.
+9. **Operations** (partner apps) → AG Grid views of orders, payouts, karigars and PayPal webhooks. *Reset demo data* clears orders.
 
 ## Run it locally
 
@@ -151,10 +159,11 @@ The app also runs with an **empty `.env`**: PayPal and AI calls are then simulat
 ## Project structure
 
 ```
-app/(customer)/     Customer app: home, fix flow, orders/[id] tracking, repairs, talk (agent), profile, karigars/[id]
+app/(customer)/     Customer app: home, fix flow, ghar-safai (basket), orders/[id] tracking, repairs, talk (agent), profile, karigars/[id]
+app/pay/[id]        Family Pay page the family member opens to pay with PayPal
 app/(partner)/      Partner apps: partner hub, saathi, karigar, admin (AG Grid)
-app/api/            quote, orders (+approve/action/complaint/resolve), agent, karigars, admin, uploads, paypal/webhook
-components/         UI (shadcn/ui components, three.js hero, PayPal SDK v6 checkout, voice, map, Fix-or-Replace meter…)
+app/api/            quote, baskets, orders (+approve/action/complaint/resolve), agent, karigars, admin, uploads, paypal/webhook
+components/         UI (shadcn/ui components, doodles, three.js hero, PayPal SDK v6 checkout, voice, map, Family Pay, Fix-or-Replace meter…)
 lib/
   paypal.ts         PayPal REST client (Orders, Payments, Payouts, Invoicing, Webhooks)
   ai.ts             Claude: quote, completion check, complaint review

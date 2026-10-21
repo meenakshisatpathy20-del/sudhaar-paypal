@@ -89,6 +89,8 @@ export interface OrderEvent {
 
 export interface PayoutLine {
   to: "karigar" | "saathi";
+  /** Who received it (shop or Saathi name), for baskets paying several karigars. */
+  label?: string;
   receiver: string;
   amount: number;
   status: string;
@@ -115,8 +117,38 @@ export interface Complaint {
   };
 }
 
+/** One item inside a Ghar Safai basket order. */
+export interface Job {
+  id: string;
+  quoteId: string;
+  item: string;
+  category: Category;
+  size: ItemSize;
+  issue: string;
+  karigarId: string;
+  price: number;
+  newPrice: number;
+  beforePhoto?: string;
+  afterPhoto?: string;
+  status: "waiting" | "repairing" | "repaired";
+  completionCheck?: { passed: boolean; reasoning: string; source: "claude" | "simulated" };
+}
+
+/** Family Pay: someone else (e.g. a son in another city) approves the PayPal payment. */
+export interface FamilyPay {
+  name: string;
+  relation: string;
+  email?: string;
+  paidBy?: string;
+  paidAt?: string;
+}
+
 export interface Order {
   id: string;
+  /** "basket" = Ghar Safai Mode: several items, one pickup, one PayPal payment. */
+  kind?: "single" | "basket";
+  jobs?: Job[];
+  familyPay?: FamilyPay;
   createdAt: string;
   status: OrderStatus;
   quoteId: string;

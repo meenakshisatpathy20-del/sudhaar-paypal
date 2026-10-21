@@ -30,9 +30,9 @@ export function Timeline({ order }: { order: Order }) {
         const at = order.events.findLast((e) => e.status === s.status)?.at;
         return (
           <li key={s.status} className="relative flex items-start gap-3">
-            {i < steps.length - 1 && <span className={`absolute left-[11px] top-6 h-[calc(100%-4px)] w-0.5 ${done && i < currentIdx ? "bg-primary" : "bg-white/10"}`} />}
-            <span className={`relative z-10 grid size-6 shrink-0 place-items-center rounded-full ${done ? "bg-primary text-primary-foreground" : "bg-white/5 ring-1 ring-white/15"}`}>
-              {done ? <Check className="size-3.5" /> : <span className="size-1.5 rounded-full bg-white/30" />}
+            {i < steps.length - 1 && <span className={`absolute left-[11px] top-6 h-[calc(100%-4px)] w-0.5 ${done && i < currentIdx ? "bg-primary" : "bg-muted"}`} />}
+            <span className={`relative z-10 grid size-6 shrink-0 place-items-center rounded-full ${done ? "bg-primary text-primary-foreground" : "bg-muted ring-1 ring-border"}`}>
+              {done ? <Check className="size-3.5" /> : <span className="size-1.5 rounded-full bg-muted-foreground/40" />}
               {current && <span className="absolute inset-0 rounded-full bg-primary/50" style={{ animation: "ping-soft 1.6s ease-out infinite" }} />}
             </span>
             <div className="flex-1 pt-0.5 text-sm">

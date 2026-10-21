@@ -70,10 +70,13 @@ export const paypalMode = () => (paypalEnabled() ? "sandbox" : "simulated") as "
 
 export async function createAuthorizeOrder(order: Order): Promise<{ id: string }> {
   if (!paypalEnabled()) return { id: sim("ORDER") };
+  const repairLines = order.jobs?.length
+    ? order.jobs.map((j) => ({ name: `Repair: ${j.item}`.slice(0, 127), quantity: "1", unit_amount: money(j.price), description: j.issue.slice(0, 127) }))
+    : [{ name: `Repair: ${order.item}`.slice(0, 127), quantity: "1", unit_amount: money(order.repairCharge), description: order.issue.slice(0, 127) }];
   const items = [
-    { name: `Repair: ${order.item}`.slice(0, 127), quantity: "1", unit_amount: money(order.repairCharge), description: order.issue.slice(0, 127) },
+    ...repairLines,
     {
-      name: order.mode === "pickup" ? `Doorstep pickup & delivery (${order.distanceKm} km)` : "Home visit fee",
+      name: order.kind === "basket" ? `One-trip Saathi pickup & delivery (${order.jobs?.length} items)` : order.mode === "pickup" ? `Doorstep pickup & delivery (${order.distanceKm} km)` : "Home visit fee",
       quantity: "1",
       unit_amount: money(order.pickupFee),
     },
@@ -189,7 +192,9 @@ export async function createPaidInvoice(order: Order, payerEmail: string): Promi
   if (!paypalEnabled()) return { invoiceId: sim("INV") };
   const next = await pp<{ invoice_number: string }>("/v2/invoicing/generate-next-invoice-number", { method: "POST" });
   const lines = [
-    { name: `Repair: ${order.item}`.slice(0, 200), description: order.issue.slice(0, 1000), quantity: "1", unit_amount: money(order.repairCharge) },
+    ...(order.jobs?.length
+      ? order.jobs.map((j) => ({ name: `Repair: ${j.item}`.slice(0, 200), description: j.issue.slice(0, 1000), quantity: "1", unit_amount: money(j.price) }))
+      : [{ name: `Repair: ${order.item}`.slice(0, 200), description: order.issue.slice(0, 1000), quantity: "1", unit_amount: money(order.repairCharge) }]),
     { name: order.mode === "pickup" ? "Doorstep pickup & delivery" : "Home visit fee", quantity: "1", unit_amount: money(order.pickupFee) },
   ];
   if (order.donation > 0) lines.push({ name: "Karigar tool fund (donation)", description: "", quantity: "1", unit_amount: money(order.donation) });

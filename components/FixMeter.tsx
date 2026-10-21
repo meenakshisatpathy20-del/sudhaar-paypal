@@ -11,18 +11,18 @@ export function FixMeter({ repairMid, newPrice }: { repairMid: number; newPrice:
   const score = newPrice > 0 ? Math.max(0, Math.min(1, 1 - repairMid / newPrice)) : 0.85;
   const angle = -90 + score * 180;
   const label = score >= 0.75 ? t("verdictRepair") : score >= 0.5 ? t("verdictWorth") : score >= 0.3 ? t("verdictBorder") : t("verdictReplace");
-  const color = score >= 0.5 ? "#2dd4bf" : score >= 0.3 ? "#fbbf24" : "#f87171";
+  const color = score >= 0.5 ? "#1f8a7a" : score >= 0.3 ? "#c97a08" : "#c2362f";
   return (
     <div className="flex flex-col items-center">
       <svg viewBox="0 0 200 116" className="w-full max-w-[240px]" aria-label={`${t("verdict")}: ${label}`}>
         <defs>
           <linearGradient id="meter" x1="0" x2="1">
-            <stop offset="0" stopColor="#f87171" />
-            <stop offset="0.45" stopColor="#fbbf24" />
-            <stop offset="1" stopColor="#2dd4bf" />
+            <stop offset="0" stopColor="#c2362f" />
+            <stop offset="0.45" stopColor="#f4a62a" />
+            <stop offset="1" stopColor="#1f8a7a" />
           </linearGradient>
         </defs>
-        <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#ffffff14" strokeWidth="14" strokeLinecap="round" />
+        <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#f1e2cc" strokeWidth="14" strokeLinecap="round" />
         <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#meter)" strokeWidth="14" strokeLinecap="round" strokeDasharray="251.3" strokeDashoffset={251.3 * (1 - score)} style={{ transition: "stroke-dashoffset 1s ease" }} />
         <g transform={`rotate(${angle} 100 100)`} style={{ transition: "transform 1s ease" }}>
           <line x1="100" y1="100" x2="100" y2="34" stroke={color} strokeWidth="3.5" strokeLinecap="round" />

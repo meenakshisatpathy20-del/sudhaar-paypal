@@ -24,7 +24,7 @@ export default function Profile() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <Card className="bg-gradient-to-br from-primary/15 to-transparent">
+      <Card className="bg-gradient-to-br from-primary/10 to-card">
         <CardContent className="flex items-center gap-4">
           <Avatar name={customer.name} color="#0f766e" className="size-16 text-lg" />
           <div>
@@ -47,7 +47,7 @@ export default function Profile() {
                 { icon: PiggyBank, v: money(impact.moneySaved), l: t("impactSaved") },
                 { icon: Handshake, v: money(impact.karigarEarnings), l: t("impactKarigar") },
               ].map((x) => (
-                <div key={x.l} className="rounded-2xl bg-white/[0.04] p-3 ring-1 ring-white/10">
+                <div key={x.l} className="rounded-2xl bg-muted/60 p-3 ring-1 ring-border">
                   <x.icon className="size-4 text-gold" />
                   <p className="mt-1 font-display text-xl font-bold">{x.v}</p>
                   <p className="text-[11px] leading-tight text-muted-foreground">{x.l}</p>
@@ -59,7 +59,7 @@ export default function Profile() {
       )}
 
       <Card>
-        <CardContent className="divide-y divide-white/10 p-0">
+        <CardContent className="divide-y divide-border p-0">
           <div className="flex items-center justify-between p-4">
             <span className="text-sm font-medium">{t("language")}</span>
             <LangToggle />
@@ -72,18 +72,18 @@ export default function Profile() {
               role="switch"
               aria-checked={speakReplies}
               onClick={() => setSpeakReplies(!speakReplies)}
-              className={cn("relative h-6 w-11 rounded-full transition", speakReplies ? "bg-primary" : "bg-white/15")}
+              className={cn("relative h-6 w-11 rounded-full transition", speakReplies ? "bg-primary" : "bg-input")}
             >
               <span className={cn("absolute top-0.5 size-5 rounded-full bg-white transition", speakReplies ? "left-[22px]" : "left-0.5")} />
             </button>
           </div>
           <div className="flex items-center justify-between p-4">
             <span className="flex items-center gap-2 text-sm font-medium">
-              <ShieldCheck className="size-4 text-[#7cb8ff]" /> Payments
+              <ShieldCheck className="size-4 text-[#0050b3]" /> Payments
             </span>
             <ModeBadges />
           </div>
-          <Link href="/partner" className="flex items-center justify-between p-4 text-sm font-medium hover:bg-white/[0.03]">
+          <Link href="/partner" className="flex items-center justify-between p-4 text-sm font-medium hover:bg-muted">
             <span>
               {t("partners")}
               <span className="block text-xs text-muted-foreground">{t("partnersSub")}</span>

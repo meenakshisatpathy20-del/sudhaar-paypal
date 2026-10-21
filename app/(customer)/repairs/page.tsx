@@ -50,7 +50,7 @@ export default function Repairs() {
             const k = data?.karigars[o.karigarId];
             return (
               <Link key={o.id} href={`/orders/${o.id}`}>
-                <Card className="transition hover:bg-white/[0.07]">
+                <Card className="transition hover:bg-muted">
                   <CardContent className="space-y-3">
                     <div className="flex items-center gap-3">
                       <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-primary/15 text-primary">
@@ -79,7 +79,7 @@ export default function Repairs() {
             const saved = q && q.newPrice > 0 ? Math.max(0, q.newPrice - o.repairCharge) : 0;
             return (
               <Link key={o.id} href={`/orders/${o.id}`}>
-                <Card className="relative h-full overflow-hidden bg-gradient-to-br from-primary/10 via-transparent to-gold/10 transition hover:-translate-y-0.5">
+                <Card className="relative h-full overflow-hidden bg-gradient-to-br from-marigold/15 via-card to-teal/10 transition hover:-translate-y-0.5">
                   <CardContent className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <div>
@@ -90,7 +90,7 @@ export default function Repairs() {
                       </div>
                       {q?.photo && (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={`/api/uploads/${o.afterPhoto ?? q.photo}`} alt="" className="size-14 rounded-xl object-cover ring-1 ring-white/10" />
+                        <img src={`/api/uploads/${o.afterPhoto ?? q.photo}`} alt="" className="size-14 rounded-xl object-cover ring-1 ring-border" />
                       )}
                     </div>
                     <div className="flex gap-4 text-sm">

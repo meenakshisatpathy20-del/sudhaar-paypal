@@ -21,7 +21,7 @@ export default function PartnerHub() {
       <div className="grid gap-4 md:grid-cols-3">
         {APPS.map((a) => (
           <Link key={a.href} href={a.href}>
-            <Card className="h-full transition hover:-translate-y-1 hover:bg-white/[0.07]">
+            <Card className="h-full transition hover:-translate-y-1 hover:bg-muted">
               <CardContent className="flex h-full flex-col gap-3">
                 <span className="grid size-12 place-items-center rounded-2xl bg-primary/15 text-primary">
                   <a.icon className="size-6" />

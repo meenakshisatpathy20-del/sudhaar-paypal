@@ -1,31 +1,31 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
-
-/* Sudhaar "night workshop" theme: deep ink, teal glow, marigold accent. */
+/* Sudhaar "neighbourhood shop" theme: cream paper, marigold, terracotta and a soft teal. */
 :root {
-  --radius: 0.9rem;
-  --background: #060a0a;
-  --foreground: #e9f2ef;
-  --card: #0d1514;
-  --card-foreground: #e9f2ef;
-  --popover: #0d1514;
-  --popover-foreground: #e9f2ef;
-  --primary: #2dd4bf;
-  --primary-foreground: #032421;
-  --secondary: #16201f;
-  --secondary-foreground: #e9f2ef;
-  --muted: #121b1a;
-  --muted-foreground: #8fa3a0;
-  --accent: #1a2625;
-  --accent-foreground: #e9f2ef;
-  --destructive: #f87171;
-  --border: #ffffff14;
-  --input: #ffffff1c;
-  --ring: #2dd4bf;
-  --gold: #fbbf24;
-  --gold-foreground: #2a1a00;
+  --radius: 1rem;
+  --background: #fff8ee;
+  --foreground: #2b1d14;
+  --card: #ffffff;
+  --card-foreground: #2b1d14;
+  --popover: #ffffff;
+  --popover-foreground: #2b1d14;
+  --primary: #d9572b;
+  --primary-foreground: #ffffff;
+  --secondary: #fbe9d3;
+  --secondary-foreground: #2b1d14;
+  --muted: #f7ecdd;
+  --muted-foreground: #7a6553;
+  --accent: #f7ecdd;
+  --accent-foreground: #2b1d14;
+  --destructive: #c2362f;
+  --border: #ecdcc6;
+  --input: #e6d3bb;
+  --ring: #d9572b;
+  --gold: #c97a08;
+  --gold-foreground: #ffffff;
+  --marigold: #f4a62a;
+  --teal: #1f8a7a;
   --paypal: #ffc439;
   --paypal-blue: #003087;
 }
@@ -51,6 +51,8 @@
   --color-ring: var(--ring);
   --color-gold: var(--gold);
   --color-gold-foreground: var(--gold-foreground);
+  --color-marigold: var(--marigold);
+  --color-teal: var(--teal);
   --color-paypal: var(--paypal);
   --color-paypal-blue: var(--paypal-blue);
   --radius-sm: calc(var(--radius) - 4px);
@@ -58,7 +60,7 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --font-sans: "Inter Variable", "Noto Sans Devanagari", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk Variable", "Noto Sans Devanagari", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Baloo 2 Variable", "Noto Sans Devanagari", ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -66,13 +68,13 @@
     @apply border-border outline-ring/50;
   }
   html {
-    color-scheme: dark;
+    color-scheme: light;
   }
   body {
     @apply bg-background text-foreground antialiased;
     background-image:
-      radial-gradient(60rem 40rem at 10% -10%, #2dd4bf14, transparent 60%),
-      radial-gradient(50rem 30rem at 100% 0%, #fbbf240d, transparent 60%);
+      radial-gradient(40rem 26rem at 0% 0%, #fde2c4 0%, transparent 60%),
+      radial-gradient(36rem 24rem at 100% 10%, #d8efe9 0%, transparent 60%);
     background-attachment: fixed;
   }
   h1, h2, h3 {
@@ -80,11 +82,9 @@
   }
 }
 
-@utility glass {
-  @apply border border-white/10 bg-white/[0.04] backdrop-blur-xl;
-}
-@utility text-glow {
-  text-shadow: 0 0 40px #2dd4bf55;
+/* White paper card with a soft warm shadow. */
+@utility paper {
+  @apply border border-border bg-card shadow-[0_6px_20px_-12px_rgba(120,70,20,0.35)];
 }
 @utility no-scrollbar {
   scrollbar-width: none;
@@ -95,10 +95,26 @@
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-6px); }
 }
-@keyframes ping-soft {
-  0% { transform: scale(1); opacity: 0.7; }
-  100% { transform: scale(2.4); opacity: 0; }
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(4deg); }
 }
-@keyframes dash {
+@keyframes ping-soft {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+@keyframes draw {
+  from { stroke-dashoffset: var(--len, 400); }
   to { stroke-dashoffset: 0; }
+}
+@keyframes flicker {
+  0%, 100% { transform: scaleY(1) translateY(0); opacity: 1; }
+  50% { transform: scaleY(1.12) translateY(-1px); opacity: 0.85; }
+}
+.doodle-wiggle { animation: wiggle 3.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.doodle-float { animation: float-slow 4s ease-in-out infinite; }
+.doodle-draw { stroke-dasharray: var(--len, 400); animation: draw 2.4s ease-out forwards; }
+.doodle-flame { animation: flicker 1.2s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
+@media (prefers-reduced-motion: reduce) {
+  .doodle-wiggle, .doodle-float, .doodle-draw, .doodle-flame { animation: none; stroke-dasharray: none; }
 }

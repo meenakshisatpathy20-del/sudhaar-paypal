@@ -3,20 +3,20 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AgGridReact } from "ag-grid-react";
-import { AllCommunityModule, colorSchemeDark, ModuleRegistry, themeQuartz, type ColDef, type ICellRendererParams } from "ag-grid-community";
+import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type ICellRendererParams } from "ag-grid-community";
 import { api, money } from "@/components/api";
 import { STATUS_LABEL } from "@/components/StatusPill";
 import type { Karigar, Order, Saathi } from "@/lib/types";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-const theme = themeQuartz.withPart(colorSchemeDark).withParams({
-  accentColor: "#2dd4bf",
-  backgroundColor: "#0b1312",
-  headerBackgroundColor: "#101b1a",
-  oddRowBackgroundColor: "#0d1615",
-  foregroundColor: "#e9f2ef",
-  borderColor: "#ffffff14",
+const theme = themeQuartz.withParams({
+  accentColor: "#d9572b",
+  backgroundColor: "#ffffff",
+  headerBackgroundColor: "#fbe9d3",
+  oddRowBackgroundColor: "#fffaf3",
+  foregroundColor: "#2b1d14",
+  borderColor: "#ecdcc6",
   fontSize: 13,
   borderRadius: 10,
   wrapperBorderRadius: 16,
@@ -145,7 +145,7 @@ export default function Admin() {
     [],
   );
 
-  if (!data) return <p className="glass rounded-2xl p-5 text-muted-foreground">Loading dashboard…</p>;
+  if (!data) return <p className="paper rounded-2xl p-5 text-muted-foreground">Loading dashboard…</p>;
   const i = data.impact;
 
   return (
@@ -156,7 +156,7 @@ export default function Admin() {
           <p className="text-sm text-muted-foreground">Every hold, capture, payout, invoice and refund, straight from PayPal.</p>
         </div>
         <button
-          className="rounded-xl px-3 py-2 text-xs font-semibold ring-1 ring-white/15 hover:bg-white/5"
+          className="rounded-xl px-3 py-2 text-xs font-semibold ring-1 ring-border hover:bg-muted"
           onClick={() => {
             if (confirm("Reset demo data? All orders will be removed.")) api("/api/reset", {}).then(load);
           }}
@@ -175,7 +175,7 @@ export default function Admin() {
           ["Refunded", money(i.refunds)],
           ["Tool fund", money(i.toolFund)],
         ].map(([k, v]) => (
-          <div key={k} className="glass rounded-2xl p-3">
+          <div key={k} className="paper rounded-2xl p-3">
             <p className="font-display text-xl font-bold text-primary">{v}</p>
             <p className="text-xs text-muted-foreground">{k}</p>
           </div>
@@ -183,7 +183,7 @@ export default function Admin() {
       </div>
       <div className="flex gap-1">
         {(["orders", "payouts", "karigars", "webhooks"] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-1.5 text-sm font-semibold capitalize ${tab === t ? "bg-primary text-primary-foreground" : "bg-white/[0.05] text-muted-foreground"}`}>
+          <button key={t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-1.5 text-sm font-semibold capitalize ${tab === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
             {t === "webhooks" ? "PayPal webhooks" : t}
           </button>
         ))}

@@ -5,6 +5,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, BadgeCheck, Clock, List, Map as MapIcon, Recycle, Sparkles, Star } from "lucide-react";
 import { api, money } from "@/components/api";
 import { CATEGORY_EXAMPLE } from "@/components/CategoryIcon";
+import { FamilyPayPicker, type FamilyPayValue } from "@/components/FamilyPay";
 import { FixMeter } from "@/components/FixMeter";
 import { useLang } from "@/components/LanguageProvider";
 import { MicButton } from "@/components/MicButton";
@@ -44,6 +45,7 @@ function Fix() {
   const [selected, setSelected] = useState<string | null>(null);
   const [donate, setDonate] = useState(true);
   const [booking, setBooking] = useState(false);
+  const [family, setFamily] = useState<FamilyPayValue>(null);
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const prefilled = useRef(false);
 
@@ -79,7 +81,7 @@ function Fix() {
     setBooking(true);
     setError(null);
     try {
-      const r = await api<{ order: Order }>("/api/orders", { quoteId: quote.id, karigarId: selected, donation: donate ? 1 : 0 });
+      const r = await api<{ order: Order }>("/api/orders", { quoteId: quote.id, karigarId: selected, donation: donate ? 1 : 0, familyPay: family?.name.trim() ? family : undefined });
       router.push(`/orders/${r.order.id}`);
     } catch (e) {
       setError((e as Error).message);
@@ -99,9 +101,9 @@ function Fix() {
       <div className="flex items-center gap-2">
         {steps.map((s, i) => (
           <div key={s} className="flex flex-1 items-center gap-2">
-            <span className={cn("grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold", i <= step ? "bg-primary text-primary-foreground" : "bg-white/5 text-muted-foreground ring-1 ring-white/10")}>{i + 1}</span>
+            <span className={cn("grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold", i <= step ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground ring-1 ring-border")}>{i + 1}</span>
             <span className={cn("hidden text-xs font-medium sm:block", i <= step ? "text-foreground" : "text-muted-foreground")}>{s}</span>
-            {i < steps.length - 1 && <span className={cn("h-px flex-1", i < step ? "bg-primary" : "bg-white/10")} />}
+            {i < steps.length - 1 && <span className={cn("h-px flex-1", i < step ? "bg-primary" : "bg-muted")} />}
           </div>
         ))}
       </div>
@@ -144,7 +146,7 @@ function Fix() {
               </div>
               {photo && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={`/api/uploads/${photo}`} alt="" className="size-20 shrink-0 rounded-2xl object-cover ring-1 ring-white/10" />
+                <img src={`/api/uploads/${photo}`} alt="" className="size-20 shrink-0 rounded-2xl object-cover ring-1 ring-border" />
               )}
             </div>
             {quote.repairable ? (
@@ -157,7 +159,7 @@ function Fix() {
                       {money(quote.repairLow)}–{money(quote.repairHigh)}
                     </p>
                   </div>
-                  <div className="rounded-2xl bg-white/[0.04] p-3 ring-1 ring-white/10">
+                  <div className="rounded-2xl bg-muted/60 p-3 ring-1 ring-border">
                     <p className="text-[11px] text-muted-foreground">{t("newCost")}</p>
                     <p className="font-display text-lg font-bold">{quote.newPrice ? money(quote.newPrice) : "–"}</p>
                   </div>
@@ -209,7 +211,7 @@ function Fix() {
                   <button
                     key={o.karigar.id}
                     onClick={() => setSelected(o.karigar.id)}
-                    className={cn("w-full rounded-2xl p-3 text-left ring-1 transition", selected === o.karigar.id ? "bg-primary/10 ring-primary" : "bg-white/[0.03] ring-white/10 hover:bg-white/[0.06]")}
+                    className={cn("w-full rounded-2xl p-3 text-left ring-1 transition", selected === o.karigar.id ? "bg-primary/10 ring-primary" : "bg-muted/50 ring-border hover:bg-muted")}
                   >
                     <div className="flex items-center gap-3">
                       <Avatar name={o.karigar.name} color={o.karigar.avatarColor} />
@@ -274,27 +276,28 @@ function Fix() {
                 </p>
               </div>
             </div>
-            <div className="space-y-2 rounded-2xl bg-white/[0.03] p-4 text-sm ring-1 ring-white/10">
+            <div className="space-y-2 rounded-2xl bg-muted/50 p-4 text-sm ring-1 ring-border">
               <Row k={t("repairCost")} v={money(offer.price)} />
               <Row k={homeVisit ? t("visitFee") : `${t("pickupFee")} (${offer.distanceKm} km)`} v={money(offer.pickupFee)} />
               <label className="flex cursor-pointer items-center justify-between">
                 <span className="flex items-center gap-2">
-                  <input type="checkbox" className="size-4 accent-[#2dd4bf]" checked={donate} onChange={(e) => setDonate(e.target.checked)} />
+                  <input type="checkbox" className="size-4 accent-[#d9572b]" checked={donate} onChange={(e) => setDonate(e.target.checked)} />
                   {t("toolFund")}
                 </span>
                 <span>{money(donate ? 1 : 0)}</span>
               </label>
-              <div className="flex justify-between border-t border-white/10 pt-2 font-semibold">
+              <div className="flex justify-between border-t border-border pt-2 font-semibold">
                 <span>{t("total")}</span>
                 <span className="font-display text-lg">{money(offer.total + (donate ? 1 : 0))}</span>
               </div>
             </div>
-            <p className="rounded-2xl bg-[#0070e0]/10 p-3 text-xs text-[#9cc9ff] ring-1 ring-[#0070e0]/30">{t("trustPaypal")}</p>
+            <FamilyPayPicker value={family} onChange={setFamily} />
+            <p className="rounded-2xl bg-[#0070e0]/10 p-3 text-xs text-paypal-blue ring-1 ring-[#0070e0]/30">{t("trustPaypal")}</p>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setStep(2)}>
                 <ArrowLeft /> {t("back")}
               </Button>
-              <Button size="lg" className="flex-1" onClick={book} disabled={booking}>
+              <Button size="lg" className="flex-1" onClick={book} disabled={booking || (family !== null && !family.name.trim())}>
                 {booking ? t("creating") : t("bookPay")}
               </Button>
             </div>
