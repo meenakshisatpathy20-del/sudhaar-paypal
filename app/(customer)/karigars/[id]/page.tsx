@@ -49,7 +49,7 @@ export default function KarigarProfile({ params }: { params: Promise<{ id: strin
                 </p>
               </div>
             </div>
-            <p className="flex gap-2 rounded-2xl bg-white/[0.04] p-4 font-display text-lg leading-snug ring-1 ring-white/10">
+            <p className="flex gap-2 rounded-2xl bg-muted/60 p-4 font-display text-lg leading-snug ring-1 ring-border">
               <Quote className="size-5 shrink-0 text-gold" /> {k.bio}
             </p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -75,7 +75,7 @@ export default function KarigarProfile({ params }: { params: Promise<{ id: strin
           <CardContent className="space-y-3">
             <h2 className="font-bold">Reviews</h2>
             {k.reviews.map((r) => (
-              <div key={r.name} className="rounded-2xl bg-white/[0.03] p-3 ring-1 ring-white/10">
+              <div key={r.name} className="rounded-2xl bg-muted/50 p-3 ring-1 ring-border">
                 <p className="flex items-center justify-between text-sm font-semibold">
                   {r.name}
                   <span className="flex items-center gap-1 text-xs text-gold">
@@ -93,7 +93,7 @@ export default function KarigarProfile({ params }: { params: Promise<{ id: strin
           <CardContent className="space-y-3">
             <h2 className="font-bold">Typical prices</h2>
             {k.services.map((s) => (
-              <p key={s.name} className="flex justify-between border-b border-white/[0.06] pb-2 text-sm last:border-0">
+              <p key={s.name} className="flex justify-between border-b border-border pb-2 text-sm last:border-0">
                 <span>{s.name}</span>
                 <span className="font-semibold">{money(s.price)}</span>
               </p>
@@ -114,7 +114,7 @@ export default function KarigarProfile({ params }: { params: Promise<{ id: strin
 
 function Fact({ icon: Icon, v, l }: { icon: React.ComponentType<{ className?: string }>; v: string; l: string }) {
   return (
-    <div className="rounded-2xl bg-white/[0.04] p-3 ring-1 ring-white/10">
+    <div className="rounded-2xl bg-muted/60 p-3 ring-1 ring-border">
       <Icon className="size-4 text-primary" />
       <p className="mt-1 font-display text-lg font-bold">{v}</p>
       <p className="truncate text-[11px] text-muted-foreground">{l}</p>

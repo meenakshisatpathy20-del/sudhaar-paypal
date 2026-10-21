@@ -15,8 +15,8 @@ export function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as { quoteId: string; karigarId: string; donation?: number };
-    const order = await createOrder({ quoteId: body.quoteId, karigarId: body.karigarId, donation: body.donation });
+    const body = (await req.json()) as { quoteId: string; karigarId: string; donation?: number; familyPay?: { name: string; relation: string; email?: string } };
+    const order = await createOrder({ quoteId: body.quoteId, karigarId: body.karigarId, donation: body.donation, familyPay: body.familyPay });
     return ok({ order, paypalOrderId: order.paypal.orderId }, 201);
   } catch (e) {
     return fail(e);

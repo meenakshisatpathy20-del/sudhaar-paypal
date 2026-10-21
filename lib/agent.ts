@@ -3,7 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { PayPalAgentToolkit } from "@paypal/agent-toolkit/openai";
 import { aiEnabled, config, paypalEnabled } from "./config";
 import { readDB } from "./db";
-import { advance, createOrder, createQuote, FlowError, offersFor, raiseComplaint, resolveComplaint } from "./orders";
+import { advance, createBasketOrder, createOrder, createQuote, FlowError, offersFor, raiseComplaint, resolveComplaint } from "./orders";
 import type { Complaint, Order } from "./types";
 
 // Sudhaar Repair Agent: a Claude tool-use loop that acts for the customer.
@@ -17,7 +17,7 @@ export const AUTO_REFUND_LIMIT = 5; // USD. Larger refunds go to the human suppo
 
 type Card =
   | { type: "quote"; quoteId: string; item: string; repairLow: number; repairHigh: number; newPrice: number; source: string }
-  | { type: "booking"; orderId: string; paypalOrderId?: string; total: number; karigar: string; status: string }
+  | { type: "booking"; orderId: string; paypalOrderId?: string; total: number; karigar: string; status: string; familyPayer?: string }
   | { type: "refund"; orderId: string; amount: number; refundId?: string };
 
 interface Session {
@@ -57,6 +57,8 @@ You act on the customer's behalf, not just advise:
 2. Choose the karigar yourself. Respect the customer's budget and deadline; otherwise pick the "best value" offer. Explain the choice in one line (price, distance, rating, ready time).
 3. If the customer asked you to get it fixed (or gave a budget/deadline), call book_repair right away. Otherwise propose the best option and ask "Shall I book it?".
 4. book_repair creates a PayPal order with intent AUTHORIZE. The customer must tap the PayPal button shown under your message to approve; the money is only held and is captured after the delivery OTP. Never claim the payment is done until get_order_status says it is authorized.
+4b. Ghar Safai Mode: if the customer has several things to fix (e.g. Diwali cleaning), quote each item, then book them together with book_ghar_safai_basket: one Saathi trip and one PayPal payment split across the karigars.
+4c. Family Pay: if the customer wants a family member to pay (e.g. "ask my son to pay"), pass family_payer_name and family_payer_relation. The family member gets a link and approves with their own PayPal.
 5. For problems after delivery, use raise_warranty_claim. If the AI review recommends a refund of at most $${AUTO_REFUND_LIMIT}, you may call issue_refund. Larger refunds go to the support desk.
 6. Use the PayPal lookup tools (get_order, get_invoice, list_invoices, get_refund, list_transactions) when the customer asks about bills, payments or refunds.
 
@@ -85,8 +87,27 @@ const CUSTOM_TOOLS: Anthropic.Beta.BetaTool[] = [
         quote_id: { type: "string" },
         karigar_id: { type: "string" },
         add_tool_fund_donation: { type: "boolean", description: "Add $1 to the karigar tool fund. Only true if the customer agreed." },
+        family_payer_name: { type: "string", description: "Family Pay: name of the family member who should pay (e.g. 'Rahul'). Empty string if the customer pays." },
+        family_payer_relation: { type: "string", description: "Family Pay: relation to the customer, e.g. 'son', 'daughter'. Empty string if not used." },
       },
-      required: ["quote_id", "karigar_id", "add_tool_fund_donation"],
+      required: ["quote_id", "karigar_id", "add_tool_fund_donation", "family_payer_name", "family_payer_relation"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "book_ghar_safai_basket",
+    description: "Ghar Safai Mode: book several quoted items together with one Saathi pickup and ONE PayPal payment that is split to each karigar. Use when the customer has more than one item to fix.",
+    input_schema: {
+      type: "object",
+      properties: {
+        items: {
+          type: "array",
+          items: { type: "object", properties: { quote_id: { type: "string" }, karigar_id: { type: "string" } }, required: ["quote_id", "karigar_id"], additionalProperties: false },
+        },
+        family_payer_name: { type: "string", description: "Family Pay payer name, or empty string" },
+        family_payer_relation: { type: "string", description: "Family Pay relation, or empty string" },
+      },
+      required: ["items", "family_payer_name", "family_payer_relation"],
       additionalProperties: false,
     },
   },
@@ -171,10 +192,26 @@ async function runCustomTool(name: string, input: Record<string, unknown>, sessi
       };
     }
     case "book_repair": {
-      const order = await createOrder({ quoteId: String(input.quote_id), karigarId: String(input.karigar_id), donation: input.add_tool_fund_donation ? 1 : 0, bookedBy: "agent" });
+      const familyPay = input.family_payer_name ? { name: String(input.family_payer_name), relation: String(input.family_payer_relation || "family") } : undefined;
+      const order = await createOrder({ quoteId: String(input.quote_id), karigarId: String(input.karigar_id), donation: input.add_tool_fund_donation ? 1 : 0, bookedBy: "agent", familyPay });
       const k = readDB().karigars.find((x) => x.id === order.karigarId);
-      cards.push({ type: "booking", orderId: order.id, paypalOrderId: order.paypal.orderId, total: order.total, karigar: k?.shop ?? order.karigarId, status: order.status });
-      return { order_id: order.id, paypal_order_id: order.paypal.orderId, total: order.total, status: order.status, next_step: "Customer must approve the payment with the PayPal button shown in the chat." };
+      cards.push({ type: "booking", orderId: order.id, paypalOrderId: order.paypal.orderId, total: order.total, karigar: k?.shop ?? order.karigarId, status: order.status, familyPayer: familyPay?.name });
+      return {
+        order_id: order.id,
+        paypal_order_id: order.paypal.orderId,
+        total: order.total,
+        status: order.status,
+        next_step: familyPay
+          ? `Family Pay: share the payment link /pay/${order.id} with ${familyPay.name}; they approve it with their own PayPal.`
+          : "Customer must approve the payment with the PayPal button shown in the chat.",
+      };
+    }
+    case "book_ghar_safai_basket": {
+      const items = (input.items as { quote_id: string; karigar_id: string }[]).map((i) => ({ quoteId: i.quote_id, karigarId: i.karigar_id }));
+      const familyPay = input.family_payer_name ? { name: String(input.family_payer_name), relation: String(input.family_payer_relation || "family") } : undefined;
+      const order = await createBasketOrder({ items, bookedBy: "agent", familyPay });
+      cards.push({ type: "booking", orderId: order.id, paypalOrderId: order.paypal.orderId, total: order.total, karigar: `${order.jobs?.length} items · Ghar Safai`, status: order.status, familyPayer: familyPay?.name });
+      return { order_id: order.id, items: order.jobs?.length, pickup_fee: order.pickupFee, total: order.total, paypal_order_id: order.paypal.orderId, family_pay_link: familyPay ? `/pay/${order.id}` : undefined };
     }
     case "get_order_status": {
       const o = readDB().orders.find((x) => x.id === input.order_id);

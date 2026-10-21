@@ -7,7 +7,7 @@ import type { Karigar } from "@/lib/types";
 
 export function KarigarCard({ k, distanceKm }: { k: Karigar; distanceKm?: number }) {
   return (
-    <Link href={`/karigars/${k.id}`} className="glass group flex w-64 shrink-0 flex-col gap-3 rounded-2xl p-4 transition hover:-translate-y-0.5 hover:bg-white/[0.07]">
+    <Link href={`/karigars/${k.id}`} className="paper group flex w-64 shrink-0 flex-col gap-3 rounded-2xl p-4 transition hover:-translate-y-0.5 hover:bg-muted">
       <div className="flex items-center gap-3">
         <Avatar name={k.name} color={k.avatarColor} />
         <div className="min-w-0">

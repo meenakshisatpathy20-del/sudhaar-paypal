@@ -87,3 +87,10 @@ export const AVG_ITEM_KG: Record<Category, number> = {
 };
 
 export const fmt = (n: number) => `$${n.toFixed(2)}`;
+
+/** Ghar Safai basket: one Saathi trip collects everything. Fee = the farthest/largest single
+ * pickup fee plus $0.50 for every extra karigar stop on the route. */
+export function basketPickupFee(fees: number[], karigarStops: number) {
+  if (fees.length === 0) return 0;
+  return round2(Math.max(...fees) + Math.max(0, karigarStops - 1) * 0.5);
+}

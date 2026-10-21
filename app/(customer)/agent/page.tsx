@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Camera, Send, Sparkles, Volume2, VolumeX } from "lucide-react";
 import { api, money } from "@/components/api";
 import { useLang } from "@/components/LanguageProvider";
+import { FamilyPayShare } from "@/components/FamilyPay";
 import { MicButton } from "@/components/MicButton";
 import { PayPalCheckout } from "@/components/PayPalCheckout";
 import { StatusPill } from "@/components/StatusPill";
@@ -20,7 +21,7 @@ import type { Order } from "@/lib/types";
 
 type AgentCard =
   | { type: "quote"; quoteId: string; item: string; repairLow: number; repairHigh: number; newPrice: number; source: string }
-  | { type: "booking"; orderId: string; paypalOrderId?: string; total: number; karigar: string; status: string }
+  | { type: "booking"; orderId: string; paypalOrderId?: string; total: number; karigar: string; status: string; familyPayer?: string }
   | { type: "refund"; orderId: string; amount: number; refundId?: string };
 type Msg = { role: "user" | "agent"; text: string; cards?: AgentCard[]; steps?: { tool: string; ok: boolean; paypalToolkit: boolean }[]; photo?: string };
 
@@ -66,7 +67,7 @@ export default function TalkPage() {
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4">
       {/* voice orb */}
-      <Card className="relative overflow-hidden bg-gradient-to-b from-primary/15 to-transparent">
+      <Card className="relative overflow-hidden bg-gradient-to-b from-marigold/20 to-card">
         <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
           <div className="relative">
             <span className={cn("absolute -inset-6 rounded-full bg-primary/20 blur-2xl transition", busy && "animate-pulse")} />
@@ -78,7 +79,7 @@ export default function TalkPage() {
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="outline">{lang === "hi" ? "हिंदी · hi-IN" : "English · en-IN"}</Badge>
-            <button onClick={() => setSpeakReplies(!speakReplies)} className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-muted-foreground ring-1 ring-white/15 hover:text-foreground">
+            <button onClick={() => setSpeakReplies(!speakReplies)} className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-muted-foreground ring-1 ring-border hover:text-foreground">
               {speakReplies ? <Volume2 className="size-3" /> : <VolumeX className="size-3" />} {t("voiceReplies")}
             </button>
           </div>
@@ -89,7 +90,7 @@ export default function TalkPage() {
       {msgs.length === 0 && (
         <div className="grid gap-2 sm:grid-cols-2">
           {PROMPTS[lang].map((p) => (
-            <button key={p} onClick={() => send(p)} disabled={busy} className="glass rounded-2xl p-3 text-left text-sm text-muted-foreground transition hover:text-foreground">
+            <button key={p} onClick={() => send(p)} disabled={busy} className="paper rounded-2xl p-3 text-left text-sm text-muted-foreground transition hover:text-foreground">
               <Sparkles className="mb-1 size-4 text-primary" />
               {p}
             </button>
@@ -100,7 +101,7 @@ export default function TalkPage() {
       <div className="space-y-3">
         {msgs.map((m, i) => (
           <div key={i} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
-            <div className={cn("max-w-[88%] space-y-2 rounded-3xl px-4 py-3 text-sm", m.role === "user" ? "rounded-br-lg bg-primary text-primary-foreground" : "glass rounded-bl-lg")}>
+            <div className={cn("max-w-[88%] space-y-2 rounded-3xl px-4 py-3 text-sm", m.role === "user" ? "rounded-br-lg bg-primary text-primary-foreground" : "paper rounded-bl-lg")}>
               {m.photo && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={`/api/uploads/${m.photo}`} alt="" className="h-28 rounded-2xl object-cover" />
@@ -126,7 +127,7 @@ export default function TalkPage() {
           </div>
         ))}
         {busy && (
-          <div className="glass flex w-fit items-center gap-1.5 rounded-3xl rounded-bl-lg px-4 py-3">
+          <div className="paper flex w-fit items-center gap-1.5 rounded-3xl rounded-bl-lg px-4 py-3">
             {[0, 1, 2].map((d) => (
               <span key={d} className="size-2 rounded-full bg-primary" style={{ animation: `float-slow 1s ${d * 0.15}s ease-in-out infinite` }} />
             ))}
@@ -140,11 +141,11 @@ export default function TalkPage() {
           e.preventDefault();
           send(text);
         }}
-        className="glass sticky bottom-24 flex items-center gap-2 rounded-2xl p-2 md:bottom-4"
+        className="paper sticky bottom-24 flex items-center gap-2 rounded-2xl p-2 md:bottom-4"
       >
         <Sheet>
           <SheetTrigger asChild>
-            <button type="button" className={cn("grid size-10 shrink-0 place-items-center rounded-xl ring-1 ring-white/10", photo ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-white/5")} aria-label="Attach photo">
+            <button type="button" className={cn("grid size-10 shrink-0 place-items-center rounded-xl ring-1 ring-border", photo ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-muted")} aria-label="Attach photo">
               <Camera className="size-5" />
             </button>
           </SheetTrigger>
@@ -166,14 +167,14 @@ export default function TalkPage() {
 function AgentCardView({ card }: { card: AgentCard }) {
   if (card.type === "quote")
     return (
-      <div className="rounded-2xl bg-black/25 p-3 text-xs">
+      <div className="rounded-2xl bg-muted p-3 text-xs">
         <b>{card.item}</b>: repair {money(card.repairLow)}–{money(card.repairHigh)}
         {card.newPrice > 0 && ` vs new ${money(card.newPrice)}`} <span className="text-muted-foreground">({card.source})</span>
       </div>
     );
   if (card.type === "refund")
     return (
-      <div className="rounded-2xl bg-black/25 p-3 text-xs">
+      <div className="rounded-2xl bg-muted p-3 text-xs">
         PayPal refund {money(card.amount)} issued <span className="font-mono">{card.refundId}</span>
       </div>
     );
@@ -188,7 +189,7 @@ function BookingCard({ card }: { card: Extract<AgentCard, { type: "booking" }> }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [card.orderId]);
   return (
-    <div className="space-y-2 rounded-2xl bg-black/25 p-3 text-xs">
+    <div className="space-y-2 rounded-2xl bg-muted p-3 text-xs">
       <div className="flex items-center justify-between gap-2">
         <span>
           <b>{card.karigar}</b> · {money(card.total)} ·{" "}
@@ -198,7 +199,8 @@ function BookingCard({ card }: { card: Extract<AgentCard, { type: "booking" }> }
         </span>
         {order && <StatusPill status={order.status} />}
       </div>
-      {order?.status === "awaiting_payment" && card.paypalOrderId && <PayPalCheckout orderId={card.orderId} paypalOrderId={card.paypalOrderId} total={card.total} onApproved={refresh} />}
+      {order?.status === "awaiting_payment" && card.familyPayer && <FamilyPayShare orderId={card.orderId} name={card.familyPayer} item={order.item} total={money(card.total)} />}
+      {order?.status === "awaiting_payment" && !card.familyPayer && card.paypalOrderId && <PayPalCheckout orderId={card.orderId} paypalOrderId={card.paypalOrderId} total={card.total} onApproved={refresh} />}
       {order && order.status !== "awaiting_payment" && (
         <p className="text-muted-foreground">
           Payment held by PayPal. Pickup OTP <b className="font-mono text-foreground">{order.pickupOtp}</b> ·{" "}

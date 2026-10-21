@@ -18,7 +18,7 @@ export default function SaathiApp() {
 
   return (
     <div className="mx-auto max-w-md space-y-4">
-      <Card className="bg-gradient-to-br from-primary/25 to-transparent">
+      <Card className="bg-gradient-to-br from-primary/15 to-card">
         <CardContent className="space-y-1">
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <Bike className="size-4 text-primary" /> Repair Saathi
