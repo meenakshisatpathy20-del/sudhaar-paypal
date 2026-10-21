@@ -1,11 +1,12 @@
 import { readDB } from "@/lib/db";
 import { fail, ok } from "@/lib/http";
-import { FlowError, getOrder } from "@/lib/orders";
+import { expireUnpaidOrders, FlowError, getOrder } from "@/lib/orders";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    await expireUnpaidOrders();
     const order = getOrder((await params).id);
     if (!order) throw new FlowError("Order not found", 404);
     const db = readDB();

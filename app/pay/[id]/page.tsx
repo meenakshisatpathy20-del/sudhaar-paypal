@@ -29,7 +29,8 @@ export default function FamilyPayPage({ params }: { params: Promise<{ id: string
   if (!data) return null;
   const { order, karigar } = data;
   const fp = order.familyPay;
-  const paid = order.status !== "awaiting_payment";
+  const expired = order.status === "cancelled";
+  const paid = !expired && order.status !== "awaiting_payment";
 
   return (
     <div className="mx-auto min-h-screen max-w-md space-y-4 px-4 py-6">
@@ -78,7 +79,12 @@ export default function FamilyPayPage({ params }: { params: Promise<{ id: string
           <p className="flex gap-2 rounded-2xl bg-[#e6f0ff] p-3 text-xs text-paypal-blue">
             <ShieldCheck className="size-4 shrink-0" /> PayPal only holds the money. It is captured when the repaired item is delivered back home and confirmed with an OTP.
           </p>
-          {!paid && order.paypal.orderId && <PayPalCheckout orderId={order.id} paypalOrderId={order.paypal.orderId} total={order.total} onApproved={load} />}
+          {expired && (
+            <p className="rounded-2xl bg-muted p-4 text-center text-sm text-muted-foreground">
+              This payment link has expired, so nothing was charged. Ask {order.customer.name.split(" ")[0]} to book the repair again and send a new link.
+            </p>
+          )}
+          {!paid && !expired && order.paypal.orderId && <PayPalCheckout orderId={order.id} paypalOrderId={order.paypal.orderId} total={order.total} onApproved={load} />}
           {paid && (
             <div className="space-y-2 rounded-2xl bg-teal/10 p-4 text-center">
               <HeartHandshake className="mx-auto size-7 text-teal" />
