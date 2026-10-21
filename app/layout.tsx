@@ -18,8 +18,10 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, them
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body className="min-h-screen font-sans">
+    // Browser extensions (Grammarly, translators, dark-mode tools) add attributes to <html>/<body>
+    // before React loads; this tells React to ignore only those two elements' attributes.
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-screen font-sans" suppressHydrationWarning>
         <LanguageProvider>{children}</LanguageProvider>
         <RegisterSW />
       </body>
