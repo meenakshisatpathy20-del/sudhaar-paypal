@@ -7,6 +7,7 @@ import {
   captureAuthorization,
   createAuthorizeOrder,
   createPaidInvoice,
+  createTopUpOrder,
   describePayPalError,
   paypalMode,
   refundCapture,
@@ -14,7 +15,7 @@ import {
   voidAuthorization,
 } from "./paypal";
 import { AVG_ITEM_KG, basketPickupFee, computeSplit, haversineKm, karigarPrice, pickupFee, round2, serviceModeFor } from "./pricing";
-import type { Category, Complaint, FamilyPay, Job, Karigar, Order, OrderEvent, OrderStatus, Quote } from "./types";
+import type { Account, Category, Complaint, FamilyPay, Job, Karigar, Order, OrderEvent, OrderStatus, Quote, Saathi } from "./types";
 
 export class FlowError extends Error {
   constructor(message: string, public status = 400) {
@@ -79,11 +80,11 @@ export interface KarigarOffer {
 }
 
 /** Shiprocket-style comparison: every verified karigar with the skill, priced, with distance and ETA. */
-export function offersFor(quote: Quote, at = DEMO_CUSTOMER()): KarigarOffer[] {
+export function offersFor(quote: Quote, at: { lat: number; lng: number } = DEMO_CUSTOMER()): KarigarOffer[] {
   const db = readDB();
   const mode = serviceModeFor(quote.category);
   const offers = db.karigars
-    .filter((k) => k.verified && k.skills.includes(quote.category))
+    .filter((k) => k.verified && k.skills.includes(quote.category) && !(db.offline ?? []).includes(k.id))
     .map((k) => {
       const distanceKm = haversineKm(at, k);
       const fee = pickupFee(distanceKm, quote.size, mode);
@@ -102,9 +103,22 @@ export function offersFor(quote: Quote, at = DEMO_CUSTOMER()): KarigarOffer[] {
   return offers;
 }
 
+/** A random Saathi among those who are online (any Saathi if everyone is offline). */
+function pickSaathi(saathis: Saathi[], offline: string[] = []) {
+  const online = saathis.filter((x) => !offline.includes(x.id));
+  const pool = online.length ? online : saathis;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 // ---------- Booking + PayPal authorize ----------
 
+/** What an order remembers about the customer (the PayPal email is filled in when they pay). */
+function customerSnapshot(a: Account): Order["customer"] {
+  return { name: a.name, email: config.paypal.customerEmail, address: a.address ?? "", lat: a.lat ?? config.demoCenter.lat, lng: a.lng ?? config.demoCenter.lng };
+}
+
 export async function createOrder(input: {
+  customer: Account;
   quoteId: string;
   karigarId: string;
   donation?: number;
@@ -114,12 +128,13 @@ export async function createOrder(input: {
   const db = readDB();
   const quote = db.quotes.find((q) => q.id === input.quoteId);
   if (!quote) throw new FlowError("Quote not found", 404);
-  const offer = offersFor(quote).find((o) => o.karigar.id === input.karigarId);
+  const customer = customerSnapshot(input.customer);
+  const offer = offersFor(quote, customer).find((o) => o.karigar.id === input.karigarId);
   if (!offer) throw new FlowError("That karigar cannot take this job", 404);
   const donation = Math.min(5, Math.max(0, round2(input.donation ?? 0)));
   const split = computeSplit(offer.price, offer.pickupFee, donation);
   const mode = serviceModeFor(quote.category);
-  const saathi = db.saathis[Math.floor(Math.random() * db.saathis.length)];
+  const saathi = pickSaathi(db.saathis, db.offline);
   const order: Order = {
     id: id("SD"),
     kind: "single",
@@ -134,7 +149,8 @@ export async function createOrder(input: {
     mode,
     karigarId: offer.karigar.id,
     saathiId: saathi.id,
-    customer: DEMO_CUSTOMER(),
+    customerId: input.customer.id,
+    customer,
     distanceKm: offer.distanceKm,
     repairCharge: offer.price,
     pickupFee: offer.pickupFee,
@@ -161,8 +177,16 @@ export async function createOrder(input: {
 
 function cleanFamilyPay(fp?: { name: string; relation: string; email?: string }): FamilyPay | undefined {
   if (!fp?.name?.trim()) return undefined;
-  return { name: fp.name.trim().slice(0, 60), relation: (fp.relation || "family").trim().slice(0, 30), email: fp.email?.trim().slice(0, 120) || undefined };
+  return {
+    token: crypto.randomBytes(16).toString("hex"),
+    name: fp.name.trim().slice(0, 60),
+    relation: (fp.relation || "family").trim().slice(0, 30),
+    email: fp.email?.trim().slice(0, 120) || undefined,
+  };
 }
+
+/** The link a family member opens to pay. The token keeps other people's orders unguessable. */
+export const familyPayPath = (o: Order) => (o.familyPay?.token ? `/pay/${o.id}?t=${o.familyPay.token}` : `/pay/${o.id}`);
 
 async function finalizeNewOrder(order: Order): Promise<Order> {
   if (order.familyPay) {
@@ -185,6 +209,7 @@ async function finalizeNewOrder(order: Order): Promise<Order> {
 // ---------- Ghar Safai Mode: many items, one pickup, one PayPal payment ----------
 
 export async function createBasketOrder(input: {
+  customer: Account;
   items: { quoteId: string; karigarId: string }[];
   donation?: number;
   bookedBy?: "customer" | "agent";
@@ -193,6 +218,7 @@ export async function createBasketOrder(input: {
   if (!input.items?.length) throw new FlowError("Add at least one item to the basket");
   if (input.items.length > 12) throw new FlowError("A basket can hold up to 12 items");
   const db = readDB();
+  const customer = customerSnapshot(input.customer);
   const jobs: Job[] = [];
   const fees: number[] = [];
   let farthest = 0;
@@ -200,7 +226,7 @@ export async function createBasketOrder(input: {
     const quote = db.quotes.find((q) => q.id === it.quoteId);
     if (!quote) throw new FlowError("Quote not found", 404);
     if (serviceModeFor(quote.category) !== "pickup") throw new FlowError(`"${quote.item}" needs a home visit, so book it separately`);
-    const offer = offersFor(quote).find((o) => o.karigar.id === it.karigarId);
+    const offer = offersFor(quote, customer).find((o) => o.karigar.id === it.karigarId);
     if (!offer) throw new FlowError(`No karigar available for "${quote.item}"`, 404);
     fees.push(offer.pickupFee);
     farthest = Math.max(farthest, offer.distanceKm);
@@ -223,7 +249,7 @@ export async function createBasketOrder(input: {
   const repairCharge = round2(jobs.reduce((s, j) => s + j.price, 0));
   const donation = Math.min(5, Math.max(0, round2(input.donation ?? 0)));
   const split = computeSplit(repairCharge, fee, donation);
-  const saathi = db.saathis[Math.floor(Math.random() * db.saathis.length)];
+  const saathi = pickSaathi(db.saathis, db.offline);
   const order: Order = {
     id: id("SD"),
     kind: "basket",
@@ -239,7 +265,8 @@ export async function createBasketOrder(input: {
     mode: "pickup",
     karigarId: jobs[0].karigarId,
     saathiId: saathi.id,
-    customer: DEMO_CUSTOMER(),
+    customerId: input.customer.id,
+    customer,
     distanceKm: farthest,
     repairCharge,
     pickupFee: fee,
@@ -297,6 +324,7 @@ export async function approveOrder(orderId: string, paypalOrderId: string): Prom
     try {
       const auth = await authorizeOrder(paypalOrderId);
       o.paypal.authorizationId = auth.authorizationId;
+      o.paypal.heldAmount = o.total;
       if (o.familyPay) {
         o.familyPay.paidBy = auth.payerEmail ?? o.familyPay.email ?? o.familyPay.name;
         o.familyPay.paidAt = now();
@@ -370,6 +398,7 @@ export async function advance(orderId: string, action: Action, opts: { otp?: str
     };
 
     if (action === "mark_repaired") {
+      if (o.priceChange && ["pending", "awaiting_payment"].includes(o.priceChange.status)) throw new FlowError("Waiting for the customer to answer the price change");
       if (!opts.afterPhoto) throw new FlowError("Upload an after photo of the repaired item");
       o.afterPhoto = opts.afterPhoto;
       log(o, { status: "repaired", actor: "karigar", message: messages.mark_repaired });
@@ -411,6 +440,7 @@ async function advanceJob(o: Order, action: "start_repair" | "mark_repaired", op
     return;
   }
   if (job.status !== "repairing") throw new FlowError("Start the repair first");
+  if (action === "mark_repaired" && o.priceChange?.jobId === job.id && ["pending", "awaiting_payment"].includes(o.priceChange.status)) throw new FlowError("Waiting for the customer to answer the price change");
   if (!opts.afterPhoto) throw new FlowError("Upload an after photo of the repaired item");
   job.afterPhoto = opts.afterPhoto;
   const check = await checkCompletion({ ...o, item: job.item, issue: job.issue, beforePhoto: job.beforePhoto, afterPhoto: job.afterPhoto });
@@ -464,14 +494,31 @@ export async function reviewCompletion(orderId: string, input: { jobId?: string;
 export async function settle(orderId: string): Promise<Order> {
   return mutate(orderId, async (o) => {
     if (o.status !== "delivered" || !o.paypal.authorizationId) return;
+    // The main hold covers the original price; an approved increase sits in a second (top-up) hold.
+    // A lower final price simply captures less than was held.
+    const held = o.paypal.heldAmount ?? o.total;
+    const mainAmount = round2(Math.min(o.total, held));
     if (!o.paypal.captureId) {
       try {
-        const cap = await captureAuthorization(o.paypal.authorizationId, o.total, o.id);
+        const cap = await captureAuthorization(o.paypal.authorizationId, mainAmount, o.id);
         o.paypal.captureId = cap.captureId;
-        log(o, { actor: "system", kind: "paypal", message: `Captured $${o.total.toFixed(2)} from the held payment (status ${cap.status}).`, ref: cap.captureId });
+        o.paypal.capturedAmount = mainAmount;
+        log(o, { actor: "system", kind: "paypal", message: `Captured $${mainAmount.toFixed(2)} from the held payment (status ${cap.status}).`, ref: cap.captureId });
       } catch (e) {
         const d = describePayPalError(e);
         log(o, { actor: "system", kind: "error", message: `Capture failed: ${d.message}`, ref: d.ref });
+        return;
+      }
+    }
+    const topUp = o.priceChange?.status === "approved" ? o.priceChange.topUp : undefined;
+    if (topUp?.authorizationId && !topUp.captureId) {
+      try {
+        const cap = await captureAuthorization(topUp.authorizationId, topUp.amount, `${o.id}-extra`);
+        topUp.captureId = cap.captureId;
+        log(o, { actor: "system", kind: "paypal", message: `Captured the approved extra $${topUp.amount.toFixed(2)} (status ${cap.status}).`, ref: cap.captureId });
+      } catch (e) {
+        const d = describePayPalError(e);
+        log(o, { actor: "system", kind: "error", message: `Extra capture failed: ${d.message}`, ref: d.ref });
         return;
       }
     }
@@ -480,7 +527,7 @@ export async function settle(orderId: string): Promise<Order> {
       const k = db.karigars.find((x) => x.id === o.karigarId)!;
       const s = db.saathis.find((x) => x.id === o.saathiId)!;
       const karigarAmount = o.mode === "home-visit" ? round2(o.split.karigar + o.split.saathi) : o.split.karigar;
-      type Line = { to: "karigar" | "saathi"; label: string; receiver: string; amount: number; note: string; ref: string };
+      type Line = { to: "karigar" | "saathi"; partnerId: string; label: string; receiver: string; amount: number; note: string; ref: string };
       let lines: Line[];
       if (o.kind === "basket" && o.jobs) {
         // One payment in, several karigars out: each gets 90% of their own jobs.
@@ -488,16 +535,16 @@ export async function settle(orderId: string): Promise<Order> {
         for (const j of o.jobs) byKarigar.set(j.karigarId, round2((byKarigar.get(j.karigarId) ?? 0) + j.price * 0.9));
         lines = [...byKarigar].map(([kid, amount], i) => {
           const kk = db.karigars.find((x) => x.id === kid)!;
-          return { to: "karigar" as const, label: kk.shop, receiver: kk.payoutEmail, amount, note: `Sudhaar ${o.id}: Ghar Safai repairs. Thank you!`, ref: `${o.id}-K${i + 1}` };
+          return { to: "karigar" as const, partnerId: kid, label: kk.shop, receiver: kk.payoutEmail, amount, note: `Sudhaar ${o.id}: Ghar Safai repairs. Thank you!`, ref: `${o.id}-K${i + 1}` };
         });
       } else {
-        lines = [{ to: "karigar", label: k.shop, receiver: k.payoutEmail, amount: karigarAmount, note: `Sudhaar ${o.id}: ${o.item} repair. Thank you!`, ref: `${o.id}-K` }];
+        lines = [{ to: "karigar", partnerId: k.id, label: k.shop, receiver: k.payoutEmail, amount: karigarAmount, note: `Sudhaar ${o.id}: ${o.item} repair. Thank you!`, ref: `${o.id}-K` }];
       }
-      if (o.mode === "pickup") lines.push({ to: "saathi", label: s.name, receiver: s.payoutEmail, amount: o.split.saathi, note: `Sudhaar ${o.id}: pickup & delivery.`, ref: `${o.id}-S` });
+      if (o.mode === "pickup") lines.push({ to: "saathi", partnerId: s.id, label: s.name, receiver: s.payoutEmail, amount: o.split.saathi, note: `Sudhaar ${o.id}: pickup & delivery.`, ref: `${o.id}-S` });
       try {
         const batch = await sendPayouts(o.id, lines);
         o.paypal.payoutBatchId = batch.batchId;
-        o.payouts = lines.map((l) => ({ to: l.to, label: l.label, receiver: l.receiver, amount: l.amount, status: batch.status }));
+        o.payouts = lines.map((l) => ({ to: l.to, partnerId: l.partnerId, label: l.label, receiver: l.receiver, amount: l.amount, status: batch.status }));
         log(o, {
           status: "paid_out",
           actor: "system",
@@ -552,9 +599,22 @@ export async function resolveComplaint(orderId: string, complaintId: string, dec
       const refunded = o.paypal.refunds.reduce((s, r) => s + r.amount, 0);
       const amount = round2(Math.min(decision.amount ?? 0, o.total - refunded));
       if (amount <= 0) throw new FlowError("Nothing left to refund");
+      // Refund from the main capture first; anything beyond it comes from the extra-work capture.
+      const mainLeft = round2((o.paypal.capturedAmount ?? o.total) - refunded);
+      const extraCapture = o.priceChange?.topUp?.captureId;
+      const fromMain = extraCapture ? round2(Math.min(amount, Math.max(0, mainLeft))) : amount;
       try {
-        const r = await refundCapture(o.paypal.captureId!, amount, `Sudhaar Resolve Hub: ${c.issue.replaceAll("_", " ")} on ${o.item}`, c.id);
-        o.paypal.refunds.push({ id: r.refundId, amount, status: r.status });
+        if (extraCapture && amount > fromMain) {
+          const extra = await refundCapture(extraCapture, round2(amount - fromMain), `Sudhaar Resolve Hub: ${o.item} (extra work)`, `${c.id}-x`);
+          o.paypal.refunds.push({ id: extra.refundId, amount: round2(amount - fromMain), status: extra.status });
+          if (fromMain <= 0) {
+            c.resolution = { action: "refund", amount, refundId: extra.refundId, at: now() };
+            log(o, { actor: "admin", kind: "paypal", message: `Refunded $${amount.toFixed(2)} to the customer via PayPal (status ${extra.status}).`, ref: extra.refundId });
+            return;
+          }
+        }
+        const r = await refundCapture(o.paypal.captureId!, fromMain, `Sudhaar Resolve Hub: ${c.issue.replaceAll("_", " ")} on ${o.item}`, c.id);
+        o.paypal.refunds.push({ id: r.refundId, amount: fromMain, status: r.status });
         c.resolution = { action: "refund", amount, refundId: r.refundId, at: now() };
         log(o, { actor: "admin", kind: "paypal", message: `Refunded $${amount.toFixed(2)} to the customer via PayPal (status ${r.status}).`, ref: r.refundId });
       } catch (e) {
@@ -568,6 +628,102 @@ export async function resolveComplaint(orderId: string, complaintId: string, dec
       c.resolution = { action: "rejected", at: now() };
       log(o, { actor: "admin", message: "Complaint reviewed and closed without refund." });
     }
+  });
+}
+
+// ---------- Price change after inspection (karigar asks, customer decides) ----------
+
+/** Re-price the order after a karigar's price change: pickup fee and tool fund stay the same. */
+function reprice(o: Order) {
+  o.repairCharge = o.jobs?.length ? round2(o.jobs.reduce((sum, j) => sum + j.price, 0)) : o.repairCharge;
+  const split = computeSplit(o.repairCharge, o.pickupFee, o.donation);
+  o.total = split.total;
+  o.split = { karigar: split.karigar, saathi: split.saathi, platform: split.platform, donation: split.donation };
+}
+
+export async function requestPriceChange(karigarId: string, orderId: string, input: { jobId?: string; newPrice: number; reason: string }): Promise<Order> {
+  return mutate(orderId, (o) => {
+    if (o.priceChange && ["pending", "awaiting_payment"].includes(o.priceChange.status)) throw new FlowError("There is already a price change waiting for the customer");
+    const job = input.jobId ? o.jobs?.find((j) => j.id === input.jobId) : undefined;
+    if (input.jobId && (!job || job.karigarId !== karigarId)) throw new FlowError("Item not found", 404);
+    if (!job && o.karigarId !== karigarId) throw new FlowError("Order not found", 404);
+    const inspecting = job ? ["waiting", "repairing"].includes(job.status) && ["at_karigar", "repairing"].includes(o.status) : ["at_karigar", "repairing"].includes(o.status) || (o.mode === "home-visit" && o.status === "authorized");
+    if (!inspecting) throw new FlowError("Prices can only change after inspection and before the repair is done");
+    const from = job ? job.price : o.repairCharge;
+    const to = round2(Number(input.newPrice));
+    const reason = String(input.reason ?? "").trim().slice(0, 200);
+    if (!(to >= 0.5) || to > from * 3 || to > 100) throw new FlowError("Please enter a sensible new price");
+    if (to === from) throw new FlowError("That is the same price");
+    if (!reason) throw new FlowError("Tell the customer why the price changed");
+    o.priceChange = { jobId: job?.id, item: job?.item ?? o.item, from, to, reason, status: "pending", requestedAt: now() };
+    log(o, { actor: "karigar", message: `After inspection, the karigar asked to change the price of ${o.priceChange.item} from $${from.toFixed(2)} to $${to.toFixed(2)}: "${reason}". Waiting for the customer.` });
+  });
+}
+
+export async function decidePriceChange(orderId: string, approve: boolean): Promise<Order> {
+  return mutate(orderId, async (o) => {
+    const pc = o.priceChange;
+    if (!pc || pc.status !== "pending") throw new FlowError("No price change is waiting for you");
+    pc.decidedAt = now();
+    if (!approve) {
+      pc.status = "declined";
+      log(o, { actor: "customer", message: `Customer kept the original price of $${pc.from.toFixed(2)} for ${pc.item}.` });
+      return;
+    }
+    if (pc.to < pc.from) {
+      applyPrice(o, pc);
+      log(o, { actor: "customer", message: `Customer approved the lower price of $${pc.to.toFixed(2)}. PayPal will capture less than it holds.` });
+      return;
+    }
+    // A higher price needs a second hold for the difference, approved in PayPal like the first.
+    const extra = round2(pc.to - pc.from);
+    try {
+      const pp = await createTopUpOrder(o, extra, pc.reason);
+      pc.topUp = { amount: extra, paypalOrderId: pp.id };
+      pc.status = "awaiting_payment";
+      log(o, { actor: "customer", kind: "paypal", message: `Customer approved the new price. A PayPal hold for the extra $${extra.toFixed(2)} is ready for them to approve.`, ref: pp.id });
+    } catch (e) {
+      const d = describePayPalError(e);
+      throw new FlowError(`Could not create the PayPal order for the extra amount: ${d.message}`, 502);
+    }
+  });
+}
+
+/** The customer approved the extra-amount PayPal order: hold it, then apply the new price. */
+export async function approveTopUp(orderId: string, paypalOrderId: string): Promise<Order> {
+  return mutate(orderId, async (o) => {
+    const pc = o.priceChange;
+    if (!pc || pc.status !== "awaiting_payment" || !pc.topUp) throw new FlowError("No extra payment is waiting");
+    if (pc.topUp.paypalOrderId !== paypalOrderId) throw new FlowError("PayPal order id does not match");
+    try {
+      const auth = await authorizeOrder(paypalOrderId);
+      pc.topUp.authorizationId = auth.authorizationId;
+      applyPrice(o, pc);
+      log(o, { actor: "customer", kind: "paypal", message: `Extra $${pc.topUp.amount.toFixed(2)} held by PayPal. New repair price: $${pc.to.toFixed(2)}.`, ref: auth.authorizationId });
+    } catch (e) {
+      const d = describePayPalError(e);
+      throw new FlowError(`PayPal authorization failed: ${d.message}`, 502);
+    }
+  });
+}
+
+function applyPrice(o: Order, pc: NonNullable<Order["priceChange"]>) {
+  pc.status = "approved";
+  const job = pc.jobId ? o.jobs?.find((j) => j.id === pc.jobId) : undefined;
+  if (job) job.price = pc.to;
+  else o.repairCharge = pc.to;
+  reprice(o);
+}
+
+// ---------- Partner availability ----------
+
+export async function setOnline(partnerId: string, online: boolean) {
+  return updateDB((db) => {
+    const offline = new Set(db.offline ?? []);
+    if (online) offline.delete(partnerId);
+    else offline.add(partnerId);
+    db.offline = [...offline];
+    return online;
   });
 }
 

@@ -3,6 +3,8 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, BadgeCheck, Clock, List, Map as MapIcon, Recycle, Sparkles, Star } from "lucide-react";
+import { LoginSheet } from "@/components/LoginSheet";
+import { useSession } from "@/components/SessionProvider";
 import { api } from "@/components/api";
 import { CATEGORY_EXAMPLE } from "@/components/CategoryIcon";
 import { CategoryChips } from "@/components/CategoryChips";
@@ -51,6 +53,8 @@ function Fix() {
   const [selected, setSelected] = useState<string | null>(null);
   const [donate, setDonate] = useState(true);
   const [booking, setBooking] = useState(false);
+  const { account } = useSession();
+  const [loginOpen, setLoginOpen] = useState(false);
   const [family, setFamily] = useState<FamilyPayValue>(null);
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const prefilled = useRef(false);
@@ -85,8 +89,13 @@ function Fix() {
     }
   }
 
-  async function book() {
+  // `afterLogin` is true only when called right after logging in from the sheet.
+  async function book(afterLogin?: unknown) {
     if (!quote || !selected) return;
+    if (!account && afterLogin !== true) {
+      setLoginOpen(true);
+      return;
+    }
     setBooking(true);
     setError(null);
     try {
@@ -335,6 +344,7 @@ function Fix() {
         </Card>
       )}
       {error && <p className="text-center text-sm text-destructive">{error}</p>}
+      <LoginSheet open={loginOpen} onOpenChange={setLoginOpen} onDone={() => book(true)} />
     </div>
   );
 }

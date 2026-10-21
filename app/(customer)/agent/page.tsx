@@ -1,5 +1,6 @@
 "use client";
 
+import { RequireLogin } from "@/components/LoginSheet";
 import { rupees } from "@/components/Inr";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -32,6 +33,14 @@ const PROMPTS = {
 };
 
 export default function TalkPage() {
+  return (
+    <RequireLogin>
+      <TalkPageInner />
+    </RequireLogin>
+  );
+}
+
+function TalkPageInner() {
   const cfg = useAppConfig();
   const { t, lang, speakReplies, setSpeakReplies } = useLang();
   const [msgs, setMsgs] = useState<Msg[]>([]);
@@ -204,7 +213,7 @@ function BookingCard({ card }: { card: Extract<AgentCard, { type: "booking" }> }
         </span>
         {order && <StatusPill status={order.status} />}
       </div>
-      {order?.status === "awaiting_payment" && card.familyPayer && <FamilyPayShare orderId={card.orderId} name={card.familyPayer} item={order.item} total={rupees(card.total)} />}
+      {order?.status === "awaiting_payment" && card.familyPayer && <FamilyPayShare orderId={card.orderId} token={order.familyPay?.token} name={card.familyPayer} item={order.item} total={rupees(card.total)} />}
       {order?.status === "awaiting_payment" && !card.familyPayer && card.paypalOrderId && <PayPalCheckout orderId={card.orderId} paypalOrderId={card.paypalOrderId} total={card.total} onApproved={refresh} />}
       {order && order.status !== "awaiting_payment" && (
         <p className="text-muted-foreground">

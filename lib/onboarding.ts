@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { config } from "./config";
 import { readDB, updateDB } from "./db";
 import { FlowError } from "./orders";
+import { hashPin } from "./pin";
 import type { Category, Karigar, KarigarApplication } from "./types";
 
 // "Join as a karigar": repairers apply, the Sudhaar team checks ID, visits the shop and
@@ -57,24 +58,33 @@ export async function setCheck(appId: string, check: CheckKey, value: boolean) {
   return updateDB((db) => {
     const app = pending(db.applications, appId);
     app.checks[check] = value;
-    return app;
+    return { application: app };
   });
 }
 
-export async function decide(appId: string, approve: boolean) {
+/**
+ * Approving creates the karigar profile and their login. The PIN is returned once so the
+ * team can hand it over in person; only its hash is stored.
+ */
+export async function decide(appId: string, approve: boolean, pin?: string): Promise<{ application: KarigarApplication; pin?: string }> {
+  const pinHash = pin ? hashPin(pin) : undefined;
   return updateDB((db) => {
     const app = pending(db.applications, appId);
     app.decidedAt = new Date().toISOString();
     if (!approve) {
       app.status = "rejected";
-      return app;
+      return { application: app };
     }
     if (!CHECKS.every((c) => app.checks[c])) throw new FlowError("Finish all three KYC checks before approving");
+    if (!pin || !pinHash) throw new FlowError("A login PIN is needed to approve");
+    const phone = app.phone.replace(/\D/g, "").slice(-10);
+    if (db.accounts.some((a) => a.phone === phone && a.role !== "customer")) throw new FlowError("This phone number already has a partner login");
     const karigar = toKarigar(app, db.karigars.length);
     db.karigars.push(karigar);
+    db.accounts.push({ id: `K-${karigar.id}`, role: "karigar", name: app.name, phone, pinHash, createdAt: new Date().toISOString(), karigarId: karigar.id });
     app.status = "approved";
     app.karigarId = karigar.id;
-    return app;
+    return { application: app, pin };
   });
 }
 

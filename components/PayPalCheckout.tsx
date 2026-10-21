@@ -12,7 +12,7 @@ import { useAppConfig } from "./useAppConfig";
  * on approval we ask the server to authorize it, which places a hold on the buyer's funds.
  * In simulated mode (no sandbox keys) a plain button stands in for the PayPal popup.
  */
-export function PayPalCheckout({ orderId, paypalOrderId, total, onApproved }: { orderId: string; paypalOrderId: string; total: number; onApproved: () => void }) {
+export function PayPalCheckout({ orderId, paypalOrderId, total, onApproved, token, topUp }: { orderId: string; paypalOrderId: string; total: number; onApproved: () => void; token?: string; topUp?: boolean }) {
   const cfg = useAppConfig();
   const { t } = useLang();
   const holder = useRef<HTMLDivElement>(null);
@@ -33,7 +33,7 @@ export function PayPalCheckout({ orderId, paypalOrderId, total, onApproved }: { 
           onApprove: async ({ orderId: approvedId }) => {
             setStatus("working");
             try {
-              await api(`/api/orders/${orderId}/approve`, { paypalOrderId: approvedId });
+              await api(`/api/orders/${orderId}/approve`, { paypalOrderId: approvedId, token, topUp });
               onApproved();
             } catch (e) {
               setError((e as Error).message);
@@ -69,7 +69,7 @@ export function PayPalCheckout({ orderId, paypalOrderId, total, onApproved }: { 
     return () => {
       cancelled = true;
     };
-  }, [cfg, orderId, paypalOrderId, onApproved]);
+  }, [cfg, orderId, paypalOrderId, onApproved, token, topUp]);
 
   if (!cfg) return null;
 
@@ -82,7 +82,7 @@ export function PayPalCheckout({ orderId, paypalOrderId, total, onApproved }: { 
           onClick={async () => {
             setStatus("working");
             try {
-              await api(`/api/orders/${orderId}/approve`, { paypalOrderId });
+              await api(`/api/orders/${orderId}/approve`, { paypalOrderId, token, topUp });
               onApproved();
             } catch (e) {
               setError((e as Error).message);

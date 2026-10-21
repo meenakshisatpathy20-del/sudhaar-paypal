@@ -6,6 +6,7 @@ import "@fontsource/noto-sans-devanagari/600.css";
 import "./globals.css";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import { RegisterSW } from "@/components/RegisterSW";
+import { SessionProvider } from "@/components/SessionProvider";
 
 export const metadata: Metadata = {
   title: "Sudhaar – Repair, don't replace",
@@ -22,7 +23,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     // before React loads; this tells React to ignore only those two elements' attributes.
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen font-sans" suppressHydrationWarning>
-        <LanguageProvider>{children}</LanguageProvider>
+        <LanguageProvider>
+          <SessionProvider>{children}</SessionProvider>
+        </LanguageProvider>
         <RegisterSW />
       </body>
     </html>

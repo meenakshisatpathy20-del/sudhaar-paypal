@@ -1,4 +1,4 @@
-import type { Karigar, Order } from "./types";
+import type { Account, Karigar, Order } from "./types";
 
 // Customer-facing APIs never need anyone's payout email. The demo has no staff login,
 // so even admin views mask the personal details of people who joined through onboarding.
@@ -23,3 +23,13 @@ export function publicOrder(o: Order): Order {
 
 /** Admin view: seeded demo karigars show their sandbox email; onboarded people are masked. */
 export const adminKarigar = (k: Karigar): Karigar => (k.onboarded ? { ...k, payoutEmail: maskEmail(k.payoutEmail) } : k);
+
+/**
+ * The order as a given account may see it. OTPs prove the customer is present, so only the
+ * customer and admins get them: a Saathi or karigar has to ask the customer.
+ */
+export function orderFor(a: Account | null, o: Order): Order {
+  const base = publicOrder(o);
+  if (a && (a.role === "admin" || (a.role === "customer" && o.customerId === a.id))) return base;
+  return { ...base, pickupOtp: "", deliveryOtp: "", familyPay: base.familyPay && { ...base.familyPay, token: undefined } };
+}

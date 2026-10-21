@@ -117,9 +117,21 @@ I'm a solo participant, a 3rd-year Computer Science student.
 
 **Hosted demo:** open the *Website* link in this repository's About section. It runs against the PayPal sandbox. Log in to PayPal with the sandbox buyer account given in the **testing instructions on the Devpost page**. On the free hosting plan, the first load can take about a minute while the server wakes up.
 
+**Demo logins** (each role sees only its own app and data; real users sign up with their own phone + PIN):
+
+| Role | Where | Phone | PIN | One tap |
+|---|---|---|---|---|
+| Customer (Anita) | any "Log in" | 9999999999 | 1234 | **Try the demo account** |
+| Karigar (Mohan Shoe Works) | `/partner` | 9000000003 | 1111 | **Karigar** demo button |
+| Other sample karigars | `/partner` | 9000000001 … 9000000008 | 1111 | |
+| Saathi (Vikas / Pooja) | `/partner` | 9100000001 / 9100000002 | 2222 | **Saathi** demo button (Vikas) |
+| Admin | `/partner` | 9000000000 | 2026 | **Admin** demo button |
+
+The Saathi for a booking is picked at random, so if Vikas has no trip, log in as Pooja (9100000002).
+
 1. **Home** → tap a category (e.g. *Mixer & fan*), type or **speak** the problem (🎤, Hindi or English) or upload a photo → **Get AI quote** → see the **Fix-or-Replace meter**. Tap **हिं** at the top at any point to switch the whole app to Hindi.
 2. **Choose your karigar** (list or map) → **Book & pay with PayPal** → pay with the sandbox buyer. The status becomes **"Paid · on hold"** (authorization id shown) and live tracking starts.
-3. In another tab open **`/partner`** and sign in with the demo access code **`sudhaar2026`** (the partner side is kept out of the customer app) → **Saathi app** → enter the **pickup OTP** shown on the order page → *Handed to karigar*.
+3. In another browser (or a private window, so both logins stay active) open **`/partner`** and log in as the **Saathi** → enter the **pickup OTP** the customer reads out from their order page (Saathis never receive OTPs) → *Handed to karigar*.
 4. **Karigar app** → *Inspect & start repair* → upload an after photo → **Mark repaired** (the AI completion check runs). If the AI rejects the photo or is unavailable, the money stays held and the repair appears in **Admin console → Photo checks** for a person to approve or send back.
 5. **Saathi app** → *Collect from karigar & go* → enter the **delivery OTP** → PayPal **captures**, sends **payouts** and issues the **invoice**. The order page shows the ids and an **Item Passport**.
 6. Order page → **Resolve Hub** → *Report an issue* → AI recommends an action → in the **Admin console → Resolve Hub** tab, **Approve PayPal refund** → the customer's order shows the refund.
@@ -217,7 +229,7 @@ Sudhaar works end to end today as a demo on the PayPal sandbox. This is my plan 
 
 ## Notes
 - **Rupees for people, USD for PayPal:** customers, karigars and Saathis see prices in **₹**, based on real street-repair rates in Indian cities. The PayPal sandbox settles in **USD**, so every total also shows the exact amount PayPal holds and captures, at ₹85 = $1 (`INR_PER_USD` in `lib/pricing.ts`). The Admin console and PayPal records stay in USD so they match the sandbox dashboard.
-- **Shared demo account:** there is no login, so everyone testing the hosted demo sees the same customer ("Anita") and the same orders. Use *Reset demo data* in the Admin console for a clean start. The partner sign-in is a demo gate (code `sudhaar2026`); production would use per-partner accounts.
+- **Accounts and roles:** customers, karigars, Saathis and admins log in with phone + PIN (PINs stored as scrypt hashes, sessions in signed HttpOnly cookies, wrong PINs lock the number for 15 minutes). Every API checks the role on the server: customers see only their own orders, karigars only their jobs, Saathis only their trips (and never the OTPs). The demo logins above are shared, so judges may see each other's test orders under "Anita"; *Reset demo data* in the Admin console clears them. A real launch would add SMS OTP.
 - **Refund decisions are made by people:** customers raise issues in Resolve Hub; the AI recommends, and the support team approves in **Admin console → Resolve Hub**. Only the Repair Agent may auto-refund small amounts (up to $5), a limit enforced in code.
 - **Fair use:** AI endpoints are rate-limited per visitor so the public demo can't be used to burn AI credits.
 - **Unpaid bookings expire** after 2 hours (24 hours for Family Pay links) and nothing is charged, like a checkout that times out.

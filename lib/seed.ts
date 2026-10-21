@@ -1,4 +1,4 @@
-import type { DB, Karigar, Saathi } from "./types";
+import type { Account, DB, Karigar, Saathi } from "./types";
 import { config } from "./config";
 
 const c = config.demoCenter;
@@ -87,5 +87,30 @@ export function seedSaathis(): Saathi[] {
 }
 
 export function seedDB(): DB {
-  return { karigars: seedKarigars(), saathis: seedSaathis(), quotes: [], orders: [], webhooks: [], applications: [] };
+  return { karigars: seedKarigars(), saathis: seedSaathis(), quotes: [], orders: [], webhooks: [], applications: [], accounts: [] };
 }
+
+/**
+ * Shared demo logins for judges (listed in the README). Real karigars get a random PIN when
+ * they are approved, and customers choose their own.
+ */
+export const DEMO_LOGINS = {
+  customer: { phone: "9999999999", pin: "1234" },
+  admin: { phone: "9000000000", pin: "2026" },
+  karigarPin: "1111",
+  saathiPin: "2222",
+};
+
+export function demoAccountSpecs(): Omit<Account, "pinHash" | "createdAt">[] {
+  const c = config.demoCenter;
+  return [
+    { id: "C-DEMO", role: "customer", name: "Anita Sharma", phone: DEMO_LOGINS.customer.phone, address: "Flat 12, Lake View Apartments", lat: c.lat, lng: c.lng, demo: true },
+    { id: "A-ADMIN", role: "admin", name: "Sudhaar team", phone: DEMO_LOGINS.admin.phone, demo: true },
+    // Karigar logins: 9000000001, 9000000002 … in seed order; Saathi logins: 9100000001, 9100000002.
+    ...seedKarigars().map((k, i) => ({ id: `K-${k.id}`, role: "karigar" as const, name: k.name, phone: `90000000${String(i + 1).padStart(2, "0")}`, karigarId: k.id, demo: true })),
+    ...seedSaathis().map((s, i) => ({ id: `S-${s.id}`, role: "saathi" as const, name: s.name, phone: `91000000${String(i + 1).padStart(2, "0")}`, saathiId: s.id, demo: true })),
+  ];
+}
+
+export const demoPinFor = (role: Account["role"]) =>
+  role === "customer" ? DEMO_LOGINS.customer.pin : role === "admin" ? DEMO_LOGINS.admin.pin : role === "karigar" ? DEMO_LOGINS.karigarPin : DEMO_LOGINS.saathiPin;

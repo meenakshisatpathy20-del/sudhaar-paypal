@@ -53,7 +53,7 @@ export default function Home() {
         setCenter(r.center);
       })
       .catch(() => {});
-    api<{ impact: Impact }>("/api/admin")
+    api<{ impact: Impact }>("/api/impact")
       .then((r) => setImpact(r.impact))
       .catch(() => {});
   }, []);

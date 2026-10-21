@@ -427,13 +427,15 @@ function Applications({ apps: fromServer, onDone }: { apps: KarigarApplication[]
   const [error, setError] = useState<string | null>(null);
   // Show ticked checks immediately; the next load brings the saved state.
   const [apps, setApps] = useState(fromServer);
+  const [issued, setIssued] = useState<{ name: string; phone: string; pin: string } | null>(null);
   useEffect(() => setApps(fromServer), [fromServer]);
   async function act(id: string, body: { action: "check"; check: keyof typeof CHECK_LABEL; value: boolean } | { action: "approve" | "reject" }) {
     setBusy(id);
     setError(null);
     if (body.action === "check") setApps((list) => list.map((a) => (a.id === id ? { ...a, checks: { ...a.checks, [body.check]: body.value } } : a)));
     try {
-      await api(`/api/applications/${id}`, body);
+      const r = await api<{ application: KarigarApplication; pin?: string }>(`/api/applications/${id}`, body);
+      if (r.pin) setIssued({ name: r.application.name, phone: r.application.phone, pin: r.pin });
       onDone();
     } catch (e) {
       setError((e as Error).message);
@@ -450,6 +452,14 @@ function Applications({ apps: fromServer, onDone }: { apps: KarigarApplication[]
   return (
     <div className="space-y-3">
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {issued && (
+        <div className="rounded-2xl bg-teal/10 p-4 text-sm ring-1 ring-teal/30">
+          <p className="font-semibold">
+            Login created for {issued.name}: phone {issued.phone}, PIN <span className="font-mono text-lg">{issued.pin}</span>
+          </p>
+          <p className="text-xs text-muted-foreground">Shown only once. Hand it over in person; Sudhaar stores only a hash of the PIN.</p>
+        </div>
+      )}
       {apps.map((a) => {
         const allChecked = Object.values(a.checks).every(Boolean);
         return (

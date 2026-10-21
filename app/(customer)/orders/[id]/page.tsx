@@ -1,5 +1,6 @@
 "use client";
 
+import { RequireLogin } from "@/components/LoginSheet";
 import { rupees, rupeeTotal, UsdNote } from "@/components/Inr";
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
@@ -32,6 +33,14 @@ const SAATHI_POS: Partial<Record<OrderStatus, number>> = { authorized: 0.02, pic
 const ACTIVE: OrderStatus[] = ["authorized", "picked_up", "at_karigar", "repairing", "repaired", "out_for_delivery"];
 
 export default function OrderPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <RequireLogin roles={["customer", "admin"]}>
+      <OrderPageInner params={params} />
+    </RequireLogin>
+  );
+}
+
+function OrderPageInner({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -134,7 +143,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
               {order.familyPay && !payMyself ? (
                 <div className="space-y-3 rounded-2xl bg-teal/10 p-3 ring-1 ring-teal/30">
                   <p className="text-sm">{t("oWaitingFamily", { name: order.familyPay.name, relation: order.familyPay.relation })}</p>
-                  <FamilyPayShare orderId={order.id} name={order.familyPay.name} item={order.item} total={rupees(order.total)} />
+                  <FamilyPayShare orderId={order.id} token={order.familyPay.token} name={order.familyPay.name} item={order.item} total={rupees(order.total)} />
                   <button className="text-xs font-semibold text-primary underline" onClick={() => setPayMyself(true)}>
                     {t("payMyself")}
                   </button>
@@ -145,6 +154,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             </CardContent>
           </Card>
         )}
+
+        {order.priceChange && <PriceChangeCard order={order} onChange={load} />}
 
         {ACTIVE.includes(order.status) && (
           <div className="grid grid-cols-2 gap-3">
@@ -373,6 +384,60 @@ function OtpCard({ label, otp, active, hint }: { label: string; otp: string; act
         <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
         <p className="font-mono text-3xl font-bold tracking-[0.3em] text-primary">{otp}</p>
         <p className="text-[11px] text-muted-foreground">{hint}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** The karigar's price change after inspection: nothing changes until the customer decides. */
+function PriceChangeCard({ order, onChange }: { order: Order; onChange: () => void }) {
+  const { t } = useLang();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pc = order.priceChange!;
+  const vars = { from: rupees(pc.from), to: rupees(pc.to), extra: rupees(pc.to - pc.from), reason: pc.reason };
+  async function decide(approve: boolean) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/orders/${order.id}/price-decision`, { approve });
+      onChange();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (pc.status === "approved" || pc.status === "declined")
+    return <p className="rounded-2xl bg-muted/60 p-3 text-sm ring-1 ring-border">{pc.item}: {pc.status === "approved" ? t("pcDone", vars) : t("pcKept", vars)}</p>;
+  return (
+    <Card className="ring-2 ring-marigold">
+      <CardContent className="space-y-3">
+        <h2 className="font-bold">{t("pcTitle")}</h2>
+        <p className="text-sm">
+          <b>{pc.item}</b>: <span className="line-through text-muted-foreground">{rupees(pc.from)}</span> → <b>{rupees(pc.to)}</b>
+        </p>
+        <p className="text-sm text-muted-foreground">{t("pcWhy", vars)}</p>
+        {pc.status === "pending" && (
+          <>
+            <p className="text-xs text-muted-foreground">{pc.to > pc.from ? t("pcHigher", vars) : t("pcLower")}</p>
+            <div className="flex gap-2">
+              <Button className="flex-1" disabled={busy} onClick={() => decide(true)}>
+                {t("pcApprove", vars)}
+              </Button>
+              <Button variant="outline" className="flex-1" disabled={busy} onClick={() => decide(false)}>
+                {t("pcDecline", vars)}
+              </Button>
+            </div>
+          </>
+        )}
+        {pc.status === "awaiting_payment" && pc.topUp?.paypalOrderId && (
+          <>
+            <p className="text-sm font-semibold">{t("pcPayExtra", vars)}</p>
+            <PayPalCheckout orderId={order.id} paypalOrderId={pc.topUp.paypalOrderId} total={pc.topUp.amount} onApproved={onChange} topUp />
+          </>
+        )}
+        {error && <p className="text-xs text-destructive">{error}</p>}
       </CardContent>
     </Card>
   );

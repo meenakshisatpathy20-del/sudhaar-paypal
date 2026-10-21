@@ -4,8 +4,8 @@ import { PayPalAgentToolkit } from "@paypal/agent-toolkit/openai";
 import { aiEnabled, config, paypalEnabled } from "./config";
 import { readDB } from "./db";
 import { INR_PER_USD } from "./pricing";
-import { advance, createBasketOrder, createOrder, createQuote, FlowError, offersFor, raiseComplaint, resolveComplaint } from "./orders";
-import type { Complaint, Order } from "./types";
+import { advance, createBasketOrder, createOrder, createQuote, familyPayPath, FlowError, offersFor, raiseComplaint, resolveComplaint } from "./orders";
+import type { Account, Complaint, Order } from "./types";
 
 // Sudhaar Repair Agent: a Claude tool-use loop that acts for the customer.
 // It quotes, picks the best karigar against the customer's budget/deadline, books the job and
@@ -25,6 +25,8 @@ interface Session {
   messages: Anthropic.Beta.BetaMessageParam[];
   photo?: string;
   updatedAt: number;
+  /** A conversation belongs to one customer account and can only touch their orders. */
+  accountId: string;
 }
 
 const sessions = new Map<string, Session>();
@@ -164,7 +166,13 @@ function summariseOrder(o: Order) {
   };
 }
 
-async function runCustomTool(name: string, input: Record<string, unknown>, session: Session, cards: Card[]): Promise<unknown> {
+async function runCustomTool(name: string, input: Record<string, unknown>, session: Session, cards: Card[], customer: Account): Promise<unknown> {
+  // Order tools only ever see this customer's own orders.
+  const ownOrder = (id: unknown) => {
+    const o = readDB().orders.find((x) => x.id === id && x.customerId === customer.id);
+    if (!o) throw new FlowError("Order not found for this customer");
+    return o;
+  };
   switch (name) {
     case "get_repair_quote": {
       const quote = await createQuote({ description: String(input.description ?? ""), photo: input.use_photo ? session.photo : undefined });
@@ -178,7 +186,7 @@ async function runCustomTool(name: string, input: Record<string, unknown>, sessi
         new_price_usd: quote.newPrice,
         confidence: quote.confidence,
         estimator: quote.source,
-        offers: offersFor(quote)
+        offers: offersFor(quote, { lat: customer.lat ?? config.demoCenter.lat, lng: customer.lng ?? config.demoCenter.lng })
           .slice(0, 5)
           .map((o) => ({
             karigar_id: o.karigar.id,
@@ -195,7 +203,7 @@ async function runCustomTool(name: string, input: Record<string, unknown>, sessi
     }
     case "book_repair": {
       const familyPay = input.family_payer_name ? { name: String(input.family_payer_name), relation: String(input.family_payer_relation || "family") } : undefined;
-      const order = await createOrder({ quoteId: String(input.quote_id), karigarId: String(input.karigar_id), donation: input.add_tool_fund_donation ? 1 : 0, bookedBy: "agent", familyPay });
+      const order = await createOrder({ customer, quoteId: String(input.quote_id), karigarId: String(input.karigar_id), donation: input.add_tool_fund_donation ? 1 : 0, bookedBy: "agent", familyPay });
       const k = readDB().karigars.find((x) => x.id === order.karigarId);
       cards.push({ type: "booking", orderId: order.id, paypalOrderId: order.paypal.orderId, total: order.total, karigar: k?.shop ?? order.karigarId, status: order.status, familyPayer: familyPay?.name });
       return {
@@ -204,33 +212,31 @@ async function runCustomTool(name: string, input: Record<string, unknown>, sessi
         total: order.total,
         status: order.status,
         next_step: familyPay
-          ? `Family Pay: share the payment link /pay/${order.id} with ${familyPay.name}; they approve it with their own PayPal.`
+          ? `Family Pay: share the payment link ${familyPayPath(order)} with ${familyPay.name}; they approve it with their own PayPal.`
           : "Customer must approve the payment with the PayPal button shown in the chat.",
       };
     }
     case "book_ghar_safai_basket": {
       const items = (input.items as { quote_id: string; karigar_id: string }[]).map((i) => ({ quoteId: i.quote_id, karigarId: i.karigar_id }));
       const familyPay = input.family_payer_name ? { name: String(input.family_payer_name), relation: String(input.family_payer_relation || "family") } : undefined;
-      const order = await createBasketOrder({ items, bookedBy: "agent", familyPay });
+      const order = await createBasketOrder({ customer, items, bookedBy: "agent", familyPay });
       cards.push({ type: "booking", orderId: order.id, paypalOrderId: order.paypal.orderId, total: order.total, karigar: `${order.jobs?.length} items · Ghar Safai`, status: order.status, familyPayer: familyPay?.name });
-      return { order_id: order.id, items: order.jobs?.length, pickup_fee: order.pickupFee, total: order.total, paypal_order_id: order.paypal.orderId, family_pay_link: familyPay ? `/pay/${order.id}` : undefined };
+      return { order_id: order.id, items: order.jobs?.length, pickup_fee: order.pickupFee, total: order.total, paypal_order_id: order.paypal.orderId, family_pay_link: familyPay ? familyPayPath(order) : undefined };
     }
     case "get_order_status": {
-      const o = readDB().orders.find((x) => x.id === input.order_id);
-      if (!o) throw new FlowError("Order not found");
-      return summariseOrder(o);
+      return summariseOrder(ownOrder(input.order_id));
     }
     case "cancel_booking": {
-      const o = await advance(String(input.order_id), "cancel");
+      const o = await advance(ownOrder(input.order_id).id, "cancel");
       return { order_id: o.id, status: o.status };
     }
     case "raise_warranty_claim": {
-      const o = await raiseComplaint(String(input.order_id), { issue: input.issue as Complaint["issue"], details: String(input.details ?? "") });
+      const o = await raiseComplaint(ownOrder(input.order_id).id, { issue: input.issue as Complaint["issue"], details: String(input.details ?? "") });
       const c = o.complaints[0];
       return { complaint_id: c.id, ai_review: c.ai, auto_refund_limit_usd: AUTO_REFUND_LIMIT };
     }
     case "issue_refund": {
-      const before = readDB().orders.find((x) => x.id === input.order_id);
+      const before = ownOrder(input.order_id);
       const c = before?.complaints.find((x) => x.id === input.complaint_id);
       if (!before || !c) throw new FlowError("Complaint not found");
       if (!c.ai || c.ai.refundAmount <= 0) throw new FlowError("The AI review did not recommend a refund for this complaint");
@@ -245,12 +251,13 @@ async function runCustomTool(name: string, input: Record<string, unknown>, sessi
   throw new FlowError(`Unknown tool ${name}`);
 }
 
-export async function agentTurn(input: { sessionId?: string; message: string; photo?: string; lang?: "en" | "hi" }) {
+export async function agentTurn(input: { customer: Account; sessionId?: string; message: string; photo?: string; lang?: "en" | "hi" }) {
   if (!aiEnabled()) {
     throw new FlowError("The Repair Agent needs ANTHROPIC_API_KEY. The rest of Sudhaar works without it.", 503);
   }
-  const sessionId = input.sessionId && sessions.has(input.sessionId) ? input.sessionId : crypto.randomUUID();
-  const session = sessions.get(sessionId) ?? { messages: [], updatedAt: Date.now() };
+  const existing = input.sessionId ? sessions.get(input.sessionId) : undefined;
+  const sessionId = existing && existing.accountId === input.customer.id ? input.sessionId! : crypto.randomUUID();
+  const session = sessions.get(sessionId) ?? { messages: [], updatedAt: Date.now(), accountId: input.customer.id };
   sessions.set(sessionId, session);
   if (input.photo) session.photo = input.photo;
   const langNote = input.lang === "hi" ? "\n\n[The customer's app is set to Hindi: reply in simple Hindi (Devanagari). Show prices in rupees (₹).]" : "";
@@ -302,7 +309,7 @@ export async function agentTurn(input: { sessionId?: string; message: string; ph
           const r = await tk.handleToolCall({ id: use.id, type: "function", function: { name: use.name, arguments: JSON.stringify(args) } });
           out = r.content;
         } else {
-          out = await runCustomTool(use.name, args, session, cards);
+          out = await runCustomTool(use.name, args, session, cards, input.customer);
         }
         steps.push({ tool: use.name, ok: true, paypalToolkit: ppToolNames.has(use.name) });
         results.push({ type: "tool_result", tool_use_id: use.id, content: typeof out === "string" ? out : JSON.stringify(out) });

@@ -9,10 +9,12 @@ import { useLang } from "../LanguageProvider";
 import { Logo } from "../Logo";
 import { ModeBadges } from "../ModeBadges";
 import { OfflineBanner } from "../OfflineBanner";
+import { useSession } from "../SessionProvider";
 
 export function CustomerShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const { t } = useLang();
+  const { account, loading } = useSession();
   const tabs = [
     { href: "/", label: t("navHome"), icon: Home, active: path === "/" || path.startsWith("/fix") || path.startsWith("/karigars") },
     { href: "/repairs", label: t("navRepairs"), icon: Wrench, active: path.startsWith("/repairs") || path.startsWith("/orders") },
@@ -39,6 +41,16 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
               <ModeBadges />
             </div>
             <LangToggle />
+            {!loading &&
+              (account ? (
+                <Link href="/profile" className="hidden max-w-32 items-center gap-1.5 truncate rounded-full bg-muted px-3 py-1.5 text-xs font-semibold ring-1 ring-border sm:flex">
+                  <UserRound className="size-3.5 shrink-0 text-primary" /> {account.name.split(" ")[0]}
+                </Link>
+              ) : (
+                <Link href={`/login?next=${encodeURIComponent(path)}`} className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">
+                  {t("login")}
+                </Link>
+              ))}
           </div>
         </div>
       </header>
