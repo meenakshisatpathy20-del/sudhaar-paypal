@@ -1,24 +1,24 @@
 "use client";
 
+import { Badge } from "@/components/ui/badge";
 import { useAppConfig } from "./useAppConfig";
 
-export function ModeBadges() {
+/** Shows whether the server talks to the real PayPal sandbox / Claude, or simulates them. */
+export function ModeBadges({ compact = false }: { compact?: boolean }) {
   const cfg = useAppConfig();
   if (!cfg) return null;
+  const pp = cfg.paypal.mode === "sandbox";
+  const ai = cfg.ai.mode === "claude";
   return (
-    <div className="flex gap-1.5 text-[11px]">
-      <span
-        className={`pill ${cfg.paypal.mode === "sandbox" ? "bg-[#e8f0fe] text-[#003087]" : "bg-amber-100 text-amber-800"}`}
-        title={cfg.paypal.mode === "sandbox" ? "Live calls to the PayPal sandbox" : "No PayPal credentials configured: PayPal calls are simulated"}
-      >
-        PayPal {cfg.paypal.mode === "sandbox" ? "Sandbox" : "Simulated"}
-      </span>
-      <span
-        className={`pill ${cfg.ai.mode === "claude" ? "bg-brand-light text-brand-dark" : "bg-amber-100 text-amber-800"}`}
-        title={cfg.ai.mode === "claude" ? `AI: ${cfg.ai.model}` : "No AI key configured: AI is simulated"}
-      >
-        AI {cfg.ai.mode === "claude" ? "Claude" : "Simulated"}
-      </span>
+    <div className="flex gap-1.5">
+      <Badge variant={pp ? "paypal" : "gold"} title={pp ? "Live calls to the PayPal sandbox" : "No PayPal keys: PayPal calls are simulated"}>
+        {compact ? "PayPal" : pp ? "PayPal Sandbox" : "PayPal Simulated"}
+        {compact && <span className={`size-1.5 rounded-full ${pp ? "bg-[#7cb8ff]" : "bg-gold"}`} />}
+      </Badge>
+      <Badge variant={ai ? "default" : "gold"} title={ai ? `AI: ${cfg.ai.model}` : "No AI key: AI is simulated"}>
+        {compact ? "AI" : ai ? "AI Claude" : "AI Simulated"}
+        {compact && <span className={`size-1.5 rounded-full ${ai ? "bg-primary" : "bg-gold"}`} />}
+      </Badge>
     </div>
   );
 }

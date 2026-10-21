@@ -3,14 +3,24 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AgGridReact } from "ag-grid-react";
-import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type ICellRendererParams } from "ag-grid-community";
+import { AllCommunityModule, colorSchemeDark, ModuleRegistry, themeQuartz, type ColDef, type ICellRendererParams } from "ag-grid-community";
 import { api, money } from "@/components/api";
 import { STATUS_LABEL } from "@/components/StatusPill";
 import type { Karigar, Order, Saathi } from "@/lib/types";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-const theme = themeQuartz.withParams({ accentColor: "#0f766e", headerBackgroundColor: "#e6f4f2", fontSize: 13, borderRadius: 8 });
+const theme = themeQuartz.withPart(colorSchemeDark).withParams({
+  accentColor: "#2dd4bf",
+  backgroundColor: "#0b1312",
+  headerBackgroundColor: "#101b1a",
+  oddRowBackgroundColor: "#0d1615",
+  foregroundColor: "#e9f2ef",
+  borderColor: "#ffffff14",
+  fontSize: 13,
+  borderRadius: 10,
+  wrapperBorderRadius: 16,
+});
 
 type Impact = { itemsRepaired: number; kgSaved: number; moneySaved: number; karigarEarnings: number; saathiEarnings: number; refunds: number; toolFund: number; activeOrders: number };
 type AdminData = { orders: Order[]; karigars: Karigar[]; saathis: Saathi[]; webhooks: { at: string; type: string; resource?: string; verified: boolean }[]; impact: Impact };
@@ -72,7 +82,7 @@ export default function Admin() {
   const usd = (p: { value: number }) => (p.value ? money(p.value) : "–");
   const orderCols = useMemo<ColDef<Row>[]>(
     () => [
-      { field: "id", headerName: "Order", pinned: "left", width: 120, cellRenderer: (p: ICellRendererParams<Row>) => <Link className="font-mono text-brand underline" href={`/orders/${p.value}`}>{p.value}</Link> },
+      { field: "id", headerName: "Order", pinned: "left", width: 120, cellRenderer: (p: ICellRendererParams<Row>) => <Link className="font-mono text-primary underline" href={`/orders/${p.value}`}>{p.value}</Link> },
       { field: "created", headerName: "Booked", width: 150, valueFormatter: (p) => new Date(p.value).toLocaleString(), sort: "desc" },
       { field: "item", flex: 1, minWidth: 160 },
       { field: "karigar", minWidth: 150 },
@@ -135,18 +145,18 @@ export default function Admin() {
     [],
   );
 
-  if (!data) return <p className="card text-muted">Loading dashboard…</p>;
+  if (!data) return <p className="glass rounded-2xl p-5 text-muted-foreground">Loading dashboard…</p>;
   const i = data.impact;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold">Sudhaar operations</h1>
-          <p className="text-sm text-muted">Every hold, capture, payout, invoice and refund, straight from PayPal.</p>
+          <h1 className="text-3xl font-bold">Operations</h1>
+          <p className="text-sm text-muted-foreground">Every hold, capture, payout, invoice and refund, straight from PayPal.</p>
         </div>
         <button
-          className="btn-outline text-xs"
+          className="rounded-xl px-3 py-2 text-xs font-semibold ring-1 ring-white/15 hover:bg-white/5"
           onClick={() => {
             if (confirm("Reset demo data? All orders will be removed.")) api("/api/reset", {}).then(load);
           }}
@@ -165,20 +175,20 @@ export default function Admin() {
           ["Refunded", money(i.refunds)],
           ["Tool fund", money(i.toolFund)],
         ].map(([k, v]) => (
-          <div key={k} className="card p-3">
-            <p className="text-lg font-extrabold text-brand">{v}</p>
-            <p className="text-xs text-muted">{k}</p>
+          <div key={k} className="glass rounded-2xl p-3">
+            <p className="font-display text-xl font-bold text-primary">{v}</p>
+            <p className="text-xs text-muted-foreground">{k}</p>
           </div>
         ))}
       </div>
       <div className="flex gap-1">
         {(["orders", "payouts", "karigars", "webhooks"] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-1.5 text-sm font-semibold capitalize ${tab === t ? "bg-brand text-white" : "bg-white text-muted"}`}>
+          <button key={t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-1.5 text-sm font-semibold capitalize ${tab === t ? "bg-primary text-primary-foreground" : "bg-white/[0.05] text-muted-foreground"}`}>
             {t === "webhooks" ? "PayPal webhooks" : t}
           </button>
         ))}
       </div>
-      <div className="h-[560px] overflow-hidden rounded-2xl border border-line bg-white">
+      <div className="h-[560px] overflow-hidden rounded-2xl">
         {tab === "orders" && <AgGridReact<Row> theme={theme} rowData={rows} columnDefs={orderCols} pagination paginationPageSize={20} defaultColDef={{ sortable: true, resizable: true }} />}
         {tab === "payouts" && <AgGridReact theme={theme} rowData={payoutRows} columnDefs={payoutCols} defaultColDef={{ sortable: true, resizable: true }} />}
         {tab === "karigars" && <AgGridReact<Karigar> theme={theme} rowData={data.karigars} columnDefs={karigarCols} defaultColDef={{ sortable: true, resizable: true, filter: true }} />}

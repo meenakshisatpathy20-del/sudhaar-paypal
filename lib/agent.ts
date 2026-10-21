@@ -60,7 +60,7 @@ You act on the customer's behalf, not just advise:
 5. For problems after delivery, use raise_warranty_claim. If the AI review recommends a refund of at most $${AUTO_REFUND_LIMIT}, you may call issue_refund. Larger refunds go to the support desk.
 6. Use the PayPal lookup tools (get_order, get_invoice, list_invoices, get_refund, list_transactions) when the customer asks about bills, payments or refunds.
 
-Keep replies short and friendly (2-5 sentences), use plain language, show amounts as $X.XX. Never invent order ids, prices or PayPal ids: only use what tools return.`;
+Keep replies short and friendly (2-5 sentences), because they are often read aloud by voice. Use plain language, show amounts as $X.XX, and reply in the language the customer uses (Hindi or English). Never invent order ids, prices or PayPal ids: only use what tools return.`;
 
 const CUSTOM_TOOLS: Anthropic.Beta.BetaTool[] = [
   {
@@ -206,7 +206,7 @@ async function runCustomTool(name: string, input: Record<string, unknown>, sessi
   throw new FlowError(`Unknown tool ${name}`);
 }
 
-export async function agentTurn(input: { sessionId?: string; message: string; photo?: string }) {
+export async function agentTurn(input: { sessionId?: string; message: string; photo?: string; lang?: "en" | "hi" }) {
   if (!aiEnabled()) {
     throw new FlowError("The Repair Agent needs ANTHROPIC_API_KEY. The rest of Sudhaar works without it.", 503);
   }
@@ -214,7 +214,8 @@ export async function agentTurn(input: { sessionId?: string; message: string; ph
   const session = sessions.get(sessionId) ?? { messages: [], updatedAt: Date.now() };
   sessions.set(sessionId, session);
   if (input.photo) session.photo = input.photo;
-  session.messages.push({ role: "user", content: input.photo ? `${input.message}\n\n[Customer attached a photo of the item]` : input.message });
+  const langNote = input.lang === "hi" ? "\n\n[The customer's app is set to Hindi: reply in simple Hindi (Devanagari). Keep prices as $X.XX.]" : "";
+  session.messages.push({ role: "user", content: `${input.message}${input.photo ? "\n\n[Customer attached a photo of the item]" : ""}${langNote}` });
 
   const tk = paypalToolkit();
   const ppTools: Anthropic.Beta.BetaTool[] = (tk?.getTools() ?? []).map((t) => ({

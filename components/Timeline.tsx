@@ -1,9 +1,10 @@
+import { Check } from "lucide-react";
 import type { Order, OrderStatus } from "@/lib/types";
 
 const PICKUP_STEPS: { status: OrderStatus; label: string }[] = [
   { status: "authorized", label: "Paid · money held by PayPal" },
   { status: "picked_up", label: "Picked up (OTP)" },
-  { status: "at_karigar", label: "At karigar" },
+  { status: "at_karigar", label: "At the karigar" },
   { status: "repairing", label: "Repairing" },
   { status: "repaired", label: "Repaired · AI photo check" },
   { status: "out_for_delivery", label: "Out for delivery" },
@@ -20,19 +21,23 @@ const VISIT_STEPS: { status: OrderStatus; label: string }[] = [
 
 export function Timeline({ order }: { order: Order }) {
   const steps = order.mode === "pickup" ? PICKUP_STEPS : VISIT_STEPS;
-  const reached = new Set(order.events.map((e) => e.status).filter(Boolean));
   const currentIdx = steps.findIndex((s) => s.status === order.status);
   return (
-    <ol className="space-y-2">
+    <ol className="relative space-y-3 pl-1">
       {steps.map((s, i) => {
-        const done = reached.has(s.status) && (currentIdx === -1 || i <= currentIdx || order.status === "paid_out");
+        const done = currentIdx >= 0 && i <= currentIdx;
+        const current = i === currentIdx && order.status !== "paid_out";
         const at = order.events.findLast((e) => e.status === s.status)?.at;
         return (
-          <li key={s.status} className="flex items-start gap-3">
-            <span className={`mt-1 h-3 w-3 shrink-0 rounded-full ${done ? "bg-brand" : "border-2 border-line bg-white"}`} />
-            <div className="flex-1 text-sm">
-              <span className={done ? "font-semibold" : "text-muted"}>{s.label}</span>
-              {done && at && <span className="ml-2 text-xs text-muted">{new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
+          <li key={s.status} className="relative flex items-start gap-3">
+            {i < steps.length - 1 && <span className={`absolute left-[11px] top-6 h-[calc(100%-4px)] w-0.5 ${done && i < currentIdx ? "bg-primary" : "bg-white/10"}`} />}
+            <span className={`relative z-10 grid size-6 shrink-0 place-items-center rounded-full ${done ? "bg-primary text-primary-foreground" : "bg-white/5 ring-1 ring-white/15"}`}>
+              {done ? <Check className="size-3.5" /> : <span className="size-1.5 rounded-full bg-white/30" />}
+              {current && <span className="absolute inset-0 rounded-full bg-primary/50" style={{ animation: "ping-soft 1.6s ease-out infinite" }} />}
+            </span>
+            <div className="flex-1 pt-0.5 text-sm">
+              <span className={done ? "font-semibold" : "text-muted-foreground"}>{s.label}</span>
+              {done && at && <span className="ml-2 text-xs text-muted-foreground">{new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
             </div>
           </li>
         );

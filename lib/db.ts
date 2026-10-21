@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { config } from "./config";
-import { seedDB } from "./seed";
+import { seedDB, seedKarigars, seedSaathis } from "./seed";
 import type { DB } from "./types";
 
 // A tiny JSON-file store. It keeps the project dependency-free and easy for judges
@@ -16,6 +16,10 @@ function load(): DB {
   if (cache) return cache;
   try {
     cache = JSON.parse(fs.readFileSync(file(), "utf8")) as DB;
+    // Karigars and Saathis are demo data: always refresh them from the seed so profile
+    // updates and the payout emails from .env apply to an existing database too.
+    cache.karigars = seedKarigars();
+    cache.saathis = seedSaathis();
   } catch {
     cache = seedDB();
     persist(cache);

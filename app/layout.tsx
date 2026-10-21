@@ -1,24 +1,24 @@
 import type { Metadata, Viewport } from "next";
+import "@fontsource-variable/inter";
+import "@fontsource-variable/space-grotesk";
+import "@fontsource/noto-sans-devanagari/400.css";
+import "@fontsource/noto-sans-devanagari/600.css";
 import "./globals.css";
-import { Nav } from "@/components/Nav";
+import { LanguageProvider } from "@/components/LanguageProvider";
 
 export const metadata: Metadata = {
   title: "Sudhaar – Repair, don't replace",
   description:
-    "Doorstep repair marketplace for local karigars. AI repair quotes, PayPal-held payments released on delivery OTP, instant payouts and AI-assisted refunds.",
+    "Give your things a second life. Verified local karigars, doorstep pickup, AI repair quotes and PayPal-protected payments released only on delivery.",
 };
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#0f766e" };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#060a0a" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body className="min-h-screen antialiased">
-        <Nav />
-        <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-4">{children}</main>
-        <footer className="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-muted">
-          Sudhaar runs on the PayPal sandbox. No real money moves. Built for the PayPal AI Hackathon 2026.
-        </footer>
+    <html lang="en" className="dark">
+      <body className="min-h-screen font-sans">
+        <LanguageProvider>{children}</LanguageProvider>
       </body>
     </html>
   );
