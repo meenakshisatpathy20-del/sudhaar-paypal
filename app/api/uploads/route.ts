@@ -4,12 +4,14 @@ import path from "node:path";
 import { uploadsDir } from "@/lib/db";
 import { fail, ok } from "@/lib/http";
 import { FlowError } from "@/lib/orders";
+import { rateLimit } from "@/lib/ratelimit";
 
 const TYPES: Record<string, string> = { "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp" };
 const MAX_BYTES = 4 * 1024 * 1024;
 
 export async function POST(req: Request) {
   try {
+    rateLimit(req, "upload", 60);
     const form = await req.formData();
     const file = form.get("file");
     if (!(file instanceof File)) throw new FlowError("No file uploaded");

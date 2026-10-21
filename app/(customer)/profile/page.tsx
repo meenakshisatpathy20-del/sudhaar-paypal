@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight, Handshake, Leaf, MapPin, PiggyBank, ShieldCheck, Volume2, Wrench } from "lucide-react";
+import { Handshake, Leaf, MapPin, PiggyBank, ShieldCheck, Volume2, Wrench } from "lucide-react";
 import { api, money } from "@/components/api";
 import { LangToggle } from "@/components/LangToggle";
 import { useLang } from "@/components/LanguageProvider";
@@ -32,6 +31,7 @@ export default function Profile() {
             <p className="flex items-center gap-1 text-sm text-muted-foreground">
               <MapPin className="size-3.5" /> {customer.address}
             </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">Shared demo account for the hackathon (no login needed).</p>
           </div>
         </CardContent>
       </Card>
@@ -83,13 +83,7 @@ export default function Profile() {
             </span>
             <ModeBadges />
           </div>
-          <Link href="/partner" className="flex items-center justify-between p-4 text-sm font-medium hover:bg-muted">
-            <span>
-              {t("partners")}
-              <span className="block text-xs text-muted-foreground">{t("partnersSub")}</span>
-            </span>
-            <ArrowRight className="size-4 text-primary" />
-          </Link>
+
         </CardContent>
       </Card>
     </div>

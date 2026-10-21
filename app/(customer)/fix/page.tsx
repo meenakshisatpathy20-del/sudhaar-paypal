@@ -5,8 +5,12 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, BadgeCheck, Clock, List, Map as MapIcon, Recycle, Sparkles, Star } from "lucide-react";
 import { api, money } from "@/components/api";
 import { CATEGORY_EXAMPLE } from "@/components/CategoryIcon";
+import { CategoryChips } from "@/components/CategoryChips";
+import { useAppConfig } from "@/components/useAppConfig";
 import { FamilyPayPicker, type FamilyPayValue } from "@/components/FamilyPay";
 import { FixMeter } from "@/components/FixMeter";
+import { Inr } from "@/components/Inr";
+import Link from "next/link";
 import { useLang } from "@/components/LanguageProvider";
 import { MicButton } from "@/components/MicButton";
 import { NeighbourhoodMap } from "@/components/NeighbourhoodMap";
@@ -38,6 +42,8 @@ function Fix() {
   const [step, setStep] = useState(0);
   const [photo, setPhoto] = useState<string>();
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<Category | null>(null);
+  const cfg = useAppConfig();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quote, setQuote] = useState<(Quote & { warning?: string }) | null>(null);
@@ -55,7 +61,10 @@ function Fix() {
     const d = params.get("d");
     const c = params.get("c") as Category | null;
     if (d) setDescription(d);
-    else if (c && CATEGORY_EXAMPLE[c]) setDescription(CATEGORY_EXAMPLE[c][lang]);
+    else if (c && CATEGORY_EXAMPLE[c]) {
+      setDescription(CATEGORY_EXAMPLE[c][lang]);
+      setCategory(c);
+    }
     api<{ center: { lat: number; lng: number } }>("/api/karigars").then((r) => setCenter(r.center)).catch(() => {});
   }, [params, lang]);
 
@@ -63,7 +72,7 @@ function Fix() {
     setError(null);
     setLoading(true);
     try {
-      const r = await api<{ quote: Quote & { warning?: string }; offers: Offer[] }>("/api/quote", { photo, description });
+      const r = await api<{ quote: Quote & { warning?: string }; offers: Offer[] }>("/api/quote", { photo, description, category: category ?? undefined });
       setQuote(r.quote);
       setOffers(r.offers);
       const wanted = params.get("k");
@@ -90,6 +99,8 @@ function Fix() {
   }
 
   const offer = offers.find((o) => o.karigar.id === selected);
+  // Without the AI key the estimator cannot read photos, so a photo alone needs a category or a description.
+  const needsCategory = cfg?.ai.mode === "simulated" && !!photo && !description.trim() && !category;
   const mid = quote ? (quote.repairLow + quote.repairHigh) / 2 : 0;
   const homeVisit = quote?.category === "plumbing" || quote?.category === "electrical";
   const steps = [t("step1"), t("step2"), t("step3"), t("step4")];
@@ -120,7 +131,12 @@ function Fix() {
               <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("askPlaceholder")} className="min-h-24" />
               <MicButton onText={setDescription} />
             </div>
-            <Button size="lg" className="w-full" onClick={getQuote} disabled={loading || (!photo && !description.trim())}>
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold text-muted-foreground">{lang === "hi" ? "किस तरह की चीज़ है? (वैकल्पिक)" : "What kind of item is it? (optional)"}</p>
+              <CategoryChips value={category} onChange={setCategory} />
+            </div>
+            {needsCategory && <p className="text-xs text-gold">{lang === "hi" ? "फ़ोटो के साथ एक लाइन लिखें या ऊपर से श्रेणी चुनें।" : "Add a line about the problem, or pick the kind of item above."}</p>}
+            <Button size="lg" className="w-full" onClick={getQuote} disabled={loading || (!photo && !description.trim()) || needsCategory}>
               {loading ? (
                 <>
                   <Sparkles className="animate-spin" /> {t("analysing")}
@@ -158,14 +174,17 @@ function Fix() {
                     <p className="font-display text-lg font-bold text-primary">
                       {money(quote.repairLow)}–{money(quote.repairHigh)}
                     </p>
+                    <Inr usd={mid} />
                   </div>
                   <div className="rounded-2xl bg-muted/60 p-3 ring-1 ring-border">
                     <p className="text-[11px] text-muted-foreground">{t("newCost")}</p>
                     <p className="font-display text-lg font-bold">{quote.newPrice ? money(quote.newPrice) : "–"}</p>
+                    {quote.newPrice > 0 && <Inr usd={quote.newPrice} />}
                   </div>
                   <div className="rounded-2xl bg-gold/10 p-3 ring-1 ring-gold/25">
                     <p className="text-[11px] text-muted-foreground">{t("youSave")}</p>
                     <p className="font-display text-lg font-bold text-gold">{quote.newPrice ? `~${money(Math.max(0, quote.newPrice - mid))}` : "–"}</p>
+                    {quote.newPrice > 0 && <Inr usd={Math.max(0, quote.newPrice - mid)} />}
                   </div>
                 </div>
               </>
@@ -183,6 +202,16 @@ function Fix() {
               <Button variant="outline" onClick={() => setStep(0)}>
                 <ArrowLeft /> {t("back")}
               </Button>
+              {!quote.repairable && (
+                <>
+                  <Button variant="outline" className="flex-1" onClick={() => { setQuote(null); setPhoto(undefined); setDescription(""); setStep(0); }}>
+                    {lang === "hi" ? "दूसरी चीज़ आज़माएँ" : "Try another item"}
+                  </Button>
+                  <Button asChild className="flex-1">
+                    <Link href="/agent">{lang === "hi" ? "सुधार से पूछें" : "Ask Sudhaar"}</Link>
+                  </Button>
+                </>
+              )}
               {quote.repairable && (
                 <Button className="flex-1" onClick={() => setStep(2)} disabled={offers.length === 0}>
                   {t("chooseKarigar")} <ArrowRight />
@@ -233,6 +262,7 @@ function Fix() {
                       </div>
                       <div className="text-right">
                         <p className="font-display text-lg font-bold">{money(o.price)}</p>
+                        <Inr usd={o.price} className="block" />
                         <p className="text-[11px] text-muted-foreground">+{money(o.pickupFee)}</p>
                       </div>
                     </div>
@@ -288,7 +318,10 @@ function Fix() {
               </label>
               <div className="flex justify-between border-t border-border pt-2 font-semibold">
                 <span>{t("total")}</span>
-                <span className="font-display text-lg">{money(offer.total + (donate ? 1 : 0))}</span>
+                <span className="text-right">
+                  <span className="block font-display text-lg">{money(offer.total + (donate ? 1 : 0))}</span>
+                  <Inr usd={offer.total + (donate ? 1 : 0)} />
+                </span>
               </div>
             </div>
             <FamilyPayPicker value={family} onChange={setFamily} />

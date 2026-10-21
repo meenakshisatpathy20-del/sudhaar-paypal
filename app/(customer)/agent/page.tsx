@@ -41,7 +41,10 @@ export default function TalkPage() {
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
 
-  useEffect(() => end.current?.scrollIntoView({ behavior: "smooth", block: "end" }), [msgs, busy]);
+  useEffect(() => {
+    // scrollIntoView returns a Promise in newer Chrome; never return it from an effect.
+    void end.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [msgs, busy]);
   useEffect(() => () => stopSpeaking(), []);
 
   async function send(message: string) {

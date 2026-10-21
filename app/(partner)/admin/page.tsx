@@ -6,7 +6,7 @@ import { AgGridReact } from "ag-grid-react";
 import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type ICellRendererParams } from "ag-grid-community";
 import { api, money } from "@/components/api";
 import { STATUS_LABEL } from "@/components/StatusPill";
-import type { Karigar, Order, Saathi } from "@/lib/types";
+import type { Complaint, Karigar, Order, Saathi } from "@/lib/types";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -47,7 +47,7 @@ type Row = {
 
 export default function Admin() {
   const [data, setData] = useState<AdminData | null>(null);
-  const [tab, setTab] = useState<"orders" | "payouts" | "karigars" | "webhooks">("orders");
+  const [tab, setTab] = useState<"orders" | "resolve" | "customers" | "karigars" | "saathis" | "payouts" | "webhooks">("orders");
   const load = useCallback(() => api<AdminData>("/api/admin").then(setData).catch(() => {}), []);
   useEffect(() => {
     load();
@@ -121,14 +121,82 @@ export default function Admin() {
     ],
     [],
   );
-  const karigarCols = useMemo<ColDef<Karigar>[]>(
+  // Customers: everyone who booked or paid (including Family Pay payers), built from orders.
+  const customerRows = useMemo(() => {
+    const m = new Map<string, { name: string; email: string; role: string; orders: number; spent: number; refunded: number; last: string }>();
+    for (const o of data?.orders ?? []) {
+      const payer = o.familyPay ? { name: o.familyPay.name, email: o.familyPay.paidBy ?? "", role: `Family Pay (${o.familyPay.relation})` } : null;
+      for (const who of [{ name: o.customer.name, email: o.customer.email, role: "Customer" }, ...(payer ? [payer] : [])]) {
+        const key = `${who.name}|${who.role}`;
+        const r = m.get(key) ?? { ...who, orders: 0, spent: 0, refunded: 0, last: o.createdAt };
+        r.orders += 1;
+        const paidByThisPerson = o.familyPay ? who.role !== "Customer" : true;
+        if (o.paypal.captureId && paidByThisPerson) r.spent += o.total;
+        if (paidByThisPerson) r.refunded += o.paypal.refunds.reduce((a, x) => a + x.amount, 0);
+        if (o.createdAt > r.last) r.last = o.createdAt;
+        m.set(key, r);
+      }
+    }
+    return [...m.values()];
+  }, [data]);
+  const customerCols = useMemo<ColDef[]>(
+    () => [
+      { field: "name", flex: 1, minWidth: 150 },
+      { field: "role", width: 190, filter: true },
+      { field: "email", width: 230 },
+      { field: "orders", width: 100 },
+      { field: "spent", headerName: "Paid (captured)", width: 140, valueFormatter: usd },
+      { field: "refunded", width: 110, valueFormatter: usd },
+      { field: "last", headerName: "Last booking", width: 170, valueFormatter: (p) => new Date(p.value).toLocaleString() },
+    ],
+    [],
+  );
+  const karigarRows = useMemo(
+    () =>
+      (data?.karigars ?? []).map((k) => {
+        const mine = (data?.orders ?? []).filter((o) => (o.jobs?.length ? o.jobs.some((j) => j.karigarId === k.id) : o.karigarId === k.id));
+        const earned = mine
+          .filter((o) => o.paypal.payoutBatchId)
+          .reduce((s, o) => s + (o.jobs?.length ? o.jobs.filter((j) => j.karigarId === k.id).reduce((a, j) => a + j.price * 0.9, 0) : (o.payouts.find((p) => p.to === "karigar")?.amount ?? 0)), 0);
+        return { ...k, active: mine.filter((o) => !["paid_out", "cancelled", "awaiting_payment"].includes(o.status)).length, completed: mine.filter((o) => o.status === "paid_out").length, earned };
+      }),
+    [data],
+  );
+  const saathiRows = useMemo(
+    () =>
+      (data?.saathis ?? []).map((sa) => {
+        const mine = (data?.orders ?? []).filter((o) => o.saathiId === sa.id && o.mode === "pickup");
+        return {
+          ...sa,
+          trips: mine.filter((o) => o.paypal.captureId).length,
+          active: mine.filter((o) => ["authorized", "picked_up", "at_karigar", "repairing", "repaired", "out_for_delivery"].includes(o.status)).length,
+          earned: mine.reduce((a, o) => a + o.payouts.filter((p) => p.to === "saathi").reduce((x, p) => x + p.amount, 0), 0),
+        };
+      }),
+    [data],
+  );
+  const saathiCols = useMemo<ColDef[]>(
+    () => [
+      { field: "name", flex: 1, minWidth: 180 },
+      { field: "rating", width: 90 },
+      { field: "active", headerName: "Active jobs", width: 120 },
+      { field: "trips", headerName: "Trips done", width: 120 },
+      { field: "earned", headerName: "Earned (Payouts)", width: 150, valueFormatter: usd },
+      { field: "payoutEmail", headerName: "PayPal payout email", width: 260 },
+    ],
+    [],
+  );
+  const karigarCols = useMemo<ColDef<Karigar & { active: number; completed: number; earned: number }>[]>(
     () => [
       { field: "shop", flex: 1, minWidth: 180 },
       { field: "name", width: 150 },
       { field: "skills", valueFormatter: (p) => (p.value as string[]).join(", "), minWidth: 200, flex: 1 },
       { field: "area", width: 130 },
       { field: "rating", width: 90 },
-      { field: "jobsDone", headerName: "Jobs", width: 90 },
+      { field: "jobsDone", headerName: "Jobs (lifetime)", width: 130 },
+      { field: "active", headerName: "Active", width: 90 },
+      { field: "completed", headerName: "On Sudhaar", width: 110 },
+      { field: "earned", headerName: "Earned (Payouts)", width: 150, valueFormatter: usd },
       { field: "verified", headerName: "KYC", width: 80, valueFormatter: (p) => (p.value ? "✓" : "–") },
       { field: "languages", valueFormatter: (p) => (p.value as string[]).join(", "), width: 160 },
       { field: "payoutEmail", headerName: "PayPal payout email", width: 220 },
@@ -145,6 +213,7 @@ export default function Admin() {
     [],
   );
 
+  const openComplaints = (data?.orders ?? []).flatMap((o) => o.complaints.filter((c) => !c.resolution).map((c) => ({ order: o, complaint: c })));
   if (!data) return <p className="paper rounded-2xl p-5 text-muted-foreground">Loading dashboard…</p>;
   const i = data.impact;
 
@@ -152,7 +221,7 @@ export default function Admin() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="text-3xl font-bold">Operations</h1>
+          <h1 className="text-3xl font-bold">Admin console</h1>
           <p className="text-sm text-muted-foreground">Every hold, capture, payout, invoice and refund, straight from PayPal.</p>
         </div>
         <button
@@ -181,19 +250,84 @@ export default function Admin() {
           </div>
         ))}
       </div>
-      <div className="flex gap-1">
-        {(["orders", "payouts", "karigars", "webhooks"] as const).map((t) => (
+      <div className="no-scrollbar flex gap-1 overflow-x-auto">
+        {(["orders", "resolve", "customers", "karigars", "saathis", "payouts", "webhooks"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-1.5 text-sm font-semibold capitalize ${tab === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-            {t === "webhooks" ? "PayPal webhooks" : t}
+            {t === "webhooks" ? "PayPal webhooks" : t === "resolve" ? `Resolve Hub (${openComplaints.length})` : t}
           </button>
         ))}
       </div>
-      <div className="h-[560px] overflow-hidden rounded-2xl">
+      {tab === "resolve" && <ResolveQueue items={openComplaints} onDone={load} />}
+      <div className={tab === "resolve" ? "hidden" : "h-[560px] overflow-hidden rounded-2xl"}>
         {tab === "orders" && <AgGridReact<Row> theme={theme} rowData={rows} columnDefs={orderCols} pagination paginationPageSize={20} defaultColDef={{ sortable: true, resizable: true }} />}
         {tab === "payouts" && <AgGridReact theme={theme} rowData={payoutRows} columnDefs={payoutCols} defaultColDef={{ sortable: true, resizable: true }} />}
-        {tab === "karigars" && <AgGridReact<Karigar> theme={theme} rowData={data.karigars} columnDefs={karigarCols} defaultColDef={{ sortable: true, resizable: true, filter: true }} />}
+        {tab === "karigars" && <AgGridReact theme={theme} rowData={karigarRows} columnDefs={karigarCols} defaultColDef={{ sortable: true, resizable: true, filter: true }} />}
+        {tab === "customers" && <AgGridReact theme={theme} rowData={customerRows} columnDefs={customerCols} defaultColDef={{ sortable: true, resizable: true }} />}
+        {tab === "saathis" && <AgGridReact theme={theme} rowData={saathiRows} columnDefs={saathiCols} defaultColDef={{ sortable: true, resizable: true }} />}
         {tab === "webhooks" && <AgGridReact theme={theme} rowData={data.webhooks} columnDefs={hookCols} defaultColDef={{ sortable: true, resizable: true }} />}
       </div>
+    </div>
+  );
+}
+
+/** Support desk: humans approve the AI's recommendation before any PayPal refund is sent. */
+function ResolveQueue({ items, onDone }: { items: { order: Order; complaint: Complaint }[]; onDone: () => void }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  async function resolve(o: Order, c: Complaint, action: "refund" | "re_repair" | "rejected", amount?: number) {
+    setBusy(c.id);
+    setError(null);
+    try {
+      await api(`/api/orders/${o.id}/resolve`, { complaintId: c.id, action, amount });
+      onDone();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+  if (items.length === 0) return <p className="paper rounded-2xl p-6 text-sm text-muted-foreground">No open complaints. 🎉</p>;
+  return (
+    <div className="space-y-3">
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {items.map(({ order: o, complaint: c }) => (
+        <div key={c.id} className="paper space-y-2 rounded-2xl p-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="font-semibold">
+              {c.issue.replaceAll("_", " ")} · {o.item}{" "}
+              <Link href={`/orders/${o.id}`} className="font-mono text-xs text-primary underline">
+                {o.id}
+              </Link>
+            </p>
+            <span className="text-xs text-muted-foreground">
+              paid {money(o.total)} · capture <span className="font-mono">{o.paypal.captureId}</span>
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground">&ldquo;{c.details}&rdquo;</p>
+          {c.ai && (
+            <p className="rounded-xl bg-primary/10 p-2 text-xs">
+              <b>
+                AI recommends {c.ai.recommendation.replaceAll("_", " ")}
+                {c.ai.refundAmount ? ` of ${money(c.ai.refundAmount)}` : ""}
+              </b>{" "}
+              ({c.ai.source}): {c.ai.reasoning}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {c.ai && c.ai.refundAmount > 0 && (
+              <button disabled={busy === c.id} onClick={() => resolve(o, c, "refund", c.ai!.refundAmount)} className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">
+                Approve PayPal refund {money(c.ai.refundAmount)}
+              </button>
+            )}
+            <button disabled={busy === c.id} onClick={() => resolve(o, c, "re_repair")} className="rounded-xl px-3 py-2 text-xs font-semibold ring-1 ring-border hover:bg-muted disabled:opacity-50">
+              Free re-repair
+            </button>
+            <button disabled={busy === c.id} onClick={() => resolve(o, c, "rejected")} className="rounded-xl px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50">
+              Close without refund
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

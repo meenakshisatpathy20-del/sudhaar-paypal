@@ -292,9 +292,7 @@ export default function Home() {
 
       <footer className="flex flex-col items-center justify-between gap-2 border-t border-border pt-4 text-xs text-muted-foreground md:flex-row">
         <p>Sudhaar · Repair, don&apos;t replace · Runs on the PayPal sandbox, so no real money moves.</p>
-        <Link href="/partner" className="flex items-center gap-1 font-semibold text-primary">
-          {t("partners")} <ArrowRight className="size-3.5" />
-        </Link>
+        <p>Made with care for local karigars.</p>
       </footer>
     </div>
   );

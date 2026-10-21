@@ -392,18 +392,6 @@ function ResolveHub({ order, refunded, onChange }: { order: Order; refunded: num
     }
   }
 
-  async function resolve(c: Complaint, action: "refund" | "re_repair" | "rejected", amount?: number) {
-    setBusy(true);
-    setError(null);
-    try {
-      await api(`/api/orders/${order.id}/resolve`, { complaintId: c.id, action, amount });
-      onChange();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
 
   return (
     <Card>
@@ -469,22 +457,9 @@ function ResolveHub({ order, refunded, onChange }: { order: Order; refunded: num
                 {c.resolution.amount ? ` ${money(c.resolution.amount)}` : ""} {c.resolution.refundId && <span className="font-mono">({c.resolution.refundId})</span>}
               </p>
             ) : (
-              <div className="space-y-1.5 rounded-xl bg-muted p-2">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Support desk</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {c.ai && c.ai.refundAmount > 0 && (
-                    <Button size="sm" disabled={busy} onClick={() => resolve(c, "refund", c.ai!.refundAmount)}>
-                      Approve PayPal refund {money(c.ai.refundAmount)}
-                    </Button>
-                  )}
-                  <Button size="sm" variant="outline" disabled={busy} onClick={() => resolve(c, "re_repair")}>
-                    Free re-repair
-                  </Button>
-                  <Button size="sm" variant="ghost" disabled={busy} onClick={() => resolve(c, "rejected")}>
-                    Close
-                  </Button>
-                </div>
-              </div>
+              <p className="rounded-xl bg-marigold/15 p-2.5 text-xs text-[#7a4a06]">
+                ⏳ Sudhaar&apos;s support team is reviewing this, usually within a few hours. Any PayPal refund or free re-repair will appear right here.
+              </p>
             )}
           </div>
         ))}
