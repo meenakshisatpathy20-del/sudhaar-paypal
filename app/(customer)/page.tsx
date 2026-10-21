@@ -15,7 +15,7 @@ import { MicButton } from "@/components/MicButton";
 import { NeighbourhoodMap } from "@/components/NeighbourhoodMap";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CATEGORY_I18N } from "@/lib/i18n";
+import { catKey } from "@/lib/i18n";
 import type { Category, Karigar } from "@/lib/types";
 
 const HeroScene = dynamic(() => import("@/components/HeroScene"), { ssr: false, loading: () => null });
@@ -39,7 +39,7 @@ function SectionTitle({ children, right }: { children: React.ReactNode; right?: 
 
 export default function Home() {
   const router = useRouter();
-  const { t, lang } = useLang();
+  const { t } = useLang();
   const [text, setText] = useState("");
   const [karigars, setKarigars] = useState<KarigarWithDistance[]>([]);
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
@@ -152,7 +152,7 @@ export default function Home() {
                 <span className={`grid size-12 place-items-center rounded-2xl ${tint} transition group-hover:scale-110 group-hover:rotate-3`}>
                   <Icon className="size-6 text-foreground" strokeWidth={1.8} />
                 </span>
-                <span className="text-xs font-semibold leading-tight">{CATEGORY_I18N[c][lang]}</span>
+                <span className="text-xs font-semibold leading-tight">{t(catKey(c))}</span>
               </Link>
             );
           })}
@@ -203,13 +203,13 @@ export default function Home() {
                 <HomeHeart className="w-16 shrink-0" />
                 <div>
                   <p className="flex items-center gap-1.5 font-display text-lg font-bold">
-                    <HeartHandshake className="size-5 text-teal" /> {lang === "hi" ? "फ़ैमिली पे" : "Family Pay"}
+                    <HeartHandshake className="size-5 text-teal" /> {t("homeFamilyPay")}
                   </p>
                   <p className="text-xs text-muted-foreground">{t("familyPaySub")}</p>
                 </div>
               </div>
               <ol className="grid grid-cols-3 gap-1.5 text-center text-[11px] font-medium">
-                {(lang === "hi" ? ["माँ बोलकर बुक करती हैं", "बेटा पुणे से PayPal करता है", "घर पर ही ठीक होता है"] : ["Mom books by voice", "Son pays from Pune via PayPal", "Fixed at home"]).map((s, i) => (
+                {[t("homeFp1"), t("homeFp2"), t("homeFp3")].map((s, i) => (
                   <li key={s} className="rounded-xl bg-card/80 px-1.5 py-2 ring-1 ring-border">
                     <span className="mx-auto mb-1 grid size-5 place-items-center rounded-full bg-teal text-[10px] font-bold text-white">{i + 1}</span>
                     {s}
@@ -225,11 +225,11 @@ export default function Home() {
             </span>
             <div className="min-w-0 space-y-1.5">
               <p className="font-display text-lg font-bold">{t("talkTitle")}</p>
-              <p className="text-xs italic text-muted-foreground">“{lang === "hi" ? "मेरा मिक्सर शुक्रवार तक ₹700 में ठीक करवा दो" : "Get my mixer fixed under ₹700 by Friday"}”</p>
+              <p className="text-xs italic text-muted-foreground">“{t("homeTalkEx")}”</p>
               <p className="flex flex-wrap gap-1 text-[10px] font-semibold">
-                <span className="rounded-full bg-card px-2 py-0.5 ring-1 ring-border">🎤 हिंदी / English</span>
-                <span className="rounded-full bg-card px-2 py-0.5 ring-1 ring-border">🔊 {lang === "hi" ? "बोलकर जवाब" : "Speaks back"}</span>
-                <span className="rounded-full bg-card px-2 py-0.5 ring-1 ring-border">💳 {lang === "hi" ? "PayPal बुकिंग" : "Books with PayPal"}</span>
+                <span className="rounded-full bg-card px-2 py-0.5 ring-1 ring-border">🎤 {t("homeVoice")}</span>
+                <span className="rounded-full bg-card px-2 py-0.5 ring-1 ring-border">🔊 {t("homeSpeaks")}</span>
+                <span className="rounded-full bg-card px-2 py-0.5 ring-1 ring-border">💳 {t("homeBooks")}</span>
               </p>
             </div>
           </Link>

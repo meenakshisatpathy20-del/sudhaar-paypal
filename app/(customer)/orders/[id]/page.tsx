@@ -12,6 +12,7 @@ import { NeighbourhoodMap } from "@/components/NeighbourhoodMap";
 import { PayPalCheckout } from "@/components/PayPalCheckout";
 import { PhotoPicker } from "@/components/PhotoPicker";
 import { useLang } from "@/components/LanguageProvider";
+import { langMeta } from "@/lib/i18n";
 import { STATUS_PROGRESS, StatusPill } from "@/components/StatusPill";
 import { Timeline } from "@/components/Timeline";
 import { Avatar } from "@/components/ui/avatar";
@@ -246,7 +247,7 @@ function OrderPageInner({ params }: { params: Promise<{ id: string }> }) {
               <p className="text-xs text-muted-foreground">
                 {t("oFixedBy", {
                   names: order.kind === "basket" ? jobKarigars.map(([, k]) => k.name.split(" ")[0]).join(", ") : (karigar?.name ?? ""),
-                  date: new Date(order.events.findLast((e) => e.status === "paid_out")?.at ?? order.createdAt).toLocaleDateString(lang === "hi" ? "hi-IN" : "en-IN"),
+                  date: new Date(order.events.findLast((e) => e.status === "paid_out")?.at ?? order.createdAt).toLocaleDateString(langMeta(lang).locale),
                 })}
               </p>
             </CardContent>
@@ -303,7 +304,7 @@ function OrderPageInner({ params }: { params: Promise<{ id: string }> }) {
             </button>
             {showLog && (
               <div className="mt-4 space-y-2">
-                {lang === "hi" && <p className="text-xs text-muted-foreground">{t("oLogNote")}</p>}
+                {lang !== "en" && <p className="text-xs text-muted-foreground">{t("oLogNote")}</p>}
                 <EventLog events={order.events} />
               </div>
             )}

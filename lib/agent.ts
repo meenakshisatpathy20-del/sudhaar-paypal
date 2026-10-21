@@ -5,6 +5,7 @@ import { aiEnabled, config, paypalEnabled } from "./config";
 import { readDB } from "./db";
 import { INR_PER_USD } from "./pricing";
 import { advance, createBasketOrder, createOrder, createQuote, familyPayPath, FlowError, offersFor, raiseComplaint, resolveComplaint } from "./orders";
+import { type Lang, langMeta } from "./i18n";
 import type { Account, Complaint, Order } from "./types";
 
 // Sudhaar Repair Agent: a Claude tool-use loop that acts for the customer.
@@ -65,7 +66,7 @@ You act on the customer's behalf, not just advise:
 5. For problems after delivery, use raise_warranty_claim. If the AI review recommends a refund of at most $${AUTO_REFUND_LIMIT}, you may call issue_refund. Larger refunds go to the support desk.
 6. Use the PayPal lookup tools (get_order, get_invoice, list_invoices, get_refund, list_transactions) when the customer asks about bills, payments or refunds.
 
-Keep replies short and friendly (2-5 sentences), because they are often read aloud by voice. Use plain language and reply in the language the customer uses (Hindi or English). Never invent order ids, prices or PayPal ids: only use what tools return.
+Keep replies short and friendly (2-5 sentences), because they are often read aloud by voice. Use plain language and reply in the language the customer uses (English, Hindi or another Indian language). Never invent order ids, prices or PayPal ids: only use what tools return.
 Money: tools work in USD because PayPal sandbox settles in USD. Speak to the customer in rupees, converting at ₹${INR_PER_USD} per $1 and rounding to the nearest rupee (e.g. "₹338, which PayPal charges as $3.98" for a total). If the customer gives a budget in rupees, convert it to USD before comparing offers.`;
 
 const CUSTOM_TOOLS: Anthropic.Beta.BetaTool[] = [
@@ -251,7 +252,7 @@ async function runCustomTool(name: string, input: Record<string, unknown>, sessi
   throw new FlowError(`Unknown tool ${name}`);
 }
 
-export async function agentTurn(input: { customer: Account; sessionId?: string; message: string; photo?: string; lang?: "en" | "hi" }) {
+export async function agentTurn(input: { customer: Account; sessionId?: string; message: string; photo?: string; lang?: Lang }) {
   if (!aiEnabled()) {
     throw new FlowError("The Repair Agent needs ANTHROPIC_API_KEY. The rest of Sudhaar works without it.", 503);
   }
@@ -260,7 +261,8 @@ export async function agentTurn(input: { customer: Account; sessionId?: string; 
   const session = sessions.get(sessionId) ?? { messages: [], updatedAt: Date.now(), accountId: input.customer.id };
   sessions.set(sessionId, session);
   if (input.photo) session.photo = input.photo;
-  const langNote = input.lang === "hi" ? "\n\n[The customer's app is set to Hindi: reply in simple Hindi (Devanagari). Show prices in rupees (₹).]" : "";
+  const meta = langMeta(input.lang ?? "en");
+  const langNote = meta.code === "en" ? "" : `\n\n[The customer's app is set to ${meta.english}: reply in simple ${meta.english} (${meta.native} script). Show prices in rupees (₹).]`;
   session.messages.push({ role: "user", content: `${input.message}${input.photo ? "\n\n[Customer attached a photo of the item]" : ""}${langNote}` });
 
   const tk = paypalToolkit();

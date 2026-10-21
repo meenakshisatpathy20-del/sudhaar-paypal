@@ -6,6 +6,7 @@ import { api } from "../api";
 import { rupees, UsdNote } from "../Inr";
 import { useLang } from "../LanguageProvider";
 import { useSession } from "../SessionProvider";
+import { langMeta } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export type PartnerData = {
@@ -106,7 +107,7 @@ export function EarningsList({ data }: { data: PartnerData }) {
           <div className="min-w-0">
             <p className="truncate font-medium">{e.item}</p>
             <p className="text-[11px] text-muted-foreground">
-              {t("kaPaidOn", { date: new Date(e.at).toLocaleDateString(lang === "en" ? "en-IN" : `${lang}-IN`) })} · <span className="font-mono">{e.batchId}</span>
+              {t("kaPaidOn", { date: new Date(e.at).toLocaleDateString(langMeta(lang).locale) })} · <span className="font-mono">{e.batchId}</span>
             </p>
           </div>
           <div className="text-right">

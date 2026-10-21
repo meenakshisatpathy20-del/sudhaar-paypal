@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
-import { CATEGORY_I18N } from "@/lib/i18n";
+import { catKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import type { Category, KarigarApplication, SaathiVehicle } from "@/lib/types";
 
@@ -46,7 +46,7 @@ export default function JoinPage() {
 }
 
 function Join() {
-  const { t, lang } = useLang();
+  const { t } = useLang();
   const [kind, setKind] = useState<"karigar" | "saathi">(useSearchParams().get("as") === "saathi" ? "saathi" : "karigar");
   const [vehicle, setVehicle] = useState<SaathiVehicle | null>(null);
   const [hours, setHours] = useState<string[]>([]);
@@ -207,7 +207,7 @@ function Join() {
                   const on = skills.includes(c);
                   return (
                     <Chip key={c} on={on} onClick={() => setSkills((s) => toggle(s, c))}>
-                      <Icon className="size-3.5" /> {CATEGORY_I18N[c][lang]}
+                      <Icon className="size-3.5" /> {t(catKey(c))}
                     </Chip>
                   );
                 })}

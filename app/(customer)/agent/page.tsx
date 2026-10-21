@@ -1,6 +1,7 @@
 "use client";
 
 import { RequireLogin } from "@/components/LoginSheet";
+import { langMeta } from "@/lib/i18n";
 import { rupees } from "@/components/Inr";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -27,10 +28,6 @@ type AgentCard =
   | { type: "refund"; orderId: string; amount: number; refundId?: string };
 type Msg = { role: "user" | "agent"; text: string; cards?: AgentCard[]; steps?: { tool: string; ok: boolean; paypalToolkit: boolean }[]; photo?: string };
 
-const PROMPTS = {
-  en: ["My mixer jar blade is loose. Get it fixed under ₹700 by Friday.", "The zip on my daughter's school bag broke. Book the best option.", "What's the status of my last repair?", "My shoe sole came off again after the repair. Please sort it out."],
-  hi: ["मेरे मिक्सर का ब्लेड ढीला है, शुक्रवार तक ₹700 के अंदर ठीक करवा दो।", "बेटी के स्कूल बैग की ज़िप टूट गई है, सबसे अच्छा कारीगर बुक कर दो।", "मेरी पिछली रिपेयर कहाँ तक पहुँची?", "रिपेयर के बाद जूते का सोल फिर निकल गया, इसे सुलझा दो।"],
-};
 
 export default function TalkPage() {
   return (
@@ -91,7 +88,7 @@ function TalkPageInner() {
             <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{t("talkSub")}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="outline">{lang === "hi" ? "हिंदी · hi-IN" : "English · en-IN"}</Badge>
+            <Badge variant="outline">{`${langMeta(lang).native} · ${langMeta(lang).locale}`}</Badge>
             <button onClick={() => setSpeakReplies(!speakReplies)} className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-muted-foreground ring-1 ring-border hover:text-foreground">
               {speakReplies ? <Volume2 className="size-3" /> : <VolumeX className="size-3" />} {t("voiceReplies")}
             </button>
@@ -102,7 +99,7 @@ function TalkPageInner() {
 
       {msgs.length === 0 && (
         <div className="grid gap-2 sm:grid-cols-2">
-          {PROMPTS[lang].map((p) => (
+          {[t("prompt1"), t("prompt2"), t("prompt3"), t("prompt4")].map((p) => (
             <button key={p} onClick={() => send(p)} disabled={busy} className="paper rounded-2xl p-3 text-left text-sm text-muted-foreground transition hover:text-foreground">
               <Sparkles className="mb-1 size-4 text-primary" />
               {p}

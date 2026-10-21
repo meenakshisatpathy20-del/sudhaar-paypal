@@ -1,31 +1,23 @@
 "use client";
 
 import { Check } from "lucide-react";
+import type { StringKey } from "@/lib/i18n";
 import type { Order, OrderStatus } from "@/lib/types";
 import { useLang } from "./LanguageProvider";
 
-type Step = { status: OrderStatus; en: string; hi: string };
+type Step = { status: OrderStatus; key: StringKey };
 
-const PICKUP_STEPS: Step[] = [
-  { status: "authorized", en: "Paid · money held by PayPal", hi: "भुगतान हुआ · पैसा PayPal के पास सुरक्षित" },
-  { status: "picked_up", en: "Picked up (OTP)", hi: "पिकअप हुआ (OTP)" },
-  { status: "at_karigar", en: "At the karigar", hi: "कारीगर के पास पहुँचा" },
-  { status: "repairing", en: "Repairing", hi: "मरम्मत जारी" },
-  { status: "repaired", en: "Repaired · AI photo check", hi: "मरम्मत पूरी · AI फ़ोटो जाँच" },
-  { status: "out_for_delivery", en: "Out for delivery", hi: "डिलीवरी के लिए निकला" },
-  { status: "delivered", en: "Delivered (OTP) · payment captured", hi: "डिलीवर हुआ (OTP) · भुगतान लिया गया" },
-  { status: "paid_out", en: "Karigar & Saathi paid instantly", hi: "कारीगर और साथी को तुरंत भुगतान" },
-];
+const PICKUP_STEPS: Step[] = (["authorized", "picked_up", "at_karigar", "repairing", "repaired", "out_for_delivery", "delivered", "paid_out"] as const).map((status) => ({ status, key: `tl_${status}` as StringKey }));
 const VISIT_STEPS: Step[] = [
-  { status: "authorized", en: "Paid · money held by PayPal", hi: "भुगतान हुआ · पैसा PayPal के पास सुरक्षित" },
-  { status: "repairing", en: "Karigar arrived (OTP) · repairing", hi: "कारीगर पहुँचे (OTP) · मरम्मत जारी" },
-  { status: "repaired", en: "Repaired · AI photo check", hi: "मरम्मत पूरी · AI फ़ोटो जाँच" },
-  { status: "delivered", en: "Job confirmed (OTP) · payment captured", hi: "काम पूरा (OTP) · भुगतान लिया गया" },
-  { status: "paid_out", en: "Karigar paid instantly", hi: "कारीगर को तुरंत भुगतान" },
+  { status: "authorized", key: "tl_authorized" },
+  { status: "repairing", key: "tlv_repairing" },
+  { status: "repaired", key: "tl_repaired" },
+  { status: "delivered", key: "tlv_delivered" },
+  { status: "paid_out", key: "tlv_paid_out" },
 ];
 
 export function Timeline({ order }: { order: Order }) {
-  const { lang } = useLang();
+  const { t } = useLang();
   const steps = order.mode === "pickup" ? PICKUP_STEPS : VISIT_STEPS;
   const currentIdx = steps.findIndex((s) => s.status === order.status);
   return (
@@ -42,7 +34,7 @@ export function Timeline({ order }: { order: Order }) {
               {current && <span className="absolute inset-0 rounded-full bg-primary/50" style={{ animation: "ping-soft 1.6s ease-out infinite" }} />}
             </span>
             <div className="flex-1 pt-0.5 text-sm">
-              <span className={done ? "font-semibold" : "text-muted-foreground"}>{s[lang]}</span>
+              <span className={done ? "font-semibold" : "text-muted-foreground"}>{t(s.key)}</span>
               {done && at && <span className="ml-2 text-xs text-muted-foreground">{new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
             </div>
           </li>

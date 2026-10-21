@@ -117,7 +117,7 @@ function ProfileInner() {
           </div>
           <div className="flex items-center justify-between p-4">
             <span className="flex items-center gap-2 text-sm font-medium">
-              <ShieldCheck className="size-4 text-[#0050b3]" /> Payments
+              <ShieldCheck className="size-4 text-[#0050b3]" /> {t("payments")}
             </span>
             <ModeBadges />
           </div>

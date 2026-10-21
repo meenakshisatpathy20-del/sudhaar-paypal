@@ -11,8 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLang } from "@/components/LanguageProvider";
-import { CATEGORY_I18N } from "@/lib/i18n";
-import { CATEGORY_LABEL } from "@/lib/pricing";
+import { catKey } from "@/lib/i18n";
 import type { Karigar } from "@/lib/types";
 
 export default function KarigarProfile({ params }: { params: Promise<{ id: string }> }) {
@@ -21,7 +20,7 @@ export default function KarigarProfile({ params }: { params: Promise<{ id: strin
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [done, setDone] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const { t, lang } = useLang();
+  const { t } = useLang();
 
   useEffect(() => {
     api<{ karigar: Karigar & { distanceKm: number }; completedOnSudhaar: number }>(`/api/karigars/${id}`)
@@ -73,7 +72,7 @@ export default function KarigarProfile({ params }: { params: Promise<{ id: strin
               </Badge>
               {k.skills.map((s) => (
                 <Badge key={s} variant="outline">
-                  {CATEGORY_I18N[s]?.[lang] ?? CATEGORY_LABEL[s]}
+                  {t(catKey(s))}
                 </Badge>
               ))}
               {done > 0 && <Badge variant="gold">{t("kpOnSudhaar", { n: done })}</Badge>}

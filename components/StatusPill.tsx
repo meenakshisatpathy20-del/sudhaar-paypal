@@ -18,19 +18,6 @@ export const STATUS_LABEL: Record<OrderStatus, string> = {
   cancelled: "Cancelled",
 };
 
-const STATUS_LABEL_HI: Record<OrderStatus, string> = {
-  awaiting_payment: "भुगतान बाकी",
-  authorized: "भुगतान हुआ · होल्ड पर",
-  picked_up: "पिकअप हो गया",
-  at_karigar: "कारीगर के पास",
-  repairing: "मरम्मत जारी",
-  repaired: "मरम्मत पूरी",
-  out_for_delivery: "डिलीवरी के लिए निकला",
-  delivered: "डिलीवर हो गया",
-  paid_out: "पूरा हुआ",
-  cancelled: "रद्द",
-};
-
 export const STATUS_PROGRESS: Record<OrderStatus, number> = {
   awaiting_payment: 5,
   authorized: 15,
@@ -46,6 +33,6 @@ export const STATUS_PROGRESS: Record<OrderStatus, number> = {
 
 export function StatusPill({ status }: { status: OrderStatus }) {
   const variant = status === "paid_out" ? "solid" : status === "authorized" ? "paypal" : status === "cancelled" ? "destructive" : status === "awaiting_payment" ? "outline" : "gold";
-  const { lang } = useLang();
-  return <Badge variant={variant}>{(lang === "hi" ? STATUS_LABEL_HI : STATUS_LABEL)[status]}</Badge>;
+  const { t } = useLang();
+  return <Badge variant={variant}>{t(`status_${status}`)}</Badge>;
 }
