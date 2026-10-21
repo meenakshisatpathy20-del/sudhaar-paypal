@@ -1,5 +1,8 @@
+"use client";
+
 import { INR_PER_USD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import { useLang } from "./LanguageProvider";
 
 // Customers see rupees. PayPal sandbox settles in USD, so totals also show the exact
 // USD amount PayPal holds and captures (INR_PER_USD in lib/pricing).
@@ -10,5 +13,6 @@ export const rupeeTotal = (...linesUsd: number[]) => `₹${linesUsd.reduce((s, u
 
 /** The exact USD amount PayPal moves, shown under rupee totals ("charges" for customers, "pays" for partners). */
 export function UsdNote({ usd, verb = "charges", className }: { usd: number; verb?: "charges" | "pays"; className?: string }) {
-  return <span className={cn("block text-[11px] font-medium text-muted-foreground", className)}>PayPal {verb} ${usd.toFixed(2)}</span>;
+  const { t } = useLang();
+  return <span className={cn("block text-[11px] font-medium text-muted-foreground", className)}>{t(verb === "pays" ? "usdPays" : "usdCharges", { amount: `$${usd.toFixed(2)}` })}</span>;
 }

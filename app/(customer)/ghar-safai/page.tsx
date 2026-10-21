@@ -41,9 +41,9 @@ export default function GharSafai() {
     setAdding(true);
     try {
       const r = await api<{ quote: Quote; offers: Offer[] }>("/api/quote", { photo, description, category: category ?? undefined });
-      if (HOME_VISIT_CATEGORIES.includes(r.quote.category)) throw new Error(`"${r.quote.item}" needs a home visit, so book it from the Home tab.`);
-      if (!r.quote.repairable) throw new Error(`"${r.quote.item}" doesn't look worth repairing. We'll suggest recycling it instead.`);
-      if (r.offers.length === 0) throw new Error(`No karigar nearby for "${r.quote.item}" yet.`);
+      if (HOME_VISIT_CATEGORIES.includes(r.quote.category)) throw new Error(t("gharErrVisit", { item: r.quote.item }));
+      if (!r.quote.repairable) throw new Error(t("gharErrNotWorth", { item: r.quote.item }));
+      if (r.offers.length === 0) throw new Error(t("gharErrNoKarigar", { item: r.quote.item }));
       setLines((l) => [...l, { quote: r.quote, offers: r.offers, karigarId: (r.offers.find((o) => o.best) ?? r.offers[0]).karigar.id }]);
       setDescription("");
       setCategory(null);

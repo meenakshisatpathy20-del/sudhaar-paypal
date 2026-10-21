@@ -292,8 +292,8 @@ export default function Home() {
       </section>
 
       <footer className="flex flex-col items-center justify-between gap-2 border-t border-border pt-4 text-xs text-muted-foreground md:flex-row">
-        <p>Sudhaar · Repair, don&apos;t replace · Runs on the PayPal sandbox, so no real money moves.</p>
-        <p>Made with care for local karigars.</p>
+        <p>{t("footerLine")}</p>
+        <p>{t("footerCare")}</p>
       </footer>
     </div>
   );

@@ -32,7 +32,7 @@ export default function Profile() {
             <p className="flex items-center gap-1 text-sm text-muted-foreground">
               <MapPin className="size-3.5" /> {customer.address}
             </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">Shared demo account for the hackathon (no login needed).</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{t("demoProfile")}</p>
           </div>
         </CardContent>
       </Card>

@@ -87,7 +87,7 @@ export default function TalkPage() {
               {speakReplies ? <Volume2 className="size-3" /> : <VolumeX className="size-3" />} {t("voiceReplies")}
             </button>
           </div>
-          {cfg?.ai.mode === "simulated" && <p className="text-xs text-gold">The AI agent needs ANTHROPIC_API_KEY on the server.</p>}
+          {cfg?.ai.mode === "simulated" && <p className="text-xs text-gold">{t("agentNeedsKey")}</p>}
         </CardContent>
       </Card>
 
@@ -154,7 +154,7 @@ export default function TalkPage() {
             </button>
           </SheetTrigger>
           <SheetContent>
-            <SheetTitle>Attach a photo</SheetTitle>
+            <SheetTitle>{t("attachPhoto")}</SheetTitle>
             <PhotoPicker key={photoKey} onUploaded={(f) => setPhoto(f)} />
           </SheetContent>
         </Sheet>

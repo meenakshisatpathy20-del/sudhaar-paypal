@@ -36,7 +36,7 @@ export default function Repairs() {
     <div className="mx-auto max-w-3xl space-y-5">
       <div>
         <h1 className="text-3xl font-bold">{t("repairsTitle")}</h1>
-        <p className="text-xs text-muted-foreground">Demo account: everyone trying Sudhaar shares this account, so you may see other testers&apos; repairs too.</p>
+        <p className="text-xs text-muted-foreground">{t("demoShared")}</p>
       </div>
       <Tabs defaultValue="active">
         <TabsList>
@@ -61,7 +61,7 @@ export default function Repairs() {
                         <Icon className="size-5" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-semibold">{o.item}</p>
+                        <p className="truncate font-semibold">{o.kind === "basket" && o.jobs ? t("oBasketTitle", { n: o.jobs.length }) : o.item}</p>
                         <p className="truncate text-xs text-muted-foreground">
                           {k?.shop} · {rupees(o.total)} · {o.id}
                         </p>
@@ -90,7 +90,7 @@ export default function Repairs() {
                         <p className="text-[10px] font-semibold uppercase tracking-widest text-gold">
                           {t("passportTitle")} · {t("secondLife")}
                         </p>
-                        <p className="mt-1 font-display text-lg font-bold">{o.item}</p>
+                        <p className="mt-1 font-display text-lg font-bold">{o.kind === "basket" && o.jobs ? t("oBasketTitle", { n: o.jobs.length }) : o.item}</p>
                       </div>
                       {q?.photo && (
                         // eslint-disable-next-line @next/next/no-img-element

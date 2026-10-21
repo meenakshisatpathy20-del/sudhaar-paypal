@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { loadCoreSdkScript } from "@paypal/paypal-js/sdk-v6";
 import { api, money } from "./api";
 import { rupees } from "./Inr";
+import { useLang } from "./LanguageProvider";
 import { useAppConfig } from "./useAppConfig";
 
 /**
@@ -13,6 +14,7 @@ import { useAppConfig } from "./useAppConfig";
  */
 export function PayPalCheckout({ orderId, paypalOrderId, total, onApproved }: { orderId: string; paypalOrderId: string; total: number; onApproved: () => void }) {
   const cfg = useAppConfig();
+  const { t } = useLang();
   const holder = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "working" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
@@ -88,9 +90,9 @@ export function PayPalCheckout({ orderId, paypalOrderId, total, onApproved }: { 
             }
           }}
         >
-          {status === "working" ? "Authorizing…" : `Pay ${rupees(total)} (${money(total)}) with PayPal (simulated)`}
+          {status === "working" ? t("ppAuthorizing") : t("ppPaySim", { inr: rupees(total), usd: money(total) })}
         </button>
-        <p className="text-xs text-gold">Simulation mode: add PayPal sandbox keys to use the real PayPal checkout.</p>
+        <p className="text-xs text-gold">{t("ppSimNote")}</p>
         {error && <p className="text-xs text-destructive">{error}</p>}
       </div>
     );
@@ -99,8 +101,8 @@ export function PayPalCheckout({ orderId, paypalOrderId, total, onApproved }: { 
   return (
     <div className="space-y-2">
       <div ref={holder} className="min-h-12 overflow-hidden rounded-xl bg-white p-2" />
-      {status === "loading" && <p className="text-xs text-muted-foreground">Loading PayPal…</p>}
-      {status === "working" && <p className="text-xs text-muted-foreground">Placing a hold on {money(total)}…</p>}
+      {status === "loading" && <p className="text-xs text-muted-foreground">{t("ppLoading")}</p>}
+      {status === "working" && <p className="text-xs text-muted-foreground">{t("ppHolding", { amount: money(total) })}</p>}
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );

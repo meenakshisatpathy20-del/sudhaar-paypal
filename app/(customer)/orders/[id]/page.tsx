@@ -10,6 +10,7 @@ import { FamilyPayShare } from "@/components/FamilyPay";
 import { NeighbourhoodMap } from "@/components/NeighbourhoodMap";
 import { PayPalCheckout } from "@/components/PayPalCheckout";
 import { PhotoPicker } from "@/components/PhotoPicker";
+import { useLang } from "@/components/LanguageProvider";
 import { STATUS_PROGRESS, StatusPill } from "@/components/StatusPill";
 import { Timeline } from "@/components/Timeline";
 import { Avatar } from "@/components/ui/avatar";
@@ -25,13 +26,7 @@ import type { Complaint, CompletionCheck, Karigar, Order, OrderStatus, Quote, Sa
 
 type Data = { order: Order; karigar?: Karigar; saathi?: Saathi; quote?: Quote; jobKarigars?: Record<string, { name: string; shop: string; avatarColor: string; lat: number; lng: number }> };
 
-const ISSUES: { id: Complaint["issue"]; label: string }[] = [
-  { id: "repair_failed", label: "Repair failed" },
-  { id: "damaged", label: "Item damaged" },
-  { id: "overcharged", label: "Overcharged" },
-  { id: "delayed", label: "Delayed" },
-  { id: "missing", label: "Item missing" },
-];
+const ISSUES: Complaint["issue"][] = ["repair_failed", "damaged", "overcharged", "delayed", "missing"];
 
 const SAATHI_POS: Partial<Record<OrderStatus, number>> = { authorized: 0.02, picked_up: 0.25, at_karigar: 0.5, repairing: 0.5, repaired: 0.5, out_for_delivery: 0.75, delivered: 0.99, paid_out: 0.99 };
 const ACTIVE: OrderStatus[] = ["authorized", "picked_up", "at_karigar", "repairing", "repaired", "out_for_delivery"];
@@ -42,6 +37,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const [error, setError] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
   const [payMyself, setPayMyself] = useState(false);
+  const { t, lang } = useLang();
 
   const load = useCallback(() => {
     api<Data>(`/api/orders/${id}`)
@@ -88,11 +84,11 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                   {order.id}
                   {order.bookedBy === "agent" && (
                     <Badge>
-                      <Sparkles /> Booked by Sudhaar AI
+                      <Sparkles /> {t("oBookedByAi")}
                     </Badge>
                   )}
                 </p>
-                <h1 className="mt-1 text-2xl font-bold">{order.item}</h1>
+                <h1 className="mt-1 text-2xl font-bold">{order.kind === "basket" && order.jobs ? t("oBasketTitle", { n: order.jobs.length }) : order.item}</h1>
                 <p className="text-sm text-muted-foreground">{order.issue}</p>
               </div>
               <StatusPill status={order.status} />
@@ -106,8 +102,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                   ))}
                 </div>
                 <p className="min-w-0 text-xs text-muted-foreground">
-                  <b className="text-foreground">{jobKarigars.length} karigar{jobKarigars.length === 1 ? "" : "s"}</b> · {jobKarigars.map(([, k]) => k.shop).join(", ")}
-                  {saathi ? ` · Saathi: ${saathi.name}` : ""}
+                  <b className="text-foreground">{jobKarigars.length === 1 ? t("oKarigarOne") : t("oKarigarMany", { n: jobKarigars.length })}</b> · {jobKarigars.map(([, k]) => k.shop).join(", ")}
+                  {saathi ? ` · ${t("oSaathi")}: ${saathi.name}` : ""}
                 </p>
               </div>
             )}
@@ -119,7 +115,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                     {karigar.shop} <BadgeCheck className="size-4 text-primary" />
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {karigar.name} · {karigar.rating}★ · {order.distanceKm} km · {order.mode === "pickup" && saathi ? `Saathi: ${saathi.name}` : "Home visit"}
+                    {karigar.name} · {karigar.rating}★ · {order.distanceKm} km · {order.mode === "pickup" && saathi ? `${t("oSaathi")}: ${saathi.name}` : t("oHomeVisit")}
                   </p>
                 </div>
               </Link>
@@ -130,19 +126,17 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
         {order.status === "awaiting_payment" && order.paypal.orderId && (
           <Card className="ring-1 ring-[#0070e0]/40">
             <CardContent className="space-y-3">
-              <h2 className="text-lg font-bold">Pay securely with PayPal</h2>
+              <h2 className="text-lg font-bold">{t("oPayTitle")}</h2>
               <Breakdown order={order} />
               <p className="flex gap-2 rounded-2xl bg-[#0070e0]/10 p-3 text-xs text-paypal-blue">
-                <ShieldCheck className="size-4 shrink-0" /> Your money is authorized and held, not taken. PayPal captures it only after you share the delivery OTP. Cancel before pickup and the hold is released.
+                <ShieldCheck className="size-4 shrink-0" /> {t("oHoldNote")}
               </p>
               {order.familyPay && !payMyself ? (
                 <div className="space-y-3 rounded-2xl bg-teal/10 p-3 ring-1 ring-teal/30">
-                  <p className="text-sm">
-                    Waiting for <b>{order.familyPay.name}</b> ({order.familyPay.relation}) to pay. Send them the link: they approve it with their own PayPal from anywhere.
-                  </p>
+                  <p className="text-sm">{t("oWaitingFamily", { name: order.familyPay.name, relation: order.familyPay.relation })}</p>
                   <FamilyPayShare orderId={order.id} name={order.familyPay.name} item={order.item} total={rupees(order.total)} />
                   <button className="text-xs font-semibold text-primary underline" onClick={() => setPayMyself(true)}>
-                    Or pay yourself
+                    {t("payMyself")}
                   </button>
                 </div>
               ) : (
@@ -154,12 +148,12 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
 
         {ACTIVE.includes(order.status) && (
           <div className="grid grid-cols-2 gap-3">
-            <OtpCard label={order.mode === "pickup" ? "Pickup OTP" : "Arrival OTP"} otp={order.pickupOtp} active={order.status === "authorized"} hint={order.mode === "pickup" ? "Share with your Saathi" : "Share when the karigar arrives"} />
+            <OtpCard label={order.mode === "pickup" ? t("oPickupOtp") : t("oArrivalOtp")} otp={order.pickupOtp} active={order.status === "authorized"} hint={order.mode === "pickup" ? t("oShareSaathi") : t("oShareArrive")} />
             <OtpCard
-              label={order.mode === "pickup" ? "Delivery OTP" : "Job-done OTP"}
+              label={order.mode === "pickup" ? t("oDeliveryOtp") : t("oJobDoneOtp")}
               otp={order.deliveryOtp}
               active={order.status === "out_for_delivery" || (order.mode === "home-visit" && order.status === "repaired")}
-              hint="Sharing it releases the payment"
+              hint={t("oReleaseHint")}
             />
           </div>
         )}
@@ -168,8 +162,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           <Card>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="font-bold">Live tracking</h2>
-                {order.mode === "pickup" && <span className="text-xs text-muted-foreground">Saathi route · home ⇄ karigar</span>}
+                <h2 className="font-bold">{t("oLiveTracking")}</h2>
+                {order.mode === "pickup" && <span className="text-xs text-muted-foreground">{t("oSaathiRoute")}</span>}
               </div>
               <NeighbourhoodMap
                 center={{ lat: order.customer.lat, lng: order.customer.lng }}
@@ -181,7 +175,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
               <Timeline order={order} />
               {order.status === "authorized" && (
                 <Button variant="destructive" size="sm" onClick={() => api(`/api/orders/${order.id}/action`, { action: "cancel" }).then(load).catch((e) => setError(e.message))}>
-                  <XCircle /> Cancel and release the PayPal hold
+                  <XCircle /> {t("oCancel")}
                 </Button>
               )}
             </CardContent>
@@ -191,7 +185,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
         {order.kind === "basket" && order.jobs && (
           <Card>
             <CardContent className="space-y-3">
-              <h2 className="font-bold">🪔 Ghar Safai basket · {order.jobs.length} items</h2>
+              <h2 className="font-bold">🪔 {t("oBasketTitle", { n: order.jobs.length })}</h2>
               <ul className="space-y-2">
                 {order.jobs.map((j) => {
                   const jk = data.jobKarigars?.[j.karigarId];
@@ -206,7 +200,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                         </p>
                         {j.completionCheck && !j.completionCheck.passed && <PhotoCheck check={j.completionCheck} compact />}
                       </div>
-                      <Badge variant={j.status === "repaired" ? "solid" : j.status === "repairing" ? "gold" : "outline"}>{j.status}</Badge>
+                      <Badge variant={j.status === "repaired" ? "solid" : j.status === "repairing" ? "gold" : "outline"}>{t(`oJob_${j.status}`)}</Badge>
                     </li>
                   );
                 })}
@@ -218,10 +212,10 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
         {order.kind !== "basket" && (order.beforePhoto || order.afterPhoto) && (
           <Card>
             <CardContent className="space-y-3">
-              <h2 className="font-bold">Before & after</h2>
+              <h2 className="font-bold">{t("oBeforeAfter")}</h2>
               <div className="grid grid-cols-2 gap-3">
-                <Photo label="Before" file={order.beforePhoto} />
-                <Photo label="After" file={order.afterPhoto} />
+                <Photo label={t("oBefore")} file={order.beforePhoto} />
+                <Photo label={t("oAfter")} file={order.afterPhoto} />
               </div>
               {order.completionCheck && <PhotoCheck check={order.completionCheck} />}
             </CardContent>
@@ -231,15 +225,18 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
         {order.status === "paid_out" && (
           <Card className="relative overflow-hidden bg-gradient-to-br from-marigold/15 via-card to-teal/10">
             <CardContent className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-widest text-gold">Item Passport · second life</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-gold">{t("oPassport")}</p>
               <h2 className="text-xl font-bold">{order.item}</h2>
               <div className="grid grid-cols-3 gap-2 text-center">
-                <Stat icon={PiggyBank} v={rupees(saved)} l="saved" />
-                <Stat icon={Leaf} v={`${keptKg.toFixed(1)} kg`} l="kept from landfill" />
-                <Stat icon={BadgeCheck} v="15 days" l="warranty" />
+                <Stat icon={PiggyBank} v={rupees(saved)} l={t("oSaved")} />
+                <Stat icon={Leaf} v={`${keptKg.toFixed(1)} kg`} l={t("oKeptKg")} />
+                <Stat icon={BadgeCheck} v={t("oWarrantyDays")} l={t("oWarranty")} />
               </div>
               <p className="text-xs text-muted-foreground">
-                Fixed by {order.kind === "basket" ? jobKarigars.map(([, k]) => k.name.split(" ")[0]).join(", ") : karigar?.name} on {new Date(order.events.findLast((e) => e.status === "paid_out")?.at ?? order.createdAt).toLocaleDateString()}.
+                {t("oFixedBy", {
+                  names: order.kind === "basket" ? jobKarigars.map(([, k]) => k.name.split(" ")[0]).join(", ") : (karigar?.name ?? ""),
+                  date: new Date(order.events.findLast((e) => e.status === "paid_out")?.at ?? order.createdAt).toLocaleDateString(lang === "hi" ? "hi-IN" : "en-IN"),
+                })}
               </p>
             </CardContent>
           </Card>
@@ -251,7 +248,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           <CardContent className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
               <h2 className="flex items-center gap-2 font-bold">
-                <Receipt className="size-4 text-primary" /> Payment
+                <Receipt className="size-4 text-primary" /> {t("oPayment")}
               </h2>
               <Badge variant="paypal">PayPal {order.paypal.mode}</Badge>
             </div>
@@ -269,18 +266,18 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             {order.paypal.invoiceUrl && (
               <Button asChild variant="outline" className="w-full">
                 <a href={order.paypal.invoiceUrl} target="_blank" rel="noreferrer">
-                  View PayPal invoice
+                  {t("oViewInvoice")}
                 </a>
               </Button>
             )}
             {order.payouts.length > 0 && (
               <div className="space-y-1 rounded-2xl bg-muted/50 p-3 text-xs ring-1 ring-border">
-                <p className="mb-1 font-semibold">Instant split via PayPal Payouts</p>
+                <p className="mb-1 font-semibold">{t("oSplit")}</p>
                 {order.payouts.map((p) => (
-                  <Row key={`${p.to}-${p.label ?? ""}`} k={p.to === "karigar" ? `${p.label ?? "Karigar"} (90% of repair)` : `${p.label ?? "Saathi"} (75% of pickup)`} v={`${money(p.amount)} · ${p.status}`} />
+                  <Row key={`${p.to}-${p.label ?? ""}`} k={p.to === "karigar" ? `${p.label ?? "Karigar"} ${t("oKarigarShare")}` : `${p.label ?? t("oSaathi")} ${t("oSaathiShare")}`} v={`${money(p.amount)} · ${p.status}`} />
                 ))}
                 <Row k="Sudhaar" v={money(order.split.platform)} />
-                {order.donation > 0 && <Row k="Karigar tool fund" v={money(order.donation)} />}
+                {order.donation > 0 && <Row k={t("oToolFund")} v={money(order.donation)} />}
               </div>
             )}
           </CardContent>
@@ -291,10 +288,11 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
         <Card>
           <CardContent>
             <button onClick={() => setShowLog((v) => !v)} className="flex w-full items-center justify-between font-bold">
-              Activity & PayPal log <ChevronDown className={cn("size-4 transition", showLog && "rotate-180")} />
+              {t("oLog")} <ChevronDown className={cn("size-4 transition", showLog && "rotate-180")} />
             </button>
             {showLog && (
-              <div className="mt-4">
+              <div className="mt-4 space-y-2">
+                {lang === "hi" && <p className="text-xs text-muted-foreground">{t("oLogNote")}</p>}
                 <EventLog events={order.events} />
               </div>
             )}
@@ -321,14 +319,15 @@ function nearestFirst<P extends { lat: number; lng: number }>(from: { lat: numbe
 }
 
 function Breakdown({ order }: { order: Order }) {
+  const { t } = useLang();
   const repairs = order.jobs?.length ? order.jobs.map((j) => j.price) : [order.repairCharge];
   return (
     <div className="space-y-1.5">
-      <Row k="Repair" v={rupeeTotal(...repairs)} />
-      <Row k={order.kind === "basket" ? "One Saathi trip for everything" : order.mode === "pickup" ? `Pickup & delivery (${order.distanceKm} km)` : "Home visit"} v={rupees(order.pickupFee)} />
-      {order.donation > 0 && <Row k="Karigar tool fund" v={rupees(order.donation)} />}
+      <Row k={t("oRepair")} v={rupeeTotal(...repairs)} />
+      <Row k={order.kind === "basket" ? t("gharOneTrip") : order.mode === "pickup" ? t("oPickupKm", { km: order.distanceKm }) : t("oHomeVisit")} v={rupees(order.pickupFee)} />
+      {order.donation > 0 && <Row k={t("oToolFund")} v={rupees(order.donation)} />}
       <div className="flex justify-between border-t border-border pt-1.5 font-semibold">
-        <span>Total</span>
+        <span>{t("oTotal")}</span>
         <span className="text-right">
           <span className="block">{rupeeTotal(...repairs, order.pickupFee, order.donation)}</span>
           <UsdNote usd={order.total} />
@@ -381,12 +380,13 @@ function OtpCard({ label, otp, active, hint }: { label: string; otp: string; act
 
 /** Customer-facing view of the before/after check that gates the PayPal capture. */
 function PhotoCheck({ check, compact }: { check: CompletionCheck; compact?: boolean }) {
-  const by = check.source === "admin" ? "Sudhaar team" : check.source === "claude" ? "AI" : "Simulated AI";
+  const { t } = useLang();
+  const by = check.source === "admin" ? t("oByTeam") : check.source === "claude" ? t("oByAi") : t("oBySim");
   const [tone, title, body] = check.passed
-    ? ["bg-teal/10 text-teal", `Repair verified (${by})`, check.reasoning]
+    ? ["bg-teal/10 text-teal", t("oVerified", { by }), check.source === "admin" ? t("oAdminApproved") : check.reasoning]
     : check.needsReview
-      ? ["bg-marigold/15 text-gold", "The Sudhaar team is checking the photos", "Your money stays on hold with PayPal until the repair is confirmed."]
-      : ["bg-marigold/15 text-gold", "Repair not accepted yet", `${check.reasoning} Your money stays on hold with PayPal.`];
+      ? ["bg-marigold/15 text-gold", t("oChecking"), t("oCheckingBody")]
+      : ["bg-marigold/15 text-gold", t("oNotAccepted"), `${check.reasoning} ${t("oHoldStays")}`];
   if (compact) return <p className={cn("mt-1 rounded-lg px-2 py-1 text-[11px]", tone)}>{title}</p>;
   return (
     <p className={cn("rounded-2xl p-3 text-sm", tone)}>
@@ -396,13 +396,14 @@ function PhotoCheck({ check, compact }: { check: CompletionCheck; compact?: bool
 }
 
 function Photo({ label, file }: { label: string; file?: string }) {
+  const { t } = useLang();
   return (
     <figure>
       {file ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={`/api/uploads/${file}`} alt={label} className="aspect-square w-full rounded-2xl object-cover ring-1 ring-border" />
       ) : (
-        <div className="grid aspect-square w-full place-items-center rounded-2xl bg-muted/50 text-xs text-muted-foreground ring-1 ring-border">No photo</div>
+        <div className="grid aspect-square w-full place-items-center rounded-2xl bg-muted/50 text-xs text-muted-foreground ring-1 ring-border">{t("oNoPhoto")}</div>
       )}
       <figcaption className="mt-1 text-xs text-muted-foreground">{label}</figcaption>
     </figure>
@@ -415,6 +416,7 @@ function ResolveHub({ order, refunded, onChange }: { order: Order; refunded: num
   const [photo, setPhoto] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useLang();
 
   async function submit() {
     setBusy(true);
@@ -439,35 +441,35 @@ function ResolveHub({ order, refunded, onChange }: { order: Order; refunded: num
             <h2 className="flex items-center gap-2 font-bold">
               <LifeBuoy className="size-4 text-gold" /> Resolve Hub
             </h2>
-            <p className="text-xs text-muted-foreground">15-day warranty. Your PayPal invoice is attached as proof.</p>
+            <p className="text-xs text-muted-foreground">{t("oResolveSub")}</p>
           </div>
           <Sheet>
             <SheetTrigger asChild>
               <Button size="sm" variant="gold">
-                Report an issue
+                {t("oReport")}
               </Button>
             </SheetTrigger>
             <SheetContent>
-              <SheetTitle>What went wrong?</SheetTitle>
-              <SheetDescription>AI reviews your complaint, the bill and the photos, then suggests a fair fix.</SheetDescription>
+              <SheetTitle>{t("oWhatWrong")}</SheetTitle>
+              <SheetDescription>{t("oWhatWrongSub")}</SheetDescription>
               <div className="flex flex-wrap gap-1.5">
                 {ISSUES.map((i) => (
-                  <button key={i.id} onClick={() => setIssue(i.id)} className={cn("rounded-full px-3 py-1 text-xs font-semibold ring-1", issue === i.id ? "bg-primary text-primary-foreground ring-primary" : "ring-border")}>
-                    {i.label}
+                  <button key={i} onClick={() => setIssue(i)} className={cn("rounded-full px-3 py-1 text-xs font-semibold ring-1", issue === i ? "bg-primary text-primary-foreground ring-primary" : "ring-border")}>
+                    {t(`oIssue_${i}`)}
                   </button>
                 ))}
               </div>
               <div className="rounded-2xl border border-dashed border-border bg-muted/50 p-3 text-xs">
-                <p className="font-semibold">Bill attached automatically</p>
+                <p className="font-semibold">{t("oBillAttached")}</p>
                 <p className="text-muted-foreground">
-                  Invoice <span className="font-mono">{order.paypal.invoiceId ?? "pending"}</span> · capture <span className="font-mono">{order.paypal.captureId}</span> · paid {money(order.total)}
-                  {refunded > 0 && ` · refunded ${money(refunded)}`}
+                  Invoice <span className="font-mono">{order.paypal.invoiceId ?? "pending"}</span> · capture <span className="font-mono">{order.paypal.captureId}</span> · {t("oPaid")} {money(order.total)}
+                  {refunded > 0 && ` · ${t("oRefunded")} ${money(refunded)}`}
                 </p>
               </div>
-              <Textarea placeholder="Tell us what happened" value={details} onChange={(e) => setDetails(e.target.value)} />
-              <PhotoPicker compact label="Add a photo (optional)" onUploaded={(f) => setPhoto(f)} />
+              <Textarea placeholder={t("oTellUs")} value={details} onChange={(e) => setDetails(e.target.value)} />
+              <PhotoPicker compact label={t("oAddPhoto")} onUploaded={(f) => setPhoto(f)} />
               <Button size="lg" disabled={busy || !details.trim()} onClick={submit}>
-                {busy ? "AI is reviewing…" : "Submit complaint"}
+                {busy ? t("oReviewing") : t("oSubmit")}
               </Button>
               {error && <p className="text-xs text-destructive">{error}</p>}
             </SheetContent>
@@ -477,26 +479,26 @@ function ResolveHub({ order, refunded, onChange }: { order: Order; refunded: num
         {order.complaints.map((c) => (
           <div key={c.id} className="space-y-2 rounded-2xl bg-muted/50 p-3 text-sm ring-1 ring-border">
             <p className="font-semibold">
-              {ISSUES.find((i) => i.id === c.issue)?.label} <span className="font-mono text-xs text-muted-foreground">{c.id}</span>
+              {t(`oIssue_${c.issue}`)} <span className="font-mono text-xs text-muted-foreground">{c.id}</span>
             </p>
             <p className="text-muted-foreground">{c.details}</p>
             {c.ai && (
               <p className="rounded-xl bg-primary/10 p-2 text-xs text-primary">
                 <b>
-                  AI recommends {c.ai.recommendation.replaceAll("_", " ")}
-                  {c.ai.refundAmount ? ` of ${rupees(c.ai.refundAmount)}` : ""}
+                  {t("oAiRecommends")} {t(`oRec_${c.ai.recommendation}`)}
+                  {c.ai.refundAmount ? ` ${rupees(c.ai.refundAmount)}` : ""}
                 </b>{" "}
-                ({c.ai.source}): {c.ai.reasoning}
+                ({c.ai.source === "claude" ? t("oByAi") : t("oBySim")}): {c.ai.reasoning}
               </p>
             )}
             {c.resolution ? (
               <p className="text-xs font-semibold text-primary">
-                Resolved: {c.resolution.action.replaceAll("_", " ")}
+                {t("oResolved")} {t(`oRes_${c.resolution.action}`)}
                 {c.resolution.amount ? ` ${rupees(c.resolution.amount)}` : ""} {c.resolution.refundId && <span className="font-mono">({c.resolution.refundId})</span>}
               </p>
             ) : (
               <p className="rounded-xl bg-marigold/15 p-2.5 text-xs text-[#7a4a06]">
-                ⏳ Sudhaar&apos;s support team is reviewing this, usually within a few hours. Any PayPal refund or free re-repair will appear right here.
+                {t("oSupportReviewing")}
               </p>
             )}
           </div>
