@@ -3,8 +3,8 @@
 **A doorstep repair marketplace for local karigars (informal repairers), built on PayPal + AI.**
 Snap a photo of something broken. AI estimates the repair cost against the price of buying new. A verified local karigar fixes it, a Repair Saathi does the pickup and delivery, and the customer's PayPal payment is **held until the repaired item is back in their hands**. On the delivery OTP, PayPal captures the money and **instantly pays out the karigar and the Saathi**.
 
-> Built by **Meenakshi Satpathy** for the [PayPal AI Hackathon 2026](https://paypalaihackathon.devpost.com/).
-> 🎥 Demo video: _coming soon_ · 🌐 Live demo: _coming soon_
+> Built by **Meenakshi Satpathy** (solo) for the [PayPal AI Hackathon 2026](https://paypalaihackathon.devpost.com/).
+> 🌐 **Live demo:** the *Website* link in this repository's About section · 🎥 **Demo video:** on the Devpost project page
 
 ---
 
@@ -95,6 +95,19 @@ I'm a solo participant, a 3rd-year Computer Science student.
 - **Render**: one-click deploy via [`render.yaml`](render.yaml).
 - **Postman**: [`postman/Sudhaar.postman_collection.json`](postman/Sudhaar.postman_collection.json) drives the whole flow through the API.
 
+## Testing instructions for judges
+
+**Hosted demo:** open the *Website* link in this repository's About section. It runs against the PayPal sandbox. Log in to PayPal with the sandbox buyer account given in the **testing instructions on the Devpost page**. On the free hosting plan, the first load can take about a minute while the server wakes up.
+
+1. **Customer** tab → tap a sample chip (e.g. "Mixer grinder jar…") or upload a photo → **Get AI repair quote**.
+2. Pick a karigar → **Book & continue to PayPal** → pay with the sandbox buyer. The status becomes **"Paid · on hold"** (authorization id shown).
+3. Open **Saathi** in another tab → enter the **pickup OTP** shown on the order page → *Handed to karigar*.
+4. Open **Karigar** → *Inspect & start repair* → upload an after photo → **Mark repaired** (the AI completion check runs).
+5. **Saathi** → *Collect & go* → enter the **delivery OTP** → PayPal **captures**, sends **payouts**, and issues the **invoice** (ids appear on the order page).
+6. Order page → **Resolve Hub** → submit a complaint → AI recommends an action → **Approve PayPal refund**.
+7. **Repair Agent** → "My school bag zip broke. Get it fixed under $5." → approve the PayPal payment inside the chat.
+8. **Admin** → AG Grid views of orders, payouts, karigars and PayPal webhooks. *Reset demo data* clears orders.
+
 ## Run it locally
 
 Requirements: Node 20+.
@@ -108,7 +121,7 @@ npm run smoke:paypal      # optional: checks your PayPal sandbox credentials
 npm run dev               # http://localhost:3000
 ```
 
-The app also runs with an **empty `.env`**: PayPal and AI calls are then simulated and the header shows yellow "Simulated" badges. For judging, use sandbox keys so the real PayPal flow runs.
+The app also runs with an **empty `.env`**: PayPal and AI calls are then simulated and the header shows yellow "Simulated" badges. Add sandbox keys so the real PayPal flow runs.
 
 ### PayPal sandbox setup (5 minutes)
 1. [developer.paypal.com](https://developer.paypal.com/) → **Apps & Credentials** → *Sandbox* → **Create App**. Copy the Client ID and Secret into `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET`.
@@ -126,19 +139,6 @@ The app also runs with an **empty `.env`**: PayPal and AI calls are then simulat
 | `ANTHROPIC_API_KEY` | for real AI + agent | Claude API key |
 | `AI_MODEL` | optional | Defaults to `claude-opus-5-5` |
 | `DEMO_CENTER_LAT/LNG`, `DATA_DIR` | optional | Demo location and data folder |
-
-## Testing instructions for judges
-
-**Hosted demo:** _coming soon_. Sandbox buyer login: _coming soon_.
-
-1. **Customer** tab → tap a sample chip (e.g. "Mixer grinder jar…") or upload a photo → **Get AI repair quote**.
-2. Pick a karigar → **Book & continue to PayPal** → pay with the sandbox buyer. The status becomes **"Paid · on hold"** (authorization id shown).
-3. Open **Saathi** in another tab → enter the **pickup OTP** shown on the order page → *Handed to karigar*.
-4. Open **Karigar** → *Inspect & start repair* → upload an after photo → **Mark repaired** (the AI completion check runs).
-5. **Saathi** → *Collect & go* → enter the **delivery OTP** → PayPal **captures**, sends **payouts**, and issues the **invoice** (ids appear on the order page).
-6. Order page → **Resolve Hub** → submit a complaint → AI recommends an action → **Approve PayPal refund**.
-7. **Repair Agent** → "My school bag zip broke. Get it fixed under $5." → approve the PayPal payment inside the chat.
-8. **Admin** → AG Grid views of orders, payouts, karigars and PayPal webhooks. *Reset demo data* clears orders.
 
 ## Project structure
 
