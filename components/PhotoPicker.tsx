@@ -1,10 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useLang } from "./LanguageProvider";
 
 /** Picks or captures a photo, downsizes it in the browser (max 1280px JPEG) and uploads it. */
-export function PhotoPicker({ onUploaded, label = "Add photo", compact = false }: { onUploaded: (file: string, url: string) => void; label?: string; compact?: boolean }) {
+export function PhotoPicker({ onUploaded, label, compact = false }: { onUploaded: (file: string, url: string) => void; label?: string; compact?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
+  const { t } = useLang();
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +47,7 @@ export function PhotoPicker({ onUploaded, label = "Add photo", compact = false }
               <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
               <circle cx="12" cy="13" r="3.5" />
             </svg>
-            {busy ? "Uploading…" : label}
+            {busy ? t("uploading") : (label ?? t("addPhoto"))}
           </span>
         )}
       </button>

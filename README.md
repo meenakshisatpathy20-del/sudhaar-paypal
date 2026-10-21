@@ -63,7 +63,10 @@ Many parents live alone while their children work in other cities. A parent book
 
 ### Built for real people
 - **Talk to Sudhaar**: speak in **Hindi or English** (browser speech recognition, hi-IN / en-IN) and the agent's replies are **read aloud**, for elderly users and karigars who don't type.
-- **English / हिंदी** toggle across the customer app.
+- **English / हिंदी** toggle across the whole customer journey: booking, tracking, OTPs, Resolve Hub and the Family Pay link.
+- **Prices in rupees**, with the exact USD amount PayPal handles shown under each total.
+- **Installable on a phone** (add to home screen) with a bilingual offline page and an offline banner for weak networks.
+- **Join as a karigar**: repairers apply in English or Hindi; the team checks ID in person (no ID numbers collected), visits the shop and gives a trial repair before listing them.
 - **Fix-or-Replace meter**: shows how much of the new price a repair saves.
 - **Item Passport**: every repaired item gets a "second life" card with money saved and waste avoided.
 - **Karigar profiles** (craft, years of experience, languages, reviews, price list) and a **neighbourhood repair map**.
@@ -90,7 +93,7 @@ All calls go to the PayPal **sandbox**. Every PayPal id appears on the order pag
 Claude (`claude-opus-5-5`, via the official `@anthropic-ai/sdk`) with structured outputs ([`lib/ai.ts`](lib/ai.ts)):
 
 1. **Snap & Quote**: vision → item, category, size, damage, repair price range, new price, turnaround, confidence.
-2. **Completion check**: compares before/after photos **before the PayPal capture is allowed**.
+2. **Completion check**: compares before/after photos **before the PayPal capture is allowed**. If the AI rejects a repair or is unavailable, the money stays held and the photos go to a person in **Admin console → Photo checks**. An error never releases a payment.
 3. **Resolve Hub review**: reads the complaint, the PayPal invoice data and the photos, then recommends re-repair, partial refund or full refund under the warranty policy.
 4. **Repair Agent**: multi-step tool use that books and pays (see above).
 
@@ -114,15 +117,16 @@ I'm a solo participant, a 3rd-year Computer Science student.
 
 **Hosted demo:** open the *Website* link in this repository's About section. It runs against the PayPal sandbox. Log in to PayPal with the sandbox buyer account given in the **testing instructions on the Devpost page**. On the free hosting plan, the first load can take about a minute while the server wakes up.
 
-1. **Home** → tap a category (e.g. *Mixer & fan*), type or **speak** the problem (🎤, Hindi or English) or upload a photo → **Get AI quote** → see the **Fix-or-Replace meter**.
+1. **Home** → tap a category (e.g. *Mixer & fan*), type or **speak** the problem (🎤, Hindi or English) or upload a photo → **Get AI quote** → see the **Fix-or-Replace meter**. Tap **हिं** at the top at any point to switch the whole app to Hindi.
 2. **Choose your karigar** (list or map) → **Book & pay with PayPal** → pay with the sandbox buyer. The status becomes **"Paid · on hold"** (authorization id shown) and live tracking starts.
 3. In another tab open **`/partner`** and sign in with the demo access code **`sudhaar2026`** (the partner side is kept out of the customer app) → **Saathi app** → enter the **pickup OTP** shown on the order page → *Handed to karigar*.
-4. **Karigar app** → *Inspect & start repair* → upload an after photo → **Mark repaired** (the AI completion check runs).
+4. **Karigar app** → *Inspect & start repair* → upload an after photo → **Mark repaired** (the AI completion check runs). If the AI rejects the photo or is unavailable, the money stays held and the repair appears in **Admin console → Photo checks** for a person to approve or send back.
 5. **Saathi app** → *Collect from karigar & go* → enter the **delivery OTP** → PayPal **captures**, sends **payouts** and issues the **invoice**. The order page shows the ids and an **Item Passport**.
 6. Order page → **Resolve Hub** → *Report an issue* → AI recommends an action → in the **Admin console → Resolve Hub** tab, **Approve PayPal refund** → the customer's order shows the refund.
 7. **Ghar Safai Mode** (home page banner) → add 2–3 items (e.g. *school bag zip*, *chappal sole*, *mixer blade*) → see the one-trip saving → **Review & pay once**. Optionally tick **Someone else pays**, enter a name and open the shared `/pay/…` link to pay as the family member. In the Karigar app, switch between karigars to repair each one's items; after delivery the order shows **one capture and one payout per karigar**.
-8. **Talk** tab → tap the mic or type "My school bag zip broke. Get it fixed under $5." → approve the PayPal payment inside the chat. Replies are read aloud.
-9. **Admin console** (partner side) → AG Grid views of **orders, customers, karigars, Saathis, payouts and PayPal webhooks**, plus the **Resolve Hub** queue where refunds are approved. *Reset demo data* clears orders.
+8. **Talk** tab → tap the mic or type "My school bag zip broke. Get it fixed under ₹400." → approve the PayPal payment inside the chat. Replies are read aloud.
+9. **Admin console** (partner side) → AG Grid views of **orders, customers, karigars, Saathis, payouts and PayPal webhooks**, plus the **Resolve Hub** queue where refunds are approved, the **Photo checks** queue for repairs the AI could not pass, and **Applications** from new karigars. *Reset demo data* clears orders.
+10. **Join as a karigar** (banner at the bottom of the home page, or `/join`) → apply → in **Admin console → Applications** tick the three KYC checks → **Approve** → the new karigar appears in quotes with a **"New"** badge instead of a made-up rating.
 
 ## Run it locally
 
@@ -159,16 +163,18 @@ The app also runs with an **empty `.env`**: PayPal and AI calls are then simulat
 ## Project structure
 
 ```
-app/(customer)/     Customer app: home, fix flow, ghar-safai (basket), orders/[id] tracking, repairs, talk (agent), profile, karigars/[id]
+app/(customer)/     Customer app: home, fix flow, ghar-safai (basket), orders/[id] tracking, repairs, talk (agent), profile, karigars/[id], join (karigar onboarding)
 app/pay/[id]        Family Pay page the family member opens to pay with PayPal
 app/(partner)/      Partner side (staff sign-in): partner hub, saathi, karigar, admin console (AG Grid)
-app/api/            quote, baskets, orders (+approve/action/complaint/resolve), agent, karigars, admin, uploads, paypal/webhook
+app/api/            quote, baskets, orders (+approve/action/complaint/resolve/review), applications, agent, karigars, admin, uploads, paypal/webhook
 components/         UI (shadcn/ui components, doodles, three.js hero, PayPal SDK v6 checkout, voice, map, Family Pay, Fix-or-Replace meter…)
 lib/
   paypal.ts         PayPal REST client (Orders, Payments, Payouts, Invoicing, Webhooks)
   ai.ts             Claude: quote, completion check, complaint review
   agent.ts          Repair Agent (Claude tool use + PayPal Agent Toolkit)
-  orders.ts         Order state machine, OTP checks, settlement, Resolve Hub
+  orders.ts         Order state machine, OTP checks, settlement, Resolve Hub, photo-check review
+  onboarding.ts     Karigar applications and KYC checks
+  privacy.ts        What customer-facing APIs may show (no payout emails, masked contacts)
   pricing.ts        Rate card (distance × size), split, haversine
   i18n.ts           English / Hindi strings
   db.ts / seed.ts   JSON-file store with seeded demo karigars
@@ -176,12 +182,48 @@ postman/            Postman collection for the full flow
 scripts/            PayPal sandbox smoke test
 ```
 
+## From hackathon to startup
+
+Sudhaar works end to end today as a demo on the PayPal sandbox. This is my plan to make it work for millions of households, and the facts it rests on.
+
+**Why now**
+- The world generated a record **62 million tonnes of e-waste in 2022**, and only **22.3%** was documented as properly collected and recycled ([UN Global E-waste Monitor 2024](https://unitar.org/about/news-stories/press/global-e-waste-monitor-2024-electronic-waste-rising-five-times-faster-documented-e-waste-recycling)). Mixers, fans, phones and chargers are a big part of what Sudhaar repairs.
+- India's Department of Consumer Affairs launched a national **Right to Repair portal** in 2022 to push repair over replacement ([ThePrint](https://theprint.in/india/govt-launches-right-to-repair-portal-to-promote-circular-economy-reduce-e-waste/1993903/)).
+- Every Indian neighbourhood already has skilled cobblers, tailors and appliance repairers. What's missing is **trust, pickup and fair, on-time payment**, which is exactly what Sudhaar adds.
+
+**How the money works (from the code, not a projection)**
+- Karigar keeps **90% of the repair**, the Saathi keeps **75% of the pickup fee**, and Sudhaar keeps the rest (`lib/pricing.ts`).
+- Example from a demo order: chappal repair ₹253 + pickup ₹85 = ₹338 → karigar about ₹228, Saathi about ₹64, Sudhaar about ₹46.
+- One order earns little, so growth comes from **bigger baskets** (Ghar Safai: several items, one trip) and **bulk drives** for housing societies, hostels and offices.
+
+**Payments at scale: an honest plan**
+- PayPal ended **domestic** payments inside India on 1 April 2021 and kept **cross-border** payments ([Business Today](https://www.businesstoday.in/amp/technology/story/paypal-says-to-shut-domestic-payments-business-in-india-286762-2021-02-05)). So for an Indian launch:
+  - local payments run on **UPI**, through an Indian payment partner;
+  - **PayPal powers Family Pay across borders**: a son in Dubai or a daughter in London pays for a parent's repair back home, with the same hold-until-delivery protection;
+  - in countries where PayPal works domestically (the US, the UK, much of Europe), PayPal is the full rail, as built here. Every karigar then gets their own PayPal account through **PayPal's multiparty onboarding (Partner Referrals API)** instead of one platform payout account.
+
+**Roadmap**
+
+| Stage | What gets built |
+|---|---|
+| **1. Pilot: one neighbourhood, about 20 karigars** | Phone-number OTP login, per-staff accounts and roles, Postgres and cloud photo storage instead of the JSON file, real maps and addresses, WhatsApp and SMS updates at every step |
+| **2. One city** | "Repair Points" at kirana shops for drop-off, smarter Saathi routes that combine pickups, DigiLocker ID checks with consent, transit insurance for items, a karigar app in regional languages with voice |
+| **3. More cities and countries** | Bulk Ghar Safai for housing societies and offices, a booking line over WhatsApp or phone calls for people without smartphones, PayPal multiparty in PayPal-domestic markets |
+
+**Risks I've designed for**
+- **Trust:** verified karigars (ID, shop visit, trial repair), money held until the delivery OTP, a before/after photo check with a human fallback, and Resolve Hub with a 15-day warranty.
+- **People skipping the app after the first visit:** karigars stay because Sudhaar brings steady jobs, instant payouts and free pickup; customers stay for the warranty and the held payment.
+- **Weak networks:** the app installs on a phone's home screen and shows a clear offline page and banner instead of empty or wrong screens.
+
 ## Notes
-- Prices are in **USD** because the demo runs on the PayPal sandbox; they mirror real street-repair rates in Indian cities, and the app shows an approximate **₹ value** next to key prices (≈ ₹85 = $1).
+- **Rupees for people, USD for PayPal:** customers, karigars and Saathis see prices in **₹**, based on real street-repair rates in Indian cities. The PayPal sandbox settles in **USD**, so every total also shows the exact amount PayPal holds and captures, at ₹85 = $1 (`INR_PER_USD` in `lib/pricing.ts`). The Admin console and PayPal records stay in USD so they match the sandbox dashboard.
 - **Shared demo account:** there is no login, so everyone testing the hosted demo sees the same customer ("Anita") and the same orders. Use *Reset demo data* in the Admin console for a clean start. The partner sign-in is a demo gate (code `sudhaar2026`); production would use per-partner accounts.
 - **Refund decisions are made by people:** customers raise issues in Resolve Hub; the AI recommends, and the support team approves in **Admin console → Resolve Hub**. Only the Repair Agent may auto-refund small amounts (up to $5), a limit enforced in code.
 - **Fair use:** AI endpoints are rate-limited per visitor so the public demo can't be used to burn AI credits.
+- **Unpaid bookings expire** after 2 hours (24 hours for Family Pay links) and nothing is charged, like a checkout that times out.
 - Uploaded photos are stored on the server's disk; on free hosting they reset when the server restarts.
+- Talk conversations are kept in server memory for the session, so they reset when the server restarts.
+- **Privacy:** customer-facing APIs never return payout emails and mask contact details. Because the demo has no staff login, applicant phone numbers and emails are masked in the admin view too.
 - Data lives in a JSON file (`data/db.json`) that is re-seeded automatically, so a fresh deploy always works.
 - Built from scratch during the hackathon submission period (October–November 2026).
 

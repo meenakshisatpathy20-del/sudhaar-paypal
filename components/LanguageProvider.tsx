@@ -3,7 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { STRINGS, type Lang, type StringKey } from "@/lib/i18n";
 
-type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (k: StringKey) => string; speakReplies: boolean; setSpeakReplies: (v: boolean) => void };
+type Vars = Record<string, string | number>;
+type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (k: StringKey, vars?: Vars) => string; speakReplies: boolean; setSpeakReplies: (v: boolean) => void };
 const LanguageContext = createContext<Ctx | null>(null);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
@@ -36,7 +37,14 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("sudhaar.speak", v ? "1" : "0");
     } catch {}
   }, []);
-  const t = useCallback((k: StringKey) => STRINGS[lang][k] ?? STRINGS.en[k], [lang]);
+  // Optional {placeholders}, e.g. t("oFixedBy", { names: "Mohan", date }).
+  const t = useCallback(
+    (k: StringKey, vars?: Vars) => {
+      const text: string = STRINGS[lang][k] ?? STRINGS.en[k];
+      return vars ? text.replace(/\{(\w+)\}/g, (m, v: string) => (v in vars ? String(vars[v]) : m)) : text;
+    },
+    [lang],
+  );
 
   return <LanguageContext.Provider value={{ lang, setLang, t, speakReplies, setSpeakReplies }}>{children}</LanguageContext.Provider>;
 }

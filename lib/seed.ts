@@ -87,5 +87,5 @@ export function seedSaathis(): Saathi[] {
 }
 
 export function seedDB(): DB {
-  return { karigars: seedKarigars(), saathis: seedSaathis(), quotes: [], orders: [], webhooks: [] };
+  return { karigars: seedKarigars(), saathis: seedSaathis(), quotes: [], orders: [], webhooks: [], applications: [] };
 }

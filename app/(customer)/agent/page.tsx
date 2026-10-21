@@ -1,9 +1,10 @@
 "use client";
 
+import { rupees } from "@/components/Inr";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Camera, Send, Sparkles, Volume2, VolumeX } from "lucide-react";
-import { api, money } from "@/components/api";
+import { api } from "@/components/api";
 import { useLang } from "@/components/LanguageProvider";
 import { FamilyPayShare } from "@/components/FamilyPay";
 import { MicButton } from "@/components/MicButton";
@@ -26,8 +27,8 @@ type AgentCard =
 type Msg = { role: "user" | "agent"; text: string; cards?: AgentCard[]; steps?: { tool: string; ok: boolean; paypalToolkit: boolean }[]; photo?: string };
 
 const PROMPTS = {
-  en: ["My mixer jar blade is loose. Get it fixed under $8 by Friday.", "The zip on my daughter's school bag broke. Book the best option.", "What's the status of my last repair?", "My shoe sole came off again after the repair. Please sort it out."],
-  hi: ["मेरे मिक्सर का ब्लेड ढीला है, शुक्रवार तक 8 डॉलर के अंदर ठीक करवा दो।", "बेटी के स्कूल बैग की ज़िप टूट गई है, सबसे अच्छा कारीगर बुक कर दो।", "मेरी पिछली रिपेयर कहाँ तक पहुँची?", "रिपेयर के बाद जूते का सोल फिर निकल गया, इसे सुलझा दो।"],
+  en: ["My mixer jar blade is loose. Get it fixed under ₹700 by Friday.", "The zip on my daughter's school bag broke. Book the best option.", "What's the status of my last repair?", "My shoe sole came off again after the repair. Please sort it out."],
+  hi: ["मेरे मिक्सर का ब्लेड ढीला है, शुक्रवार तक ₹700 के अंदर ठीक करवा दो।", "बेटी के स्कूल बैग की ज़िप टूट गई है, सबसे अच्छा कारीगर बुक कर दो।", "मेरी पिछली रिपेयर कहाँ तक पहुँची?", "रिपेयर के बाद जूते का सोल फिर निकल गया, इसे सुलझा दो।"],
 };
 
 export default function TalkPage() {
@@ -86,7 +87,7 @@ export default function TalkPage() {
               {speakReplies ? <Volume2 className="size-3" /> : <VolumeX className="size-3" />} {t("voiceReplies")}
             </button>
           </div>
-          {cfg?.ai.mode === "simulated" && <p className="text-xs text-gold">The AI agent needs ANTHROPIC_API_KEY on the server.</p>}
+          {cfg?.ai.mode === "simulated" && <p className="text-xs text-gold">{t("agentNeedsKey")}</p>}
         </CardContent>
       </Card>
 
@@ -153,7 +154,7 @@ export default function TalkPage() {
             </button>
           </SheetTrigger>
           <SheetContent>
-            <SheetTitle>Attach a photo</SheetTitle>
+            <SheetTitle>{t("attachPhoto")}</SheetTitle>
             <PhotoPicker key={photoKey} onUploaded={(f) => setPhoto(f)} />
           </SheetContent>
         </Sheet>
@@ -171,14 +172,14 @@ function AgentCardView({ card }: { card: AgentCard }) {
   if (card.type === "quote")
     return (
       <div className="rounded-2xl bg-muted p-3 text-xs">
-        <b>{card.item}</b>: repair {money(card.repairLow)}–{money(card.repairHigh)}
-        {card.newPrice > 0 && ` vs new ${money(card.newPrice)}`} <span className="text-muted-foreground">({card.source})</span>
+        <b>{card.item}</b>: repair {rupees(card.repairLow)}–{rupees(card.repairHigh)}
+        {card.newPrice > 0 && ` vs new ${rupees(card.newPrice)}`} <span className="text-muted-foreground">({card.source})</span>
       </div>
     );
   if (card.type === "refund")
     return (
       <div className="rounded-2xl bg-muted p-3 text-xs">
-        PayPal refund {money(card.amount)} issued <span className="font-mono">{card.refundId}</span>
+        PayPal refund {rupees(card.amount)} issued <span className="font-mono">{card.refundId}</span>
       </div>
     );
   return <BookingCard card={card} />;
@@ -186,6 +187,7 @@ function AgentCardView({ card }: { card: AgentCard }) {
 
 function BookingCard({ card }: { card: Extract<AgentCard, { type: "booking" }> }) {
   const [order, setOrder] = useState<Order | null>(null);
+  const { t } = useLang();
   const refresh = () => api<{ order: Order }>(`/api/orders/${card.orderId}`).then((r) => setOrder(r.order)).catch(() => {});
   useEffect(() => {
     refresh();
@@ -195,20 +197,20 @@ function BookingCard({ card }: { card: Extract<AgentCard, { type: "booking" }> }
     <div className="space-y-2 rounded-2xl bg-muted p-3 text-xs">
       <div className="flex items-center justify-between gap-2">
         <span>
-          <b>{card.karigar}</b> · {money(card.total)} ·{" "}
+          <b>{card.karigar}</b> · {rupees(card.total)} ·{" "}
           <Link className="font-mono text-primary underline" href={`/orders/${card.orderId}`}>
             {card.orderId}
           </Link>
         </span>
         {order && <StatusPill status={order.status} />}
       </div>
-      {order?.status === "awaiting_payment" && card.familyPayer && <FamilyPayShare orderId={card.orderId} name={card.familyPayer} item={order.item} total={money(card.total)} />}
+      {order?.status === "awaiting_payment" && card.familyPayer && <FamilyPayShare orderId={card.orderId} name={card.familyPayer} item={order.item} total={rupees(card.total)} />}
       {order?.status === "awaiting_payment" && !card.familyPayer && card.paypalOrderId && <PayPalCheckout orderId={card.orderId} paypalOrderId={card.paypalOrderId} total={card.total} onApproved={refresh} />}
       {order && order.status !== "awaiting_payment" && (
         <p className="text-muted-foreground">
-          Payment held by PayPal. Pickup OTP <b className="font-mono text-foreground">{order.pickupOtp}</b> ·{" "}
+          {t("agentHeld")} <b className="font-mono text-foreground">{order.pickupOtp}</b> ·{" "}
           <Link className="text-primary underline" href={`/orders/${card.orderId}`}>
-            Track it
+            {t("trackIt")}
           </Link>
         </p>
       )}

@@ -1,25 +1,31 @@
+"use client";
+
 import { Check } from "lucide-react";
 import type { Order, OrderStatus } from "@/lib/types";
+import { useLang } from "./LanguageProvider";
 
-const PICKUP_STEPS: { status: OrderStatus; label: string }[] = [
-  { status: "authorized", label: "Paid · money held by PayPal" },
-  { status: "picked_up", label: "Picked up (OTP)" },
-  { status: "at_karigar", label: "At the karigar" },
-  { status: "repairing", label: "Repairing" },
-  { status: "repaired", label: "Repaired · AI photo check" },
-  { status: "out_for_delivery", label: "Out for delivery" },
-  { status: "delivered", label: "Delivered (OTP) · payment captured" },
-  { status: "paid_out", label: "Karigar & Saathi paid instantly" },
+type Step = { status: OrderStatus; en: string; hi: string };
+
+const PICKUP_STEPS: Step[] = [
+  { status: "authorized", en: "Paid · money held by PayPal", hi: "भुगतान हुआ · पैसा PayPal के पास सुरक्षित" },
+  { status: "picked_up", en: "Picked up (OTP)", hi: "पिकअप हुआ (OTP)" },
+  { status: "at_karigar", en: "At the karigar", hi: "कारीगर के पास पहुँचा" },
+  { status: "repairing", en: "Repairing", hi: "मरम्मत जारी" },
+  { status: "repaired", en: "Repaired · AI photo check", hi: "मरम्मत पूरी · AI फ़ोटो जाँच" },
+  { status: "out_for_delivery", en: "Out for delivery", hi: "डिलीवरी के लिए निकला" },
+  { status: "delivered", en: "Delivered (OTP) · payment captured", hi: "डिलीवर हुआ (OTP) · भुगतान लिया गया" },
+  { status: "paid_out", en: "Karigar & Saathi paid instantly", hi: "कारीगर और साथी को तुरंत भुगतान" },
 ];
-const VISIT_STEPS: { status: OrderStatus; label: string }[] = [
-  { status: "authorized", label: "Paid · money held by PayPal" },
-  { status: "repairing", label: "Karigar arrived (OTP) · repairing" },
-  { status: "repaired", label: "Repaired · AI photo check" },
-  { status: "delivered", label: "Job confirmed (OTP) · payment captured" },
-  { status: "paid_out", label: "Karigar paid instantly" },
+const VISIT_STEPS: Step[] = [
+  { status: "authorized", en: "Paid · money held by PayPal", hi: "भुगतान हुआ · पैसा PayPal के पास सुरक्षित" },
+  { status: "repairing", en: "Karigar arrived (OTP) · repairing", hi: "कारीगर पहुँचे (OTP) · मरम्मत जारी" },
+  { status: "repaired", en: "Repaired · AI photo check", hi: "मरम्मत पूरी · AI फ़ोटो जाँच" },
+  { status: "delivered", en: "Job confirmed (OTP) · payment captured", hi: "काम पूरा (OTP) · भुगतान लिया गया" },
+  { status: "paid_out", en: "Karigar paid instantly", hi: "कारीगर को तुरंत भुगतान" },
 ];
 
 export function Timeline({ order }: { order: Order }) {
+  const { lang } = useLang();
   const steps = order.mode === "pickup" ? PICKUP_STEPS : VISIT_STEPS;
   const currentIdx = steps.findIndex((s) => s.status === order.status);
   return (
@@ -36,7 +42,7 @@ export function Timeline({ order }: { order: Order }) {
               {current && <span className="absolute inset-0 rounded-full bg-primary/50" style={{ animation: "ping-soft 1.6s ease-out infinite" }} />}
             </span>
             <div className="flex-1 pt-0.5 text-sm">
-              <span className={done ? "font-semibold" : "text-muted-foreground"}>{s.label}</span>
+              <span className={done ? "font-semibold" : "text-muted-foreground"}>{s[lang]}</span>
               {done && at && <span className="ml-2 text-xs text-muted-foreground">{new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
             </div>
           </li>

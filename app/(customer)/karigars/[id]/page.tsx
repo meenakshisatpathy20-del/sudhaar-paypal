@@ -1,14 +1,17 @@
 "use client";
 
+import { rupees } from "@/components/Inr";
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { ArrowRight, BadgeCheck, Briefcase, Languages, MapPin, Quote, Star } from "lucide-react";
-import { api, money } from "@/components/api";
+import { api } from "@/components/api";
 import { NeighbourhoodMap } from "@/components/NeighbourhoodMap";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useLang } from "@/components/LanguageProvider";
+import { CATEGORY_I18N } from "@/lib/i18n";
 import { CATEGORY_LABEL } from "@/lib/pricing";
 import type { Karigar } from "@/lib/types";
 
@@ -18,6 +21,7 @@ export default function KarigarProfile({ params }: { params: Promise<{ id: strin
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [done, setDone] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const { t, lang } = useLang();
 
   useEffect(() => {
     api<{ karigar: Karigar & { distanceKm: number }; completedOnSudhaar: number }>(`/api/karigars/${id}`)
@@ -53,27 +57,28 @@ export default function KarigarProfile({ params }: { params: Promise<{ id: strin
               <Quote className="size-5 shrink-0 text-gold" /> {k.bio}
             </p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Fact icon={Star} v={`${k.rating.toFixed(1)}★`} l={`${k.jobsDone} jobs`} />
-              <Fact icon={Briefcase} v={`${k.yearsExperience} yrs`} l="experience" />
+              <Fact icon={Star} v={k.jobsDone > 0 ? `${k.rating.toFixed(1)}★` : t("newKarigar")} l={t("kpJobs", { n: k.jobsDone })} />
+              <Fact icon={Briefcase} v={t("kpYears", { n: k.yearsExperience })} l={t("kpExperience")} />
               <Fact icon={MapPin} v={`${k.distanceKm.toFixed(1)} km`} l={k.area} />
               <Fact icon={Languages} v={String(k.languages.length)} l={k.languages.join(", ")} />
             </div>
             <div className="flex flex-wrap gap-1.5">
               <Badge>
-                <BadgeCheck /> KYC verified
+                <BadgeCheck /> {t("kpKyc")}
               </Badge>
               {k.skills.map((s) => (
                 <Badge key={s} variant="outline">
-                  {CATEGORY_LABEL[s]}
+                  {CATEGORY_I18N[s]?.[lang] ?? CATEGORY_LABEL[s]}
                 </Badge>
               ))}
-              {done > 0 && <Badge variant="gold">{done} repairs on Sudhaar</Badge>}
+              {done > 0 && <Badge variant="gold">{t("kpOnSudhaar", { n: done })}</Badge>}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="space-y-3">
-            <h2 className="font-bold">Reviews</h2>
+            <h2 className="font-bold">{t("kpReviews")}</h2>
+            {k.reviews.length === 0 && <p className="text-sm text-muted-foreground">{t("kpNoReviews")}</p>}
             {k.reviews.map((r) => (
               <div key={r.name} className="rounded-2xl bg-muted/50 p-3 ring-1 ring-border">
                 <p className="flex items-center justify-between text-sm font-semibold">
@@ -91,17 +96,18 @@ export default function KarigarProfile({ params }: { params: Promise<{ id: strin
       <div className="space-y-4">
         <Card>
           <CardContent className="space-y-3">
-            <h2 className="font-bold">Typical prices</h2>
+            <h2 className="font-bold">{t("kpPrices")}</h2>
+            {k.services.length === 0 && <p className="text-sm text-muted-foreground">{t("kpNoPrices")}</p>}
             {k.services.map((s) => (
               <p key={s.name} className="flex justify-between border-b border-border pb-2 text-sm last:border-0">
                 <span>{s.name}</span>
-                <span className="font-semibold">{money(s.price)}</span>
+                <span className="font-semibold">{rupees(s.price)}</span>
               </p>
             ))}
-            <p className="text-xs text-muted-foreground">Final price is confirmed after inspection. Any change needs your approval.</p>
+            <p className="text-xs text-muted-foreground">{t("kpFinal")}</p>
             <Button asChild size="lg" className="w-full">
               <Link href={`/fix?k=${k.id}`}>
-                Get a quote from {k.name.split(" ")[0]} <ArrowRight />
+                {t("kpQuote", { name: k.name.split(" ")[0] })} <ArrowRight />
               </Link>
             </Button>
           </CardContent>

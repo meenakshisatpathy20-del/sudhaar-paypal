@@ -1,6 +1,10 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
 import type { OrderStatus } from "@/lib/types";
+import { useLang } from "./LanguageProvider";
 
+/** English labels; also used by the (English-only) admin console. */
 export const STATUS_LABEL: Record<OrderStatus, string> = {
   awaiting_payment: "Awaiting payment",
   authorized: "Paid · on hold",
@@ -12,6 +16,19 @@ export const STATUS_LABEL: Record<OrderStatus, string> = {
   delivered: "Delivered",
   paid_out: "Completed",
   cancelled: "Cancelled",
+};
+
+const STATUS_LABEL_HI: Record<OrderStatus, string> = {
+  awaiting_payment: "भुगतान बाकी",
+  authorized: "भुगतान हुआ · होल्ड पर",
+  picked_up: "पिकअप हो गया",
+  at_karigar: "कारीगर के पास",
+  repairing: "मरम्मत जारी",
+  repaired: "मरम्मत पूरी",
+  out_for_delivery: "डिलीवरी के लिए निकला",
+  delivered: "डिलीवर हो गया",
+  paid_out: "पूरा हुआ",
+  cancelled: "रद्द",
 };
 
 export const STATUS_PROGRESS: Record<OrderStatus, number> = {
@@ -29,5 +46,6 @@ export const STATUS_PROGRESS: Record<OrderStatus, number> = {
 
 export function StatusPill({ status }: { status: OrderStatus }) {
   const variant = status === "paid_out" ? "solid" : status === "authorized" ? "paypal" : status === "cancelled" ? "destructive" : status === "awaiting_payment" ? "outline" : "gold";
-  return <Badge variant={variant}>{STATUS_LABEL[status]}</Badge>;
+  const { lang } = useLang();
+  return <Badge variant={variant}>{(lang === "hi" ? STATUS_LABEL_HI : STATUS_LABEL)[status]}</Badge>;
 }

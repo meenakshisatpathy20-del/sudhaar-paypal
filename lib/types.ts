@@ -37,6 +37,31 @@ export interface Karigar {
   craft: string;
   services: { name: string; price: number }[];
   reviews: { name: string; rating: number; text: string }[];
+  /** Joined through the onboarding flow (not demo seed data). */
+  onboarded?: boolean;
+}
+
+/** A repairer applying through "Join as a karigar", reviewed by the Sudhaar team. */
+export interface KarigarApplication {
+  id: string;
+  createdAt: string;
+  name: string;
+  phone: string;
+  shop: string;
+  craft: string;
+  area: string;
+  skills: Category[];
+  yearsExperience: number;
+  languages: string[];
+  bio: string;
+  /** Optional: without it, sandbox payouts go to the demo karigar account. */
+  payoutEmail?: string;
+  /** Which ID they can show. We never store ID numbers; staff verify in person or via DigiLocker. */
+  idType: "aadhaar" | "voter" | "driving" | "pan" | "none";
+  status: "pending" | "approved" | "rejected";
+  checks: { idVerified: boolean; shopVisited: boolean; trialRepair: boolean };
+  karigarId?: string;
+  decidedAt?: string;
 }
 
 export interface Saathi {
@@ -117,6 +142,15 @@ export interface Complaint {
   };
 }
 
+/** The before/after photo check that gates the PayPal capture. */
+export interface CompletionCheck {
+  passed: boolean;
+  reasoning: string;
+  source: "claude" | "simulated" | "admin";
+  /** True when the AI could not decide (or failed) and a Sudhaar reviewer must compare the photos. */
+  needsReview?: boolean;
+}
+
 /** One item inside a Ghar Safai basket order. */
 export interface Job {
   id: string;
@@ -131,7 +165,7 @@ export interface Job {
   beforePhoto?: string;
   afterPhoto?: string;
   status: "waiting" | "repairing" | "repaired";
-  completionCheck?: { passed: boolean; reasoning: string; source: "claude" | "simulated" };
+  completionCheck?: CompletionCheck;
 }
 
 /** Family Pay: someone else (e.g. a son in another city) approves the PayPal payment. */
@@ -181,7 +215,7 @@ export interface Order {
   };
   beforePhoto?: string;
   afterPhoto?: string;
-  completionCheck?: { passed: boolean; reasoning: string; source: "claude" | "simulated" };
+  completionCheck?: CompletionCheck;
   payouts: PayoutLine[];
   complaints: Complaint[];
   events: OrderEvent[];
@@ -194,4 +228,5 @@ export interface DB {
   quotes: Quote[];
   orders: Order[];
   webhooks: { at: string; type: string; resource?: string; verified: boolean }[];
+  applications: KarigarApplication[];
 }

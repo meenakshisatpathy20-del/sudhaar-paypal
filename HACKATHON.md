@@ -14,7 +14,7 @@ Tracks every rule in the official rules (paypalaihackathon.devpost.com/rules) an
 ## Submission requirements
 | Requirement | Status |
 |---|---|
-| Text description of features and functionality (Devpost form) | ⏳ write from README |
+| Text description of features and functionality (Devpost form) | ✅ drafted (DEVPOST.md, sent separately) · ⏳ paste into Devpost |
 | Functional demo: hosted URL **or** complete setup/run instructions | ✅ README instructions · ⏳ Render URL |
 | Public GitHub repo with all source, assets, instructions | ✅ (keep repo public) |
 | Open-source licence file, **visible in the repo's About section** | ✅ MIT `LICENSE` · ⏳ check GitHub shows "MIT license" in About |
@@ -23,16 +23,16 @@ Tracks every rule in the official rules (paypalaihackathon.devpost.com/rules) an
 | Test access: sandbox login / credentials / instructions in README | ⏳ fill in sandbox buyer login in README |
 | Free, unrestricted access for judges until judging ends (Dec 2026) | ⏳ keep Render service + keys alive |
 | English materials | ✅ |
-| Team representative meets eligibility (age of majority, not in excluded country) | ⏳ team to confirm |
+| Entrant meets eligibility (age of majority, not in an excluded country) | ⏳ confirm (solo participant) |
 
 ## Judging criteria (equal weight) and our evidence
 | Criterion | Evidence in Sudhaar |
 |---|---|
 | **Technological implementation** (PayPal + AI, non-trivial) | Authorize→capture escrow pattern, payouts split, invoices, refunds, webhooks, JS SDK v6, Agent Toolkit; Claude vision + structured outputs + tool-use agent with a refund limit enforced in code |
-| **Design** (complete product, not a PoC) | Four role apps (customer, Saathi, karigar, admin) + agent; mobile-first; live tracking; OTPs; AG Grid ops dashboard |
-| **Potential impact** (real problem, real audience) | Founder story; informal karigars; waste avoided, money saved, karigar income tracked on the dashboard |
-| **Innovation** | Payment released only on OTP + AI photo check; AI-reviewed warranty claims with PayPal invoice as evidence; agent that books and pays |
-| **Presentation** | ⏳ 3-minute video following the README "Testing instructions" script |
+| **Design** (complete product, not a PoC) | Customer app kept separate from the partner side (Saathi, karigar, admin console); Hindi + English everywhere; prices in ₹; installable with offline screens; live multi-stop tracking; OTPs; karigar onboarding; AG Grid admin console |
+| **Potential impact** (real problem, real audience) | Founder story; informal karigars; sourced e-waste and Right to Repair facts; honest launch plan (UPI at home, PayPal for cross-border Family Pay); impact numbers on the dashboard |
+| **Innovation** | Ghar Safai (one capture split into payouts to several karigars); Family Pay; payment released only on OTP + photo check with a human fallback; AI-reviewed warranty claims with the PayPal invoice as evidence; an agent that books and pays |
+| **Presentation** | ⏳ video under 3 minutes following VIDEO-SCRIPT.md (sent separately) |
 
 ## Prize targets
 A project can win **one Grand or Honorable Mention prize plus one Sponsor prize**.

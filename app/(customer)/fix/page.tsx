@@ -3,13 +3,13 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, BadgeCheck, Clock, List, Map as MapIcon, Recycle, Sparkles, Star } from "lucide-react";
-import { api, money } from "@/components/api";
+import { api } from "@/components/api";
 import { CATEGORY_EXAMPLE } from "@/components/CategoryIcon";
 import { CategoryChips } from "@/components/CategoryChips";
 import { useAppConfig } from "@/components/useAppConfig";
 import { FamilyPayPicker, type FamilyPayValue } from "@/components/FamilyPay";
 import { FixMeter } from "@/components/FixMeter";
-import { Inr } from "@/components/Inr";
+import { rupees, rupeeTotal, UsdNote } from "@/components/Inr";
 import Link from "next/link";
 import { useLang } from "@/components/LanguageProvider";
 import { MicButton } from "@/components/MicButton";
@@ -172,19 +172,16 @@ function Fix() {
                   <div className="rounded-2xl bg-primary/10 p-3 ring-1 ring-primary/20">
                     <p className="text-[11px] text-muted-foreground">{t("repairCost")}</p>
                     <p className="font-display text-lg font-bold text-primary">
-                      {money(quote.repairLow)}–{money(quote.repairHigh)}
+                      {rupees(quote.repairLow)}–{rupees(quote.repairHigh)}
                     </p>
-                    <Inr usd={mid} />
                   </div>
                   <div className="rounded-2xl bg-muted/60 p-3 ring-1 ring-border">
                     <p className="text-[11px] text-muted-foreground">{t("newCost")}</p>
-                    <p className="font-display text-lg font-bold">{quote.newPrice ? money(quote.newPrice) : "–"}</p>
-                    {quote.newPrice > 0 && <Inr usd={quote.newPrice} />}
+                    <p className="font-display text-lg font-bold">{quote.newPrice ? rupees(quote.newPrice) : "–"}</p>
                   </div>
                   <div className="rounded-2xl bg-gold/10 p-3 ring-1 ring-gold/25">
                     <p className="text-[11px] text-muted-foreground">{t("youSave")}</p>
-                    <p className="font-display text-lg font-bold text-gold">{quote.newPrice ? `~${money(Math.max(0, quote.newPrice - mid))}` : "–"}</p>
-                    {quote.newPrice > 0 && <Inr usd={Math.max(0, quote.newPrice - mid)} />}
+                    <p className="font-display text-lg font-bold text-gold">{quote.newPrice ? `~${rupees(Math.max(0, quote.newPrice - mid))}` : "–"}</p>
                   </div>
                 </div>
               </>
@@ -251,7 +248,7 @@ function Fix() {
                         </p>
                         <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1 text-gold">
-                            <Star className="size-3 fill-gold" /> {o.karigar.rating.toFixed(1)}
+                            <Star className="size-3 fill-gold" /> {o.karigar.jobsDone > 0 ? o.karigar.rating.toFixed(1) : t("newKarigar")}
                           </span>
                           <span>{o.distanceKm} km</span>
                           <span className="flex items-center gap-1">
@@ -261,9 +258,8 @@ function Fix() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-display text-lg font-bold">{money(o.price)}</p>
-                        <Inr usd={o.price} className="block" />
-                        <p className="text-[11px] text-muted-foreground">+{money(o.pickupFee)}</p>
+                        <p className="font-display text-lg font-bold">{rupees(o.price)}</p>
+                        <p className="text-[11px] text-muted-foreground">+{rupees(o.pickupFee)}</p>
                       </div>
                     </div>
                   </button>
@@ -273,7 +269,7 @@ function Fix() {
                 {center && (
                   <NeighbourhoodMap
                     center={center}
-                    pins={offers.map((o) => ({ id: o.karigar.id, name: o.karigar.name, lat: o.karigar.lat, lng: o.karigar.lng, color: o.karigar.avatarColor, label: money(o.price) }))}
+                    pins={offers.map((o) => ({ id: o.karigar.id, name: o.karigar.name, lat: o.karigar.lat, lng: o.karigar.lng, color: o.karigar.avatarColor, label: rupees(o.price) }))}
                     selected={selected}
                     onSelect={setSelected}
                     className="aspect-[400/260]"
@@ -307,20 +303,20 @@ function Fix() {
               </div>
             </div>
             <div className="space-y-2 rounded-2xl bg-muted/50 p-4 text-sm ring-1 ring-border">
-              <Row k={t("repairCost")} v={money(offer.price)} />
-              <Row k={homeVisit ? t("visitFee") : `${t("pickupFee")} (${offer.distanceKm} km)`} v={money(offer.pickupFee)} />
+              <Row k={t("repairCost")} v={rupees(offer.price)} />
+              <Row k={homeVisit ? t("visitFee") : `${t("pickupFee")} (${offer.distanceKm} km)`} v={rupees(offer.pickupFee)} />
               <label className="flex cursor-pointer items-center justify-between">
                 <span className="flex items-center gap-2">
                   <input type="checkbox" className="size-4 accent-[#d9572b]" checked={donate} onChange={(e) => setDonate(e.target.checked)} />
                   {t("toolFund")}
                 </span>
-                <span>{money(donate ? 1 : 0)}</span>
+                <span>{rupees(donate ? 1 : 0)}</span>
               </label>
               <div className="flex justify-between border-t border-border pt-2 font-semibold">
                 <span>{t("total")}</span>
                 <span className="text-right">
-                  <span className="block font-display text-lg">{money(offer.total + (donate ? 1 : 0))}</span>
-                  <Inr usd={offer.total + (donate ? 1 : 0)} />
+                  <span className="block font-display text-lg">{rupeeTotal(offer.price, offer.pickupFee, donate ? 1 : 0)}</span>
+                  <UsdNote usd={offer.total + (donate ? 1 : 0)} />
                 </span>
               </div>
             </div>

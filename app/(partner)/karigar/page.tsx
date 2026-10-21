@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { api, money } from "@/components/api";
+import { api } from "@/components/api";
+import { rupees, UsdNote } from "@/components/Inr";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhotoPicker } from "@/components/PhotoPicker";
 import { StatusPill } from "@/components/StatusPill";
 import { useOrders } from "@/components/useOrders";
-import type { Karigar, Order } from "@/lib/types";
+import type { CompletionCheck, Karigar, Order } from "@/lib/types";
 
 export default function KarigarPage() {
   return (
@@ -35,6 +36,7 @@ function KarigarApp() {
   const myPayout = (o: Order) => (o.kind === "basket" ? (o.jobs ?? []).filter((j) => j.karigarId === kid).reduce((s, j) => s + j.price * 0.9, 0) * (o.paypal.payoutBatchId ? 1 : 0) : o.payouts.filter((p) => p.to === "karigar").reduce((s, p) => s + p.amount, 0));
   const earned = mine.reduce((s, o) => s + myPayout(o), 0);
 
+  if (karigars.length === 0) return <p className="paper mx-auto max-w-md rounded-2xl p-5 text-sm text-muted-foreground">Loading your jobs…</p>;
   return (
     <div className="mx-auto max-w-md space-y-4">
       <select className="h-11 w-full rounded-xl border border-input bg-card px-3 text-sm" value={kid} onChange={(e) => setKid(e.target.value)} aria-label="Karigar">
@@ -46,7 +48,8 @@ function KarigarApp() {
       </select>
       <div className="paper rounded-2xl bg-gradient-to-br from-marigold/25 to-card p-5">
         <p className="text-sm text-muted-foreground">Namaste, {k?.name.split(" ")[0] ?? "ji"} 🙏</p>
-        <p className="font-display text-4xl font-bold">{money(earned)}</p>
+        <p className="font-display text-4xl font-bold">{rupees(earned)}</p>
+        <UsdNote usd={earned} verb="pays" />
         <p className="text-xs text-muted-foreground">You keep 90% of every repair. Paid instantly to PayPal on delivery. No joining fee.</p>
       </div>
       {active.length === 0 && <p className="paper rounded-2xl p-5 text-sm text-muted-foreground">No active jobs. New bookings appear here automatically.</p>}
@@ -61,7 +64,7 @@ function KarigarApp() {
             .map((o) => (
               <p key={o.id} className="flex justify-between border-t border-border py-1.5 text-sm first:border-0">
                 <span>{o.item}</span>
-                <span className="font-semibold text-primary">+{money(myPayout(o))}</span>
+                <span className="font-semibold text-primary">+{rupees(myPayout(o))}</span>
               </p>
             ))}
         </div>
@@ -99,7 +102,7 @@ function KarigarJob({ order, onDone }: { order: Order; onDone: () => void }) {
           </Link>
           <p className="font-semibold">{order.item}</p>
           <p className="text-xs text-muted-foreground">
-            {order.issue} · you earn {money(visit ? order.split.karigar + order.split.saathi : order.split.karigar)}
+            {order.issue} · you earn {rupees(visit ? order.split.karigar + order.split.saathi : order.split.karigar)}
           </p>
         </div>
         <StatusPill status={order.status} />
@@ -118,7 +121,7 @@ function KarigarJob({ order, onDone }: { order: Order; onDone: () => void }) {
       )}
       {order.status === "repairing" && (
         <>
-          {order.completionCheck && !order.completionCheck.passed && <p className="rounded-lg bg-destructive/10 p-2 text-xs text-destructive">Last check: {order.completionCheck.reasoning}</p>}
+          {order.completionCheck && !order.completionCheck.passed && <CheckNote check={order.completionCheck} />}
           <PhotoPicker compact label="Photo of the repaired item" onUploaded={(f) => setPhoto(f)} />
           <Button className="w-full" disabled={busy || !photo} onClick={() => run("mark_repaired", { afterPhoto: photo })}>
             {busy ? "AI is checking the repair…" : "Mark repaired"}
@@ -176,10 +179,10 @@ function BasketJobs({ order, karigarId, onDone }: { order: Order; karigarId: str
         <div key={j.id} className="space-y-2 rounded-xl bg-muted/50 p-3 ring-1 ring-border">
           <p className="flex justify-between gap-2 text-sm">
             <span className="font-semibold">{j.item}</span>
-            <span className="text-xs text-muted-foreground">earn {money(j.price * 0.9)}</span>
+            <span className="text-xs text-muted-foreground">earn {rupees(j.price * 0.9)}</span>
           </p>
           <p className="text-xs text-muted-foreground">{j.issue}</p>
-          {j.completionCheck && !j.completionCheck.passed && <p className="rounded-lg bg-destructive/10 p-2 text-xs text-destructive">{j.completionCheck.reasoning}</p>}
+          {j.completionCheck && !j.completionCheck.passed && <CheckNote check={j.completionCheck} />}
           {atKarigar && j.status === "waiting" && (
             <Button className="w-full" size="sm" disabled={busy === j.id} onClick={() => run(j.id, "start_repair")}>
               Inspect & start repair
@@ -198,5 +201,14 @@ function BasketJobs({ order, karigarId, onDone }: { order: Order; karigarId: str
       ))}
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
+  );
+}
+
+function CheckNote({ check }: { check: CompletionCheck }) {
+  return (
+    <p className="rounded-lg bg-destructive/10 p-2 text-xs text-destructive">
+      {check.reasoning}
+      {check.needsReview && " Sent to the Sudhaar team for review. You can also upload a clearer photo."}
+    </p>
   );
 }

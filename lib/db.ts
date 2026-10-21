@@ -16,10 +16,12 @@ function load(): DB {
   if (cache) return cache;
   try {
     cache = JSON.parse(fs.readFileSync(file(), "utf8")) as DB;
-    // Karigars and Saathis are demo data: always refresh them from the seed so profile
-    // updates and the payout emails from .env apply to an existing database too.
-    cache.karigars = seedKarigars();
+    // Seeded karigars and Saathis are demo data: always refresh them from the seed so profile
+    // updates and the payout emails from .env apply to an existing database too. Karigars who
+    // joined through onboarding are real records and are kept.
+    cache.karigars = [...seedKarigars(), ...(cache.karigars ?? []).filter((k) => k.onboarded)];
     cache.saathis = seedSaathis();
+    cache.applications ??= [];
   } catch {
     cache = seedDB();
     persist(cache);
