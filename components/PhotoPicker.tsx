@@ -34,7 +34,7 @@ export function PhotoPicker({ onUploaded, label = "Add photo", compact = false }
       <button
         type="button"
         onClick={() => input.current?.click()}
-        className={`flex w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-brand/40 bg-brand-light/50 text-brand-dark hover:bg-brand-light ${compact ? "h-24" : "h-44"}`}
+        className={`flex w-full items-center justify-center overflow-hidden rounded-2xl border border-dashed border-primary/40 bg-primary/[0.06] text-primary transition hover:bg-primary/[0.12] ${compact ? "h-24" : "h-44"}`}
       >
         {preview ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -49,7 +49,7 @@ export function PhotoPicker({ onUploaded, label = "Add photo", compact = false }
           </span>
         )}
       </button>
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
     </div>
   );
 }

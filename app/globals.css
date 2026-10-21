@@ -1,38 +1,104 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-@theme {
-  --color-brand: #0f766e;
-  --color-brand-dark: #0b5550;
-  --color-brand-light: #e6f4f2;
-  --color-accent: #f59e0b;
-  --color-accent-light: #fff6e5;
-  --color-ink: #1b2430;
-  --color-muted: #5b6675;
-  --color-line: #dfe5ea;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+@custom-variant dark (&:is(.dark *));
+
+/* Sudhaar "night workshop" theme: deep ink, teal glow, marigold accent. */
+:root {
+  --radius: 0.9rem;
+  --background: #060a0a;
+  --foreground: #e9f2ef;
+  --card: #0d1514;
+  --card-foreground: #e9f2ef;
+  --popover: #0d1514;
+  --popover-foreground: #e9f2ef;
+  --primary: #2dd4bf;
+  --primary-foreground: #032421;
+  --secondary: #16201f;
+  --secondary-foreground: #e9f2ef;
+  --muted: #121b1a;
+  --muted-foreground: #8fa3a0;
+  --accent: #1a2625;
+  --accent-foreground: #e9f2ef;
+  --destructive: #f87171;
+  --border: #ffffff14;
+  --input: #ffffff1c;
+  --ring: #2dd4bf;
+  --gold: #fbbf24;
+  --gold-foreground: #2a1a00;
+  --paypal: #ffc439;
+  --paypal-blue: #003087;
 }
 
-html,
-body {
-  background: #f6f8fa;
-  color: var(--color-ink);
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-paypal: var(--paypal);
+  --color-paypal-blue: var(--paypal-blue);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Inter Variable", "Noto Sans Devanagari", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk Variable", "Noto Sans Devanagari", ui-sans-serif, system-ui, sans-serif;
 }
 
-.card {
-  @apply rounded-2xl border border-line bg-white p-4 shadow-sm;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    background-image:
+      radial-gradient(60rem 40rem at 10% -10%, #2dd4bf14, transparent 60%),
+      radial-gradient(50rem 30rem at 100% 0%, #fbbf240d, transparent 60%);
+    background-attachment: fixed;
+  }
+  h1, h2, h3 {
+    @apply font-display tracking-tight;
+  }
 }
-.btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50;
+
+@utility glass {
+  @apply border border-white/10 bg-white/[0.04] backdrop-blur-xl;
 }
-.btn-outline {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-brand bg-white px-4 py-2.5 text-sm font-semibold text-brand transition hover:bg-brand-light disabled:cursor-not-allowed disabled:opacity-50;
+@utility text-glow {
+  text-shadow: 0 0 40px #2dd4bf55;
 }
-.input {
-  @apply w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20;
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
 }
-.label {
-  @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-muted;
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
 }
-.pill {
-  @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold;
+@keyframes ping-soft {
+  0% { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+@keyframes dash {
+  to { stroke-dashoffset: 0; }
 }

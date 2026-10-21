@@ -55,6 +55,14 @@ sequenceDiagram
 ### Repair Agent (agentic commerce)
 `/agent` is a Claude tool-use agent that **acts for the customer**: *"My mixer jar blade is loose, get it fixed under $8 by Friday."* It quotes the job (with vision if a photo is attached), picks the karigar against the budget and deadline, **books it and creates the PayPal order**, tracks status, files warranty claims and **issues refunds up to a $5 policy limit that is enforced in code**. It uses **PayPal Agent Toolkit** tools for PayPal lookups (orders, invoices, refunds, transactions, disputes). The customer approves every payment in the PayPal popup, so the agent can never spend money on its own.
 
+### Built for real people
+- **Talk to Sudhaar**: speak in **Hindi or English** (browser speech recognition, hi-IN / en-IN) and the agent's replies are **read aloud**, for elderly users and karigars who don't type.
+- **English / हिंदी** toggle across the customer app.
+- **Fix-or-Replace meter**: shows how much of the new price a repair saves.
+- **Item Passport**: every repaired item gets a "second life" card with money saved and waste avoided.
+- **Karigar profiles** (craft, years of experience, languages, reviews, price list) and a **neighbourhood repair map**.
+- A **customer app** (Home · My Repairs · Talk · Profile) kept separate from the **partner apps** (Saathi, Karigar, Operations), the way real marketplaces work.
+
 ## How PayPal is used
 
 All calls go to the PayPal **sandbox**. Every PayPal id appears on the order page and in the admin grid, so you can verify each one in the sandbox dashboard.
@@ -91,7 +99,7 @@ I'm a solo participant, a 3rd-year Computer Science student.
 
 ## Sponsor tools
 
-- **AG Grid**: the operations dashboard at `/admin` (orders, payouts, karigars, PayPal webhooks) with sorting, filtering and pagination.
+- **AG Grid**: the operations dashboard at `/admin` (in the partner apps) (orders, payouts, karigars, PayPal webhooks) with sorting, filtering and pagination.
 - **Render**: one-click deploy via [`render.yaml`](render.yaml).
 - **Postman**: [`postman/Sudhaar.postman_collection.json`](postman/Sudhaar.postman_collection.json) drives the whole flow through the API.
 
@@ -99,14 +107,14 @@ I'm a solo participant, a 3rd-year Computer Science student.
 
 **Hosted demo:** open the *Website* link in this repository's About section. It runs against the PayPal sandbox. Log in to PayPal with the sandbox buyer account given in the **testing instructions on the Devpost page**. On the free hosting plan, the first load can take about a minute while the server wakes up.
 
-1. **Customer** tab → tap a sample chip (e.g. "Mixer grinder jar…") or upload a photo → **Get AI repair quote**.
-2. Pick a karigar → **Book & continue to PayPal** → pay with the sandbox buyer. The status becomes **"Paid · on hold"** (authorization id shown).
-3. Open **Saathi** in another tab → enter the **pickup OTP** shown on the order page → *Handed to karigar*.
-4. Open **Karigar** → *Inspect & start repair* → upload an after photo → **Mark repaired** (the AI completion check runs).
-5. **Saathi** → *Collect & go* → enter the **delivery OTP** → PayPal **captures**, sends **payouts**, and issues the **invoice** (ids appear on the order page).
-6. Order page → **Resolve Hub** → submit a complaint → AI recommends an action → **Approve PayPal refund**.
-7. **Repair Agent** → "My school bag zip broke. Get it fixed under $5." → approve the PayPal payment inside the chat.
-8. **Admin** → AG Grid views of orders, payouts, karigars and PayPal webhooks. *Reset demo data* clears orders.
+1. **Home** → tap a category (e.g. *Mixer & fan*), type or **speak** the problem (🎤, Hindi or English) or upload a photo → **Get AI quote** → see the **Fix-or-Replace meter**.
+2. **Choose your karigar** (list or map) → **Book & pay with PayPal** → pay with the sandbox buyer. The status becomes **"Paid · on hold"** (authorization id shown) and live tracking starts.
+3. Open the **partner apps** (footer link *For karigars, Saathis & judges*, or `/partner`) in another tab → **Saathi app** → enter the **pickup OTP** shown on the order page → *Handed to karigar*.
+4. **Karigar app** → *Inspect & start repair* → upload an after photo → **Mark repaired** (the AI completion check runs).
+5. **Saathi app** → *Collect from karigar & go* → enter the **delivery OTP** → PayPal **captures**, sends **payouts** and issues the **invoice**. The order page shows the ids and an **Item Passport**.
+6. Order page → **Resolve Hub** → *Report an issue* → AI recommends an action → **Approve PayPal refund**.
+7. **Talk** tab → tap the mic or type "My school bag zip broke. Get it fixed under $5." → approve the PayPal payment inside the chat. Replies are read aloud.
+8. **Operations** (partner apps) → AG Grid views of orders, payouts, karigars and PayPal webhooks. *Reset demo data* clears orders.
 
 ## Run it locally
 
@@ -143,16 +151,17 @@ The app also runs with an **empty `.env`**: PayPal and AI calls are then simulat
 ## Project structure
 
 ```
-app/                Next.js App Router pages + API routes
-  api/              quote, orders (+approve/action/complaint/resolve), agent, admin, uploads, paypal/webhook
-  agent/ saathi/ karigar/ admin/ orders/[id]/
-components/         UI (PayPal SDK v6 checkout, photo picker, timeline…)
+app/(customer)/     Customer app: home, fix flow, orders/[id] tracking, repairs, talk (agent), profile, karigars/[id]
+app/(partner)/      Partner apps: partner hub, saathi, karigar, admin (AG Grid)
+app/api/            quote, orders (+approve/action/complaint/resolve), agent, karigars, admin, uploads, paypal/webhook
+components/         UI (shadcn/ui components, three.js hero, PayPal SDK v6 checkout, voice, map, Fix-or-Replace meter…)
 lib/
   paypal.ts         PayPal REST client (Orders, Payments, Payouts, Invoicing, Webhooks)
   ai.ts             Claude: quote, completion check, complaint review
   agent.ts          Repair Agent (Claude tool use + PayPal Agent Toolkit)
   orders.ts         Order state machine, OTP checks, settlement, Resolve Hub
   pricing.ts        Rate card (distance × size), split, haversine
+  i18n.ts           English / Hindi strings
   db.ts / seed.ts   JSON-file store with seeded demo karigars
 postman/            Postman collection for the full flow
 scripts/            PayPal sandbox smoke test

@@ -3,7 +3,7 @@ import { config } from "./config";
 
 const c = config.demoCenter;
 
-// Offsets in degrees (~0.009 deg ≈ 1 km) so the demo karigars sit around the demo customer.
+// Offsets in km (~0.009 deg ≈ 1 km) so the demo karigars sit around the demo customer.
 function at(dLatKm: number, dLngKm: number) {
   return { lat: c.lat + dLatKm * 0.009, lng: c.lng + dLngKm * 0.0093 };
 }
@@ -11,14 +11,70 @@ function at(dLatKm: number, dLngKm: number) {
 export function seedKarigars(): Karigar[] {
   const k = config.paypal.karigarPayoutEmail;
   return [
-    { id: "k-ramesh", name: "Ramesh Kumar", shop: "Ramesh Electricals", skills: ["small-appliance", "electrical", "electronics"], rating: 4.8, jobsDone: 412, ...at(0.8, 0.9), area: "Market Road", languages: ["Hindi", "English"], priceFactor: 1.0, turnaroundDays: 1, verified: true, payoutEmail: k, avatarColor: "#0f766e" },
-    { id: "k-salma", name: "Salma Begum", shop: "Salma Tailoring & Bags", skills: ["bags", "clothes"], rating: 4.9, jobsDone: 655, ...at(-0.5, 0.4), area: "Old Town", languages: ["Urdu", "Hindi"], priceFactor: 0.95, turnaroundDays: 1, verified: true, payoutEmail: k, avatarColor: "#b45309" },
-    { id: "k-mohan", name: "Mohan Lal", shop: "Mohan Shoe Works", skills: ["shoes", "bags"], rating: 4.7, jobsDone: 980, ...at(0.3, -0.6), area: "Station Road", languages: ["Hindi"], priceFactor: 0.85, turnaroundDays: 1, verified: true, payoutEmail: k, avatarColor: "#7c3aed" },
-    { id: "k-anil", name: "Anil Verma", shop: "Anil Home Fix", skills: ["plumbing", "electrical", "furniture"], rating: 4.9, jobsDone: 301, ...at(-1.6, -1.1), area: "Sector 4", languages: ["Hindi", "English"], priceFactor: 1.15, turnaroundDays: 0, verified: true, payoutEmail: k, avatarColor: "#be123c" },
-    { id: "k-joseph", name: "Joseph D'Souza", shop: "Joseph Wood Craft", skills: ["furniture"], rating: 4.6, jobsDone: 214, ...at(2.4, 1.8), area: "Lake View", languages: ["English", "Konkani"], priceFactor: 1.05, turnaroundDays: 3, verified: true, payoutEmail: k, avatarColor: "#1d4ed8" },
-    { id: "k-sunil", name: "Sunil Yadav", shop: "Sunil Repair Point", skills: ["small-appliance", "electronics"], rating: 4.6, jobsDone: 520, ...at(1.9, -2.2), area: "College Square", languages: ["Hindi", "Bhojpuri"], priceFactor: 0.9, turnaroundDays: 2, verified: true, payoutEmail: k, avatarColor: "#4d7c0f" },
-    { id: "k-kavita", name: "Kavita Rao", shop: "Kavita Stitch Studio", skills: ["clothes"], rating: 4.8, jobsDone: 377, ...at(-2.8, 2.1), area: "Temple Street", languages: ["Kannada", "Telugu", "English"], priceFactor: 1.0, turnaroundDays: 2, verified: true, payoutEmail: k, avatarColor: "#c026d3" },
-    { id: "k-imran", name: "Imran Shaikh", shop: "Imran Mobile & Gadgets", skills: ["electronics"], rating: 4.5, jobsDone: 845, ...at(3.6, -0.7), area: "Bus Stand", languages: ["Hindi", "Marathi"], priceFactor: 0.95, turnaroundDays: 1, verified: true, payoutEmail: k, avatarColor: "#0369a1" },
+    {
+      id: "k-ramesh", name: "Ramesh Kumar", shop: "Ramesh Electricals", craft: "Appliance & wiring repair",
+      skills: ["small-appliance", "electrical", "electronics"], rating: 4.8, jobsDone: 412, ...at(0.8, 0.9), area: "Market Road",
+      languages: ["Hindi", "English"], priceFactor: 1.0, turnaroundDays: 1, verified: true, payoutEmail: k, avatarColor: "#0f766e", yearsExperience: 18,
+      bio: "I have fixed mixers, fans and irons in this market for 18 years. Most things just need a new part, not a new machine.",
+      services: [{ name: "Mixer coupler / blade", price: 4 }, { name: "Ceiling fan winding", price: 9 }, { name: "Iron thermostat", price: 3.5 }],
+      reviews: [{ name: "Priya", rating: 5, text: "Mixer works like new, and it came back the next day." }, { name: "Arjun", rating: 4.5, text: "Honest price, explained what was wrong." }],
+    },
+    {
+      id: "k-salma", name: "Salma Begum", shop: "Salma Tailoring & Bags", craft: "Tailoring, zips & bag repair",
+      skills: ["bags", "clothes"], rating: 4.9, jobsDone: 655, ...at(-0.5, 0.4), area: "Old Town",
+      languages: ["Urdu", "Hindi"], priceFactor: 0.95, turnaroundDays: 1, verified: true, payoutEmail: k, avatarColor: "#b45309", yearsExperience: 22,
+      bio: "School bags, sarees, suitcases: if it has a zip or a seam, I can save it.",
+      services: [{ name: "Bag zip replacement", price: 2.5 }, { name: "Strap re-stitching", price: 1.5 }, { name: "Saree fall & pico", price: 2 }],
+      reviews: [{ name: "Meera", rating: 5, text: "Saved my daughter's school bag in one day." }, { name: "Kabir", rating: 5, text: "Neat stitching, very fair." }],
+    },
+    {
+      id: "k-mohan", name: "Mohan Lal", shop: "Mohan Shoe Works", craft: "Cobbler, leather & soles",
+      skills: ["shoes", "bags"], rating: 4.7, jobsDone: 980, ...at(0.3, -0.6), area: "Station Road",
+      languages: ["Hindi"], priceFactor: 0.85, turnaroundDays: 1, verified: true, payoutEmail: k, avatarColor: "#7c3aed", yearsExperience: 30,
+      bio: "My father sat at this same corner. Good leather lasts a lifetime if you look after it.",
+      services: [{ name: "Sole re-pasting", price: 2 }, { name: "Full resole", price: 5 }, { name: "Heel fix", price: 1.5 }],
+      reviews: [{ name: "Rohit", rating: 5, text: "My 6-year-old boots got a second life." }, { name: "Ananya", rating: 4.5, text: "Quick and cheap." }],
+    },
+    {
+      id: "k-anil", name: "Anil Verma", shop: "Anil Home Fix", craft: "Plumbing, electrical & carpentry",
+      skills: ["plumbing", "electrical", "furniture"], rating: 4.9, jobsDone: 301, ...at(-1.6, -1.1), area: "Sector 4",
+      languages: ["Hindi", "English"], priceFactor: 1.15, turnaroundDays: 0, verified: true, payoutEmail: k, avatarColor: "#be123c", yearsExperience: 12,
+      bio: "Same-day home visits for leaks, switches and wobbly furniture.",
+      services: [{ name: "Tap / leak fix", price: 5 }, { name: "Switchboard repair", price: 4 }, { name: "Chair / table joint", price: 8 }],
+      reviews: [{ name: "Sana", rating: 5, text: "Came within two hours, fixed the leak properly." }],
+    },
+    {
+      id: "k-joseph", name: "Joseph D'Souza", shop: "Joseph Wood Craft", craft: "Furniture & woodwork",
+      skills: ["furniture"], rating: 4.6, jobsDone: 214, ...at(2.4, 1.8), area: "Lake View",
+      languages: ["English", "Konkani"], priceFactor: 1.05, turnaroundDays: 3, verified: true, payoutEmail: k, avatarColor: "#1d4ed8", yearsExperience: 25,
+      bio: "Old wood is better wood. I restore chairs, tables and cupboards.",
+      services: [{ name: "Chair re-glue & clamp", price: 9 }, { name: "Drawer runner", price: 6 }, { name: "Polish & finish", price: 15 }],
+      reviews: [{ name: "Neha", rating: 4.5, text: "Grandmother's chair is solid again." }],
+    },
+    {
+      id: "k-sunil", name: "Sunil Yadav", shop: "Sunil Repair Point", craft: "Small appliances & gadgets",
+      skills: ["small-appliance", "electronics"], rating: 4.6, jobsDone: 520, ...at(1.9, -2.2), area: "College Square",
+      languages: ["Hindi", "Bhojpuri"], priceFactor: 0.9, turnaroundDays: 2, verified: true, payoutEmail: k, avatarColor: "#4d7c0f", yearsExperience: 9,
+      bio: "Students bring me everything: kettles, chargers, speakers.",
+      services: [{ name: "Kettle element", price: 3 }, { name: "Charger repair", price: 2 }, { name: "Speaker jack", price: 3 }],
+      reviews: [{ name: "Dev", rating: 4.5, text: "Fixed my speaker for less than a coffee." }],
+    },
+    {
+      id: "k-kavita", name: "Kavita Rao", shop: "Kavita Stitch Studio", craft: "Alterations & clothes repair",
+      skills: ["clothes"], rating: 4.8, jobsDone: 377, ...at(-2.8, 2.1), area: "Temple Street",
+      languages: ["Kannada", "Telugu", "English"], priceFactor: 1.0, turnaroundDays: 2, verified: true, payoutEmail: k, avatarColor: "#c026d3", yearsExperience: 14,
+      bio: "Alterations, darning and buttons, done with care.",
+      services: [{ name: "Hem / alteration", price: 1.5 }, { name: "Tear darning", price: 2 }, { name: "Buttons & hooks", price: 1 }],
+      reviews: [{ name: "Ritu", rating: 5, text: "You can't even see where the tear was." }],
+    },
+    {
+      id: "k-imran", name: "Imran Shaikh", shop: "Imran Mobile & Gadgets", craft: "Phone & electronics repair",
+      skills: ["electronics"], rating: 4.5, jobsDone: 845, ...at(3.6, -0.7), area: "Bus Stand",
+      languages: ["Hindi", "Marathi"], priceFactor: 0.95, turnaroundDays: 1, verified: true, payoutEmail: k, avatarColor: "#0369a1", yearsExperience: 11,
+      bio: "Screens, batteries and charging ports, mostly the same day.",
+      services: [{ name: "Charging port", price: 6 }, { name: "Battery swap", price: 12 }, { name: "Screen guard + clean", price: 2 }],
+      reviews: [{ name: "Faiz", rating: 4.5, text: "New battery and the phone lasts all day again." }],
+    },
   ];
 }
 

@@ -5,7 +5,12 @@ import { createOrder } from "@/lib/orders";
 export const dynamic = "force-dynamic";
 
 export function GET() {
-  return ok({ orders: readDB().orders });
+  const db = readDB();
+  return ok({
+    orders: db.orders,
+    quotes: Object.fromEntries(db.quotes.map((q) => [q.id, { newPrice: q.newPrice, photo: q.photo }])),
+    karigars: Object.fromEntries(db.karigars.map((k) => [k.id, { name: k.name, shop: k.shop, avatarColor: k.avatarColor }])),
+  });
 }
 
 export async function POST(req: Request) {

@@ -89,18 +89,18 @@ export function PayPalCheckout({ orderId, paypalOrderId, total, onApproved }: { 
         >
           {status === "working" ? "Authorizing…" : `Pay ${money(total)} with PayPal (simulated)`}
         </button>
-        <p className="text-xs text-amber-700">Simulation mode: add PayPal sandbox keys to use the real PayPal checkout.</p>
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        <p className="text-xs text-gold">Simulation mode: add PayPal sandbox keys to use the real PayPal checkout.</p>
+        {error && <p className="text-xs text-destructive">{error}</p>}
       </div>
     );
   }
 
   return (
     <div className="space-y-2">
-      <div ref={holder} className="min-h-12" />
-      {status === "loading" && <p className="text-xs text-muted">Loading PayPal…</p>}
-      {status === "working" && <p className="text-xs text-muted">Placing a hold on {money(total)}…</p>}
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      <div ref={holder} className="min-h-12 overflow-hidden rounded-xl bg-white p-2" />
+      {status === "loading" && <p className="text-xs text-muted-foreground">Loading PayPal…</p>}
+      {status === "working" && <p className="text-xs text-muted-foreground">Placing a hold on {money(total)}…</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }

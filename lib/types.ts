@@ -31,6 +31,12 @@ export interface Karigar {
   /** PayPal sandbox email that receives payouts. */
   payoutEmail: string;
   avatarColor: string;
+  yearsExperience: number;
+  /** One line in the karigar's own words. */
+  bio: string;
+  craft: string;
+  services: { name: string; price: number }[];
+  reviews: { name: string; rating: number; text: string }[];
 }
 
 export interface Saathi {

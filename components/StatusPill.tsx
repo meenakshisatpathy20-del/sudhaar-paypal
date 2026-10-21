@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import type { OrderStatus } from "@/lib/types";
 
 export const STATUS_LABEL: Record<OrderStatus, string> = {
@@ -13,14 +14,20 @@ export const STATUS_LABEL: Record<OrderStatus, string> = {
   cancelled: "Cancelled",
 };
 
-const COLOR: Partial<Record<OrderStatus, string>> = {
-  awaiting_payment: "bg-gray-100 text-gray-700",
-  authorized: "bg-[#e8f0fe] text-[#003087]",
-  paid_out: "bg-brand text-white",
-  cancelled: "bg-red-100 text-red-700",
-  delivered: "bg-brand-light text-brand-dark",
+export const STATUS_PROGRESS: Record<OrderStatus, number> = {
+  awaiting_payment: 5,
+  authorized: 15,
+  picked_up: 30,
+  at_karigar: 42,
+  repairing: 58,
+  repaired: 72,
+  out_for_delivery: 85,
+  delivered: 95,
+  paid_out: 100,
+  cancelled: 0,
 };
 
 export function StatusPill({ status }: { status: OrderStatus }) {
-  return <span className={`pill whitespace-nowrap ${COLOR[status] ?? "bg-accent-light text-amber-800"}`}>{STATUS_LABEL[status]}</span>;
+  const variant = status === "paid_out" ? "solid" : status === "authorized" ? "paypal" : status === "cancelled" ? "destructive" : status === "awaiting_payment" ? "outline" : "gold";
+  return <Badge variant={variant}>{STATUS_LABEL[status]}</Badge>;
 }
