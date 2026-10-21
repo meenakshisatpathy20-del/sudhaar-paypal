@@ -44,7 +44,7 @@ export default function Profile() {
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {[
                 { icon: Wrench, v: String(impact.itemsRepaired), l: t("impactItems") },
-                { icon: Leaf, v: `${impact.kgSaved} kg`, l: t("impactKg") },
+                { icon: Leaf, v: `${impact.kgSaved}`, l: t("impactKg") },
                 { icon: PiggyBank, v: rupees(impact.moneySaved), l: t("impactSaved") },
                 { icon: Handshake, v: rupees(impact.karigarEarnings), l: t("impactKarigar") },
               ].map((x) => (

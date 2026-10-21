@@ -178,7 +178,7 @@ export default function GharSafai() {
                   </div>
                   <div className="rounded-2xl bg-primary/10 p-2.5">
                     <Leaf className="mx-auto size-4 text-primary" />
-                    <p className="font-display text-lg font-bold">{kg.toFixed(1)} kg</p>
+                    <p className="font-display text-lg font-bold">{kg.toFixed(1)}</p>
                     <p className="text-[10px] leading-tight text-muted-foreground">{t("impactKg")}</p>
                   </div>
                 </div>
