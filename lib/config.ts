@@ -6,21 +6,26 @@ function num(v: string | undefined, fallback: number) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+/** Env values with stray spaces or line breaks (easy to paste into a dashboard) removed. */
+const env = (name: string) => (process.env[name] ?? "").trim();
+
 export const config = {
   paypal: {
-    clientId: process.env.PAYPAL_CLIENT_ID ?? "",
-    clientSecret: process.env.PAYPAL_CLIENT_SECRET ?? "",
+    clientId: env("PAYPAL_CLIENT_ID"),
+    clientSecret: env("PAYPAL_CLIENT_SECRET"),
     // Sudhaar only ever talks to the PayPal sandbox.
     apiBase: "https://api-m.sandbox.paypal.com",
-    webhookId: process.env.PAYPAL_WEBHOOK_ID ?? "",
-    karigarPayoutEmail: process.env.PAYPAL_KARIGAR_EMAIL ?? "karigar@example.com",
-    saathiPayoutEmail: process.env.PAYPAL_SAATHI_EMAIL ?? "saathi@example.com",
-    customerEmail: process.env.PAYPAL_CUSTOMER_EMAIL ?? "customer@example.com",
+    webhookId: env("PAYPAL_WEBHOOK_ID"),
+    karigarPayoutEmail: env("PAYPAL_KARIGAR_EMAIL") || "karigar@example.com",
+    saathiPayoutEmail: env("PAYPAL_SAATHI_EMAIL") || "saathi@example.com",
+    customerEmail: env("PAYPAL_CUSTOMER_EMAIL") || "customer@example.com",
   },
   ai: {
     // Google Gemini (aistudio.google.com). "gemini-flash-latest" follows Google's current Flash model.
-    apiKey: process.env.GEMINI_API_KEY ?? "",
-    model: process.env.AI_MODEL || "gemini-flash-latest",
+    apiKey: env("GEMINI_API_KEY"),
+    model: env("AI_MODEL") || "gemini-flash-latest",
+    /** Used when the main model is overloaded (Google's "high demand" 503). */
+    fallbackModel: env("AI_FALLBACK_MODEL") || "gemini-flash-lite-latest",
   },
   demoCenter: {
     lat: num(process.env.DEMO_CENTER_LAT, 12.9716),
