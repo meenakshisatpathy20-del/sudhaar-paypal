@@ -61,7 +61,7 @@ function TalkPageInner() {
     setText("");
     setBusy(true);
     try {
-      const r = await api<{ sessionId: string; reply: string; cards: AgentCard[]; steps: Msg["steps"] }>("/api/agent", { sessionId, message, photo, lang });
+      const r = await api<{ sessionId: string; reply: string; cards: AgentCard[]; steps: Msg["steps"] }>("/api/agent", { sessionId, message, photo, lang }, { timeoutMs: 75_000 });
       setSessionId(r.sessionId);
       setMsgs((m) => [...m, { role: "agent", text: r.reply, cards: r.cards, steps: r.steps }]);
       if (speakReplies) speak(r.reply, lang);

@@ -3,7 +3,7 @@ import type { Content, FunctionDeclaration, Part } from "@google/genai";
 import { PayPalAgentToolkit } from "@paypal/agent-toolkit/openai";
 import { aiEnabled, config, paypalEnabled } from "./config";
 import { readDB } from "./db";
-import { gemini, geminiSchema, isRateLimit } from "./llm";
+import { generate, geminiSchema, isRateLimit, isTimeout } from "./llm";
 import { slotLabel } from "./slots";
 import { INR_PER_USD } from "./pricing";
 import { advance, createBasketOrder, createOrder, createQuote, familyPayPath, FlowError, offersFor, raiseComplaint, resolveComplaint } from "./orders";
@@ -264,6 +264,26 @@ export async function agentTurn(input: { customer: Account; sessionId?: string; 
   const session = sessions.get(sessionId) ?? { messages: [], updatedAt: Date.now(), accountId: input.customer.id };
   sessions.set(sessionId, session);
   if (input.photo) session.photo = input.photo;
+  // If this turn fails part-way, the conversation goes back to how it was, so the next message
+  // doesn't inherit half a turn (e.g. a tool call with no result, which Gemini would reject).
+  const rollback = session.messages.length;
+  try {
+    return await runTurn(session, sessionId, input);
+  } catch (e) {
+    session.messages.length = rollback;
+    if (e instanceof FlowError) throw e;
+    if (isRateLimit(e)) throw new FlowError("The AI is busy right now (usage limit reached). Please try again in a minute.", 429);
+    if (isTimeout(e)) throw new FlowError("The AI took too long to reply. Please try again.", 504);
+    console.error("Repair Agent failed:", (e as Error).message);
+    throw new FlowError("The AI couldn't answer just now. Please try again.", 502);
+  }
+}
+
+/** The whole reply, including tool calls, must finish within this; the browser stops waiting soon after. */
+const TURN_BUDGET_MS = 55_000;
+
+async function runTurn(session: Session, sessionId: string, input: { customer: Account; message: string; photo?: string; lang?: Lang }) {
+  const started = Date.now();
   const meta = langMeta(input.lang ?? "en");
   const langNote = meta.code === "en" ? "" : `\n\n[The customer's app is set to ${meta.english}: reply in simple ${meta.english} (${meta.native} script). Show prices in rupees (₹).]`;
   session.messages.push({ role: "user", parts: [{ text: `${input.message}${input.photo ? "\n\n[Customer attached a photo of the item]" : ""}${langNote}` }] });
@@ -281,11 +301,11 @@ export async function agentTurn(input: { customer: Account; sessionId?: string; 
   const steps: { tool: string; ok: boolean; paypalToolkit: boolean }[] = [];
 
   for (let i = 0; i < 10; i++) {
+    if (Date.now() - started > TURN_BUDGET_MS) return finish("Sorry, this is taking longer than usual. Please try again, or tell me a little more about the item.");
     let res;
     try {
-      res = await gemini().models.generateContent({ model: config.ai.model, contents: session.messages, config: { systemInstruction: SYSTEM, tools: [{ functionDeclarations: tools }] } });
+      res = await generate({ model: config.ai.model, contents: session.messages, config: { systemInstruction: SYSTEM, tools: [{ functionDeclarations: tools }] } });
     } catch (e) {
-      if (isRateLimit(e)) throw new FlowError("The AI is busy right now (usage limit reached). Please try again in a minute.", 429);
       // If Gemini rejects a PayPal toolkit schema, carry on with Sudhaar's own tools instead of failing.
       if ((e as { status?: number }).status === 400 && tools.length > CUSTOM_TOOLS.length) {
         console.error("Gemini rejected the tool list; retrying without PayPal toolkit tools:", (e as Error).message);
