@@ -6,10 +6,10 @@ Tracks every rule in the official rules (paypalaihackathon.devpost.com/rules) an
 | Rule | How we meet it | Status |
 |---|---|---|
 | Integrates the PayPal developer platform (free sandbox), and PayPal is **central** | Orders v2 (AUTHORIZE), capture/void, Payouts, Invoicing, Refunds, Webhooks, JS SDK v6, Agent Toolkit. Every payment step runs through PayPal | ✅ built, ⏳ verify with real sandbox keys |
-| Uses an AI tool/model | Claude: vision quote, completion check, complaint review, Repair Agent | ✅ built, ⏳ verify with API key |
+| Uses an AI tool/model | Google Gemini: vision quote, completion check, complaint review, Repair Agent | ✅ built, ⏳ verify with API key |
 | Installs and runs consistently, functions as shown in video/text | `npm install && npm run dev`; auto-seeded data; production build passes | ✅ |
 | New, or significantly updated during the submission period | Repo created and all code written after 1 Oct 2026 | ✅ |
-| Third-party SDKs used within their licences | Next.js (MIT), AG Grid Community (MIT), PayPal JS SDK loader (Apache-2.0), PayPal Agent Toolkit (ISC), Anthropic SDK (MIT), Leaflet (BSD-2-Clause), Noto fonts via Fontsource (OFL-1.1). Map tiles © OpenStreetMap contributors (ODbL), credited on every map. react-leaflet was dropped because its Hippocratic licence is not an open-source licence | ✅ |
+| Third-party SDKs used within their licences | Next.js (MIT), AG Grid Community (MIT), PayPal JS SDK loader (Apache-2.0), PayPal Agent Toolkit (ISC), Google Gen AI SDK (Apache-2.0), Leaflet (BSD-2-Clause), Noto fonts via Fontsource (OFL-1.1). Map tiles © OpenStreetMap contributors (ODbL), credited on every map. react-leaflet was dropped because its Hippocratic licence is not an open-source licence | ✅ |
 
 ## Submission requirements
 | Requirement | Status |
@@ -28,7 +28,7 @@ Tracks every rule in the official rules (paypalaihackathon.devpost.com/rules) an
 ## Judging criteria (equal weight) and our evidence
 | Criterion | Evidence in Sudhaar |
 |---|---|
-| **Technological implementation** (PayPal + AI, non-trivial) | Authorize→capture escrow pattern, payouts split, invoices, refunds, webhooks, JS SDK v6, Agent Toolkit; Claude vision + structured outputs + tool-use agent with a refund limit enforced in code |
+| **Technological implementation** (PayPal + AI, non-trivial) | Authorize→capture escrow pattern, payouts split, invoices, refunds, webhooks, JS SDK v6, Agent Toolkit; Gemini vision + structured outputs + tool-use agent with a refund limit enforced in code |
 | **Design** (complete product, not a PoC) | Phone + PIN accounts with server-side roles: customer app, Karigar app, Saathi app and admin console each see only their own data; 8 Indian languages; prices in ₹; real OpenStreetMap map with live customer location; installable with offline screens; OTP handovers; fair price-change flow; karigar and Saathi onboarding; AG Grid admin console |
 | **Potential impact** (real problem, real audience) | Founder story; informal karigars; sourced e-waste and Right to Repair facts; honest launch plan (UPI at home, PayPal for cross-border Family Pay); impact numbers on the dashboard |
 | **Innovation** | Ghar Safai (one capture split into payouts to several karigars); Family Pay; price increases approved by the customer and held as a second PayPal authorization; payment released only on OTP + photo check with a human fallback; AI-reviewed warranty claims with the PayPal invoice as evidence; an agent that books and pays |

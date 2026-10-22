@@ -164,7 +164,7 @@ export default function Home() {
 
       {/* KARIGARS */}
       <section>
-        <SectionTitle right={<span className="text-xs text-muted-foreground">{karigars.length} verified</span>}>{t("nearYou")}</SectionTitle>
+        <SectionTitle right={<span className="text-xs text-muted-foreground">{t("nearCount", { n: karigars.length })}</span>}>{t("nearYou")}</SectionTitle>
         <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
           {karigars.map((k) => (
             <KarigarCard key={k.id} k={k} distanceKm={k.distanceKm} />
@@ -267,6 +267,7 @@ export default function Home() {
       {impact && (
         <section>
           <SectionTitle>{t("impactTitle")}</SectionTitle>
+          {impact.itemsRepaired === 0 && <p className="mb-3 rounded-2xl bg-teal/10 px-4 py-3 text-sm text-teal ring-1 ring-teal/25">{t("impactEmpty")}</p>}
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {[
               { icon: WrenchIcon, v: String(impact.itemsRepaired), l: t("impactItems"), c: "text-primary" },

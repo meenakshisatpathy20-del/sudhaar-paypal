@@ -51,7 +51,7 @@ function Fix() {
   const [quote, setQuote] = useState<(Quote & { warning?: string }) | null>(null);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
-  const [donate, setDonate] = useState(true);
+  const [donate, setDonate] = useState(false);
   const [booking, setBooking] = useState(false);
   const { account } = useSession();
   const [loginOpen, setLoginOpen] = useState(false);
@@ -202,7 +202,7 @@ function Fix() {
               </p>
             )}
             <p className="flex items-start gap-2 text-xs text-muted-foreground">
-              <Badge variant={quote.source === "claude" ? "default" : "gold"}>{quote.source === "claude" ? "Claude vision" : "Simulated"}</Badge>
+              <Badge variant={quote.source === "simulated" ? "gold" : "default"}>{quote.source === "simulated" ? "Simulated" : "Gemini vision"}</Badge>
               {quote.notes}
             </p>
             {quote.warning && <p className="text-xs text-gold">{quote.warning}</p>}
@@ -254,7 +254,7 @@ function Fix() {
                       <Avatar name={o.karigar.name} color={o.karigar.avatarColor} />
                       <div className="min-w-0 flex-1">
                         <p className="flex flex-wrap items-center gap-1.5 font-semibold">
-                          {o.karigar.shop} <BadgeCheck className="size-4 text-primary" />
+                          {o.karigar.shop} {o.karigar.onboarded && <BadgeCheck className="size-4 text-primary" />}
                           {!o.karigar.onboarded && <span className="rounded-full bg-muted px-1.5 text-[10px] font-medium text-muted-foreground ring-1 ring-border">{t("sampleProfile")}</span>}
                           {o.best && <Badge variant="gold">{t("bestValue")}</Badge>}
                         </p>

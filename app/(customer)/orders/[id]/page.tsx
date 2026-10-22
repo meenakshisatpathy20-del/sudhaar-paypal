@@ -4,7 +4,7 @@ import { RequireLogin } from "@/components/LoginSheet";
 import { rupees, rupeeTotal, UsdNote } from "@/components/Inr";
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
-import { BadgeCheck, ChevronDown, LifeBuoy, Leaf, PiggyBank, Receipt, ShieldCheck, Sparkles, XCircle } from "lucide-react";
+import { ArrowLeft, BadgeCheck, ChevronDown, LifeBuoy, Leaf, PiggyBank, Receipt, ShieldCheck, Sparkles, XCircle } from "lucide-react";
 import { api, money } from "@/components/api";
 import { EventLog } from "@/components/EventLog";
 import { FamilyPayShare } from "@/components/FamilyPay";
@@ -64,7 +64,15 @@ function OrderPageInner({ params }: { params: Promise<{ id: string }> }) {
     return () => clearInterval(timer);
   }, [load]);
 
-  if (error && !data) return <Card className="p-6 text-destructive">{error}</Card>;
+  if (error && !data)
+    return (
+      <Card className="space-y-3 p-6">
+        <p className="text-destructive">{error}</p>
+        <Link href="/repairs" className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
+          <ArrowLeft className="size-4" /> {t("navRepairs")}
+        </Link>
+      </Card>
+    );
   if (!data) return <Card className="h-64 animate-pulse" />;
   const { order, karigar, saathi, quote } = data;
   const captured = Boolean(order.paypal.captureId);
@@ -122,7 +130,7 @@ function OrderPageInner({ params }: { params: Promise<{ id: string }> }) {
                 <Avatar name={karigar.name} color={karigar.avatarColor} />
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1 font-semibold">
-                    {karigar.shop} <BadgeCheck className="size-4 text-primary" />
+                    {karigar.shop} {karigar.onboarded && <BadgeCheck className="size-4 text-primary" />}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
                     {karigar.name} · {karigar.jobsDone > 0 ? `${karigar.rating}★` : t("newKarigar")} · {order.distanceKm} km · {order.mode === "pickup" && saathi ? `${t("oSaathi")}: ${saathi.name}` : t("oHomeVisit")}
@@ -447,7 +455,7 @@ function PriceChangeCard({ order, onChange }: { order: Order; onChange: () => vo
 /** Customer-facing view of the before/after check that gates the PayPal capture. */
 function PhotoCheck({ check, compact }: { check: CompletionCheck; compact?: boolean }) {
   const { t } = useLang();
-  const by = check.source === "admin" ? t("oByTeam") : check.source === "claude" ? t("oByAi") : t("oBySim");
+  const by = check.source === "admin" ? t("oByTeam") : check.source === "simulated" ? t("oBySim") : t("oByAi");
   const [tone, title, body] = check.passed
     ? ["bg-teal/10 text-teal", t("oVerified", { by }), check.source === "admin" ? t("oAdminApproved") : check.reasoning]
     : check.needsReview
@@ -554,7 +562,7 @@ function ResolveHub({ order, refunded, onChange }: { order: Order; refunded: num
                   {t("oAiRecommends")} {t(`oRec_${c.ai.recommendation}`)}
                   {c.ai.refundAmount ? ` ${rupees(c.ai.refundAmount)}` : ""}
                 </b>{" "}
-                ({c.ai.source === "claude" ? t("oByAi") : t("oBySim")}): {c.ai.reasoning}
+                ({c.ai.source === "simulated" ? t("oBySim") : t("oByAi")}): {c.ai.reasoning}
               </p>
             )}
             {c.resolution ? (

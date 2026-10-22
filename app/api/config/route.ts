@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export function GET() {
   return ok({
     paypal: { mode: paypalEnabled() ? "sandbox" : "simulated", clientId: config.paypal.clientId || null },
-    ai: { mode: aiEnabled() ? "claude" : "simulated", model: aiEnabled() ? config.ai.model : null },
+    ai: { mode: aiEnabled() ? "gemini" : "simulated", model: aiEnabled() ? config.ai.model : null },
     currency: config.currency,
   });
 }

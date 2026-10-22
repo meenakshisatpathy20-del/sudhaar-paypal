@@ -23,7 +23,7 @@ services:
         sync: false
       - key: PAYPAL_WEBHOOK_ID
         sync: false
-      - key: ANTHROPIC_API_KEY
+      - key: GEMINI_API_KEY
         sync: false
       # Signs login cookies; generated once by Render so logins survive restarts
       - key: SESSION_SECRET

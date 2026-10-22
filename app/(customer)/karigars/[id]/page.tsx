@@ -45,7 +45,7 @@ export default function KarigarProfile({ params }: { params: Promise<{ id: strin
               <Avatar name={k.name} color={k.avatarColor} className="size-20 rounded-3xl text-2xl" />
               <div>
                 <h1 className="flex items-center gap-2 text-2xl font-bold">
-                  {k.shop} <BadgeCheck className="size-5 text-primary" />
+                  {k.shop} {k.onboarded && <BadgeCheck className="size-5 text-primary" />}
                 </h1>
                 <p className="text-sm text-muted-foreground">
                   {k.name} · {k.craft}
@@ -67,9 +67,11 @@ export default function KarigarProfile({ params }: { params: Promise<{ id: strin
               <Fact icon={Languages} v={String(k.languages.length)} l={k.languages.join(", ")} />
             </div>
             <div className="flex flex-wrap gap-1.5">
-              <Badge>
-                <BadgeCheck /> {t("kpKyc")}
-              </Badge>
+              {k.onboarded && (
+                <Badge>
+                  <BadgeCheck /> {t("kpKyc")}
+                </Badge>
+              )}
               {k.skills.map((s) => (
                 <Badge key={s} variant="outline">
                   {t(catKey(s))}
