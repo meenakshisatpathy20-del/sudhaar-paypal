@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { STRINGS, type Lang, type StringKey } from "@/lib/i18n";
+import { LANGS, STRINGS, type Lang, type StringKey } from "@/lib/i18n";
 
 type Vars = Record<string, string | number>;
 type Ctx = { lang: Lang; setLang: (l: Lang) => void; t: (k: StringKey, vars?: Vars) => string; speakReplies: boolean; setSpeakReplies: (v: boolean) => void };
@@ -14,7 +14,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const l = localStorage.getItem("sudhaar.lang");
-      if (l === "hi" || l === "en") setLangState(l);
+      if (LANGS.some((x) => x.code === l)) setLangState(l as Lang);
       if (localStorage.getItem("sudhaar.speak") === "0") setSpeakState(false);
     } catch {
       // storage unavailable: keep defaults
@@ -40,7 +40,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   // Optional {placeholders}, e.g. t("oFixedBy", { names: "Mohan", date }).
   const t = useCallback(
     (k: StringKey, vars?: Vars) => {
-      const text: string = STRINGS[lang][k] ?? STRINGS.en[k];
+      const text = STRINGS[lang][k] ?? STRINGS.en[k] ?? k;
       return vars ? text.replace(/\{(\w+)\}/g, (m, v: string) => (v in vars ? String(vars[v]) : m)) : text;
     },
     [lang],

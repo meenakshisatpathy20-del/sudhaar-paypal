@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowRight, BadgeCheck, Camera, HeartHandshake, Leaf, PiggyBank, ShieldCheck, Sparkles, Wrench as WrenchIcon } from "lucide-react";
+import { ArrowRight, BadgeCheck, Bike, Camera, HeartHandshake, Leaf, PiggyBank, ShieldCheck, Sparkles, Wrench as WrenchIcon } from "lucide-react";
 import { api } from "@/components/api";
 import { CATEGORY_ICON } from "@/components/CategoryIcon";
 import { Chappal, Diya, HomeHeart, Mixer, NeedleThread, SaathiCycle, Sparkle, Squiggle, Wrench } from "@/components/Doodles";
@@ -13,9 +13,10 @@ import { KarigarCard } from "@/components/KarigarCard";
 import { useLang } from "@/components/LanguageProvider";
 import { MicButton } from "@/components/MicButton";
 import { NeighbourhoodMap } from "@/components/NeighbourhoodMap";
+import { useSession } from "@/components/SessionProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CATEGORY_I18N } from "@/lib/i18n";
+import { catKey } from "@/lib/i18n";
 import type { Category, Karigar } from "@/lib/types";
 
 const HeroScene = dynamic(() => import("@/components/HeroScene"), { ssr: false, loading: () => null });
@@ -39,13 +40,15 @@ function SectionTitle({ children, right }: { children: React.ReactNode; right?: 
 
 export default function Home() {
   const router = useRouter();
-  const { t, lang } = useLang();
+  const { t } = useLang();
   const [text, setText] = useState("");
   const [karigars, setKarigars] = useState<KarigarWithDistance[]>([]);
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [impact, setImpact] = useState<Impact | null>(null);
+  const { account } = useSession();
 
+  // Refetch when the customer logs in or shares a new location: distances and the map follow them.
   useEffect(() => {
     api<{ karigars: KarigarWithDistance[]; center: { lat: number; lng: number } }>("/api/karigars")
       .then((r) => {
@@ -53,10 +56,10 @@ export default function Home() {
         setCenter(r.center);
       })
       .catch(() => {});
-    api<{ impact: Impact }>("/api/admin")
+    api<{ impact: Impact }>("/api/impact")
       .then((r) => setImpact(r.impact))
       .catch(() => {});
-  }, []);
+  }, [account?.id, account?.lat, account?.lng]);
 
   const go = (q: string) => router.push(q.trim() ? `/fix?d=${encodeURIComponent(q.trim())}` : "/fix");
   const sel = karigars.find((k) => k.id === selected);
@@ -152,7 +155,7 @@ export default function Home() {
                 <span className={`grid size-12 place-items-center rounded-2xl ${tint} transition group-hover:scale-110 group-hover:rotate-3`}>
                   <Icon className="size-6 text-foreground" strokeWidth={1.8} />
                 </span>
-                <span className="text-xs font-semibold leading-tight">{CATEGORY_I18N[c][lang]}</span>
+                <span className="text-xs font-semibold leading-tight">{t(catKey(c))}</span>
               </Link>
             );
           })}
@@ -203,13 +206,13 @@ export default function Home() {
                 <HomeHeart className="w-16 shrink-0" />
                 <div>
                   <p className="flex items-center gap-1.5 font-display text-lg font-bold">
-                    <HeartHandshake className="size-5 text-teal" /> {lang === "hi" ? "फ़ैमिली पे" : "Family Pay"}
+                    <HeartHandshake className="size-5 text-teal" /> {t("homeFamilyPay")}
                   </p>
                   <p className="text-xs text-muted-foreground">{t("familyPaySub")}</p>
                 </div>
               </div>
               <ol className="grid grid-cols-3 gap-1.5 text-center text-[11px] font-medium">
-                {(lang === "hi" ? ["माँ बोलकर बुक करती हैं", "बेटा पुणे से PayPal करता है", "घर पर ही ठीक होता है"] : ["Mom books by voice", "Son pays from Pune via PayPal", "Fixed at home"]).map((s, i) => (
+                {[t("homeFp1"), t("homeFp2"), t("homeFp3")].map((s, i) => (
                   <li key={s} className="rounded-xl bg-card/80 px-1.5 py-2 ring-1 ring-border">
                     <span className="mx-auto mb-1 grid size-5 place-items-center rounded-full bg-teal text-[10px] font-bold text-white">{i + 1}</span>
                     {s}
@@ -225,11 +228,11 @@ export default function Home() {
             </span>
             <div className="min-w-0 space-y-1.5">
               <p className="font-display text-lg font-bold">{t("talkTitle")}</p>
-              <p className="text-xs italic text-muted-foreground">“{lang === "hi" ? "मेरा मिक्सर शुक्रवार तक ₹700 में ठीक करवा दो" : "Get my mixer fixed under ₹700 by Friday"}”</p>
+              <p className="text-xs italic text-muted-foreground">“{t("homeTalkEx")}”</p>
               <p className="flex flex-wrap gap-1 text-[10px] font-semibold">
-                <span className="rounded-full bg-card px-2 py-0.5 ring-1 ring-border">🎤 हिंदी / English</span>
-                <span className="rounded-full bg-card px-2 py-0.5 ring-1 ring-border">🔊 {lang === "hi" ? "बोलकर जवाब" : "Speaks back"}</span>
-                <span className="rounded-full bg-card px-2 py-0.5 ring-1 ring-border">💳 {lang === "hi" ? "PayPal बुकिंग" : "Books with PayPal"}</span>
+                <span className="rounded-full bg-card px-2 py-0.5 ring-1 ring-border">🎤 {t("homeVoice")}</span>
+                <span className="rounded-full bg-card px-2 py-0.5 ring-1 ring-border">🔊 {t("homeSpeaks")}</span>
+                <span className="rounded-full bg-card px-2 py-0.5 ring-1 ring-border">💳 {t("homeBooks")}</span>
               </p>
             </div>
           </Link>
@@ -291,12 +294,20 @@ export default function Home() {
         <p className="mt-3 text-sm text-muted-foreground">{t("storyBy")}</p>
       </section>
 
-      <Link href="/join" className="flex items-center justify-between gap-3 rounded-2xl bg-teal/10 p-4 text-sm font-semibold text-teal ring-1 ring-teal/25 transition hover:bg-teal/15">
-        <span className="flex items-center gap-2">
-          <WrenchIcon className="size-4 shrink-0" /> {t("joinCta")}
-        </span>
-        <ArrowRight className="size-4 shrink-0" />
-      </Link>
+      <div className="grid gap-3 md:grid-cols-2">
+        <Link href="/join" className="flex items-center justify-between gap-3 rounded-2xl bg-teal/10 p-4 text-sm font-semibold text-teal ring-1 ring-teal/25 transition hover:bg-teal/15">
+          <span className="flex items-center gap-2">
+            <WrenchIcon className="size-4 shrink-0" /> {t("joinCta")}
+          </span>
+          <ArrowRight className="size-4 shrink-0" />
+        </Link>
+        <Link href="/join?as=saathi" className="flex items-center justify-between gap-3 rounded-2xl bg-marigold/15 p-4 text-sm font-semibold text-[#7a4a06] ring-1 ring-marigold/30 transition hover:bg-marigold/20">
+          <span className="flex items-center gap-2">
+            <Bike className="size-4 shrink-0" /> {t("saCta")}
+          </span>
+          <ArrowRight className="size-4 shrink-0" />
+        </Link>
+      </div>
 
       <footer className="flex flex-col items-center justify-between gap-2 border-t border-border pt-4 text-xs text-muted-foreground md:flex-row">
         <p>{t("footerLine")}</p>

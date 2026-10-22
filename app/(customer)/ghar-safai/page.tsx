@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Bike, Leaf, PiggyBank, Plus, Trash2 } from "lucide-react";
+import { LoginSheet } from "@/components/LoginSheet";
+import { useSession } from "@/components/SessionProvider";
 import { api } from "@/components/api";
 import { Chappal, Diya, Mixer, NeedleThread } from "@/components/Doodles";
 import { CategoryChips } from "@/components/CategoryChips";
@@ -34,6 +36,8 @@ export default function GharSafai() {
   const [donate, setDonate] = useState(true);
   const [family, setFamily] = useState<FamilyPayValue>(null);
   const [booking, setBooking] = useState(false);
+  const { account } = useSession();
+  const [loginOpen, setLoginOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function add() {
@@ -67,7 +71,12 @@ export default function GharSafai() {
   const kg = chosen.reduce((s, c) => s + AVG_ITEM_KG[c.line.quote.category], 0);
   const total = repairSum + oneTrip + (donate ? 1 : 0);
 
-  async function book() {
+  // `afterLogin` is true only when called right after logging in from the sheet.
+  async function book(afterLogin?: unknown) {
+    if (!account && afterLogin !== true) {
+      setLoginOpen(true);
+      return;
+    }
     setBooking(true);
     setError(null);
     try {
@@ -208,6 +217,7 @@ export default function GharSafai() {
           </CardContent>
         </Card>
       </div>
+      <LoginSheet open={loginOpen} onOpenChange={setLoginOpen} onDone={() => book(true)} />
     </div>
   );
 }

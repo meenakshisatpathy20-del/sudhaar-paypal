@@ -59,8 +59,8 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --font-sans: "Inter Variable", "Noto Sans Devanagari", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Baloo 2 Variable", "Noto Sans Devanagari", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter Variable", "Noto Sans Devanagari", "Noto Sans Bengali", "Noto Sans Tamil", "Noto Sans Telugu", "Noto Sans Kannada", "Noto Sans Oriya", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Baloo 2 Variable", "Noto Sans Devanagari", "Noto Sans Bengali", "Noto Sans Tamil", "Noto Sans Telugu", "Noto Sans Kannada", "Noto Sans Oriya", ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -117,4 +117,14 @@
 .doodle-flame { animation: flicker 1.2s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
 @media (prefers-reduced-motion: reduce) {
   .doodle-wiggle, .doodle-float, .doodle-draw, .doodle-flame { animation: none; stroke-dasharray: none; }
+}
+
+/* Map labels under karigar pins (Leaflet tooltips) */
+.leaflet-tooltip.sudhaar-map-tip { border: 0; border-radius: 0.5rem; padding: 2px 6px; font-size: 10px; font-weight: 600; color: #2b1d14; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18); }
+.leaflet-tooltip.sudhaar-map-tip::before { display: none; }
+
+/* Some Indian-language words are very long: wrap them rather than push the page sideways. */
+body { overflow-wrap: break-word; }
+@media (max-width: 480px) {
+  html:lang(ta) h1 { font-size: 1.875rem; }
 }

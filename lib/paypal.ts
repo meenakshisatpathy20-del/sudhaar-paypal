@@ -109,6 +109,28 @@ export async function createAuthorizeOrder(order: Order): Promise<{ id: string }
   return { id: res.id };
 }
 
+/** A second hold for just the extra amount when the customer approves a higher repair price. */
+export async function createTopUpOrder(order: Order, amount: number, reason: string): Promise<{ id: string }> {
+  if (!paypalEnabled()) return { id: sim("ORDER") };
+  const body = {
+    intent: "AUTHORIZE",
+    purchase_units: [
+      {
+        reference_id: `${order.id}-extra`,
+        custom_id: order.id,
+        invoice_id: `${order.id}-extra-${Date.now()}`,
+        description: `Sudhaar ${order.id}: extra repair work`,
+        soft_descriptor: "SUDHAAR",
+        amount: { ...money(amount), breakdown: { item_total: money(amount) } },
+        items: [{ name: `Extra repair work: ${order.item}`.slice(0, 127), quantity: "1", unit_amount: money(amount), description: reason.slice(0, 127) }],
+      },
+    ],
+    payment_source: { paypal: { experience_context: { brand_name: "Sudhaar", shipping_preference: "NO_SHIPPING", user_action: "CONTINUE" } } },
+  };
+  const res = await pp<{ id: string }>("/v2/checkout/orders", { method: "POST", body, requestId: `topup-${order.id}-${amount}` });
+  return { id: res.id };
+}
+
 export async function authorizeOrder(paypalOrderId: string): Promise<{ authorizationId: string; status: string; payerEmail?: string }> {
   if (!paypalEnabled()) return { authorizationId: sim("AUTH"), status: "CREATED" };
   const res = await pp<{

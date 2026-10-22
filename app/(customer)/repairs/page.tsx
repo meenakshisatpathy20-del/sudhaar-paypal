@@ -1,5 +1,7 @@
 "use client";
 
+import { RequireLogin } from "@/components/LoginSheet";
+import { useSession } from "@/components/SessionProvider";
 import { rupees } from "@/components/Inr";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -19,7 +21,16 @@ import type { Order } from "@/lib/types";
 type Resp = { orders: Order[]; quotes: Record<string, { newPrice: number; photo?: string }>; karigars: Record<string, { name: string; shop: string; avatarColor: string }> };
 
 export default function Repairs() {
+  return (
+    <RequireLogin>
+      <RepairsInner />
+    </RequireLogin>
+  );
+}
+
+function RepairsInner() {
   const { t } = useLang();
+  const { account } = useSession();
   const [data, setData] = useState<Resp | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -45,7 +56,7 @@ export default function Repairs() {
     <div className="mx-auto max-w-3xl space-y-5">
       <div>
         <h1 className="text-3xl font-bold">{t("repairsTitle")}</h1>
-        <p className="text-xs text-muted-foreground">{t("demoShared")}</p>
+        {account?.demo && <p className="text-xs text-muted-foreground">{t("demoShared")}</p>}
       </div>
       <Tabs defaultValue="active">
         <TabsList>

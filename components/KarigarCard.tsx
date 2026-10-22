@@ -17,6 +17,7 @@ export function KarigarCard({ k, distanceKm }: { k: Karigar; distanceKm?: number
             {k.shop} <BadgeCheck className="size-4 shrink-0 text-primary" />
           </p>
           <p className="truncate text-xs text-muted-foreground">{k.craft}</p>
+          {!k.onboarded && <p className="mt-0.5 w-fit rounded-full bg-muted px-1.5 text-[10px] font-medium text-muted-foreground ring-1 ring-border">{t("sampleProfile")}</p>}
         </div>
       </div>
       <p className="line-clamp-2 text-xs italic text-muted-foreground">&ldquo;{k.bio}&rdquo;</p>

@@ -1,3 +1,4 @@
+import { requireRole } from "@/lib/auth";
 import { fail, ok } from "@/lib/http";
 import { listApplications, submitApplication } from "@/lib/onboarding";
 import { maskEmail } from "@/lib/privacy";
@@ -5,9 +6,14 @@ import { rateLimit } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";
 
-// Admin console list. The demo has no staff login, so phone numbers are masked here;
-// production would show full contact details only to signed-in staff.
-export function GET() {
+// Admin console list. The demo admin login is shared with every judge, so phone numbers are
+// masked here; production would show full contact details to named staff accounts only.
+export function GET(req: Request) {
+  try {
+    requireRole(req, "admin");
+  } catch (e) {
+    return fail(e);
+  }
   const mask = (phone: string) => `•••••• ${phone.replace(/\D/g, "").slice(-4)}`;
   return ok({ applications: listApplications().map((a) => ({ ...a, phone: mask(a.phone), payoutEmail: a.payoutEmail && maskEmail(a.payoutEmail) })).reverse() });
 }

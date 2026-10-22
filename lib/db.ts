@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { config } from "./config";
-import { seedDB, seedKarigars, seedSaathis } from "./seed";
+import { hashPin } from "./pin";
+import { demoAccountSpecs, demoPinFor, seedDB, seedKarigars, seedSaathis } from "./seed";
 import type { DB } from "./types";
 
 // A tiny JSON-file store. It keeps the project dependency-free and easy for judges
@@ -20,13 +21,27 @@ function load(): DB {
     // updates and the payout emails from .env apply to an existing database too. Karigars who
     // joined through onboarding are real records and are kept.
     cache.karigars = [...seedKarigars(), ...(cache.karigars ?? []).filter((k) => k.onboarded)];
-    cache.saathis = seedSaathis();
+    cache.saathis = [...seedSaathis(), ...(cache.saathis ?? []).filter((s) => s.onboarded)];
     cache.applications ??= [];
+    cache.accounts ??= [];
+    if (ensureDemoAccounts(cache)) persist(cache);
   } catch {
     cache = seedDB();
+    ensureDemoAccounts(cache);
     persist(cache);
   }
   return cache;
+}
+
+/** Adds any missing demo logins (hashing their PINs once). Returns true if something was added. */
+function ensureDemoAccounts(db: DB) {
+  let added = false;
+  for (const spec of demoAccountSpecs()) {
+    if (db.accounts.some((a) => a.id === spec.id)) continue;
+    db.accounts.push({ ...spec, pinHash: hashPin(demoPinFor(spec.role)), createdAt: new Date().toISOString() });
+    added = true;
+  }
+  return added;
 }
 
 function persist(db: DB) {
@@ -52,8 +67,17 @@ export function updateDB<T>(fn: (db: DB) => T | Promise<T>): Promise<T> {
   return run;
 }
 
+/** Clears orders and test data. Customer sign-ups and onboarded karigars are kept. */
 export function resetDB() {
+  const keep = cache ? { accounts: cache.accounts, karigars: cache.karigars.filter((k) => k.onboarded), saathis: cache.saathis.filter((x) => x.onboarded), applications: cache.applications } : null;
   cache = seedDB();
+  if (keep) {
+    cache.accounts = keep.accounts;
+    cache.karigars.push(...keep.karigars);
+    cache.saathis.push(...keep.saathis);
+    cache.applications = keep.applications;
+  }
+  ensureDemoAccounts(cache);
   persist(cache);
 }
 

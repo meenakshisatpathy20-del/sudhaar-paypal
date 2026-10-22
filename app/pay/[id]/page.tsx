@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { BadgeCheck, HeartHandshake, ShieldCheck } from "lucide-react";
 import { api } from "@/components/api";
@@ -8,24 +7,30 @@ import { HomeHeart } from "@/components/Doodles";
 import { LangToggle } from "@/components/LangToggle";
 import { useLang } from "@/components/LanguageProvider";
 import { Logo } from "@/components/Logo";
+import { StatusPill } from "@/components/StatusPill";
+import { Timeline } from "@/components/Timeline";
 import { rupees, rupeeTotal, UsdNote } from "@/components/Inr";
 import { PayPalCheckout } from "@/components/PayPalCheckout";
 import { Avatar } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Karigar, Order } from "@/lib/types";
 
 // Family Pay: the page a son/daughter opens from WhatsApp to pay for a parent's repair.
-export default function FamilyPayPage({ params }: { params: Promise<{ id: string }> }) {
+export default function FamilyPayPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ t?: string }> }) {
   const { id } = use(params);
+  // The secret token from the WhatsApp link: it lets this relative see and pay this one order.
+  const token = use(searchParams).t ?? "";
   const [data, setData] = useState<{ order: Order; karigar?: Karigar } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { t } = useLang();
   const load = useCallback(() => {
-    api<{ order: Order; karigar?: Karigar }>(`/api/orders/${id}`).then(setData).catch((e) => setError(e.message));
-  }, [id]);
+    api<{ order: Order; karigar?: Karigar }>(`/api/pay/${id}?t=${encodeURIComponent(token)}`).then(setData).catch((e) => setError(e.message));
+  }, [id, token]);
   useEffect(() => {
     load();
+    // Keep the relative's view live: they can follow the repair from this page.
+    const timer = setInterval(load, 5000);
+    return () => clearInterval(timer);
   }, [load]);
 
   if (error) return <p className="p-6 text-destructive">{error}</p>;
@@ -91,15 +96,20 @@ export default function FamilyPayPage({ params }: { params: Promise<{ id: string
               {t("fpExpired", { name: order.customer.name.split(" ")[0] })}
             </p>
           )}
-          {!paid && !expired && order.paypal.orderId && <PayPalCheckout orderId={order.id} paypalOrderId={order.paypal.orderId} total={order.total} onApproved={load} />}
+          {!paid && !expired && order.paypal.orderId && <PayPalCheckout orderId={order.id} paypalOrderId={order.paypal.orderId} total={order.total} onApproved={load} token={token} />}
           {paid && (
             <div className="space-y-2 rounded-2xl bg-teal/10 p-4 text-center">
               <HeartHandshake className="mx-auto size-7 text-teal" />
               <p className="font-semibold">{t("fpThanks")}</p>
               <p className="text-xs text-muted-foreground">{t("fpThanksSub")}</p>
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/orders/${order.id}`}>{t("fpTrack")}</Link>
-              </Button>
+            </div>
+          )}
+          {paid && (
+            <div className="space-y-3 rounded-2xl p-3 ring-1 ring-border">
+              <p className="flex items-center justify-between font-semibold">
+                {t("fpTrack")} <StatusPill status={order.status} />
+              </p>
+              <Timeline order={order} />
             </div>
           )}
         </CardContent>

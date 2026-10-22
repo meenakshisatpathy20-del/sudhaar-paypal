@@ -2,40 +2,81 @@
 
 import { rupees } from "@/components/Inr";
 import { useEffect, useState } from "react";
-import { Handshake, Leaf, MapPin, PiggyBank, ShieldCheck, Volume2, Wrench } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Check, Handshake, Leaf, Loader2, LocateFixed, LogOut, MapPin, PiggyBank, ShieldCheck, Volume2, Wrench } from "lucide-react";
 import { api } from "@/components/api";
 import { LangToggle } from "@/components/LangToggle";
 import { useLang } from "@/components/LanguageProvider";
+import { RequireLogin } from "@/components/LoginSheet";
 import { ModeBadges } from "@/components/ModeBadges";
+import { useSession } from "@/components/SessionProvider";
 import { Avatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { useGeolocate } from "@/components/useGeolocate";
+import { AVG_ITEM_KG } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import type { Order } from "@/lib/types";
 
 export default function Profile() {
+  return (
+    <RequireLogin>
+      <ProfileInner />
+    </RequireLogin>
+  );
+}
+
+type Resp = { orders: Order[]; quotes: Record<string, { newPrice: number }> };
+
+function ProfileInner() {
   const { t, speakReplies, setSpeakReplies } = useLang();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [impact, setImpact] = useState<{ itemsRepaired: number; kgSaved: number; moneySaved: number; karigarEarnings: number } | null>(null);
+  const { account, logout } = useSession();
+  const router = useRouter();
+  const [data, setData] = useState<Resp | null>(null);
   useEffect(() => {
-    api<{ orders: Order[] }>("/api/orders").then((r) => setOrders(r.orders)).catch(() => {});
-    api<{ impact: typeof impact }>("/api/admin").then((r) => setImpact(r.impact)).catch(() => {});
+    api<Resp>("/api/orders").then(setData).catch(() => {});
   }, []);
-  const customer = orders[0]?.customer ?? { name: "Anita Sharma", address: "Flat 12, Lake View Apartments" };
+  // This customer's own impact, from their completed repairs.
+  const done = (data?.orders ?? []).filter((o) => o.paypal.captureId);
+  const items = done.flatMap((o) => (o.jobs?.length ? o.jobs.map((j) => ({ category: j.category, price: j.price, newPrice: j.newPrice })) : [{ category: o.category, price: o.repairCharge, newPrice: data?.quotes[o.quoteId]?.newPrice ?? 0 }]));
+  const impact = data && {
+    itemsRepaired: items.length,
+    kgSaved: Math.round(items.reduce((s, i) => s + AVG_ITEM_KG[i.category], 0) * 10) / 10,
+    moneySaved: items.reduce((s, i) => s + Math.max(0, i.newPrice - i.price), 0),
+    karigarEarnings: done.reduce((s, o) => s + o.payouts.filter((p) => p.to === "karigar").reduce((a, p) => a + p.amount, 0), 0),
+  };
+  if (!account) return null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <Card className="bg-gradient-to-br from-primary/10 to-card">
         <CardContent className="flex items-center gap-4">
-          <Avatar name={customer.name} color="#0f766e" className="size-16 text-lg" />
-          <div>
-            <h1 className="text-2xl font-bold">{customer.name}</h1>
-            <p className="flex items-center gap-1 text-sm text-muted-foreground">
-              <MapPin className="size-3.5" /> {customer.address}
-            </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">{t("demoProfile")}</p>
+          <Avatar name={account.name} color="#0f766e" className="size-16 text-lg" />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl font-bold">{account.name}</h1>
+            {account.address && (
+              <p className="flex items-center gap-1 text-sm text-muted-foreground">
+                <MapPin className="size-3.5" /> {account.address}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">{account.phone}</p>
+            {account.demo && <p className="mt-1 text-[11px] text-muted-foreground">{t("demoProfile")}</p>}
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              await logout();
+              router.push("/");
+            }}
+          >
+            <LogOut /> {t("logout")}
+          </Button>
         </CardContent>
       </Card>
+
+      <LocationCard />
 
       {impact && (
         <Card>
@@ -80,7 +121,7 @@ export default function Profile() {
           </div>
           <div className="flex items-center justify-between p-4">
             <span className="flex items-center gap-2 text-sm font-medium">
-              <ShieldCheck className="size-4 text-[#0050b3]" /> Payments
+              <ShieldCheck className="size-4 text-[#0050b3]" /> {t("payments")}
             </span>
             <ModeBadges />
           </div>
@@ -88,5 +129,72 @@ export default function Profile() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/** Where this customer's pickups start and maps are centred: the device location plus an editable address. */
+function LocationCard() {
+  const { t } = useLang();
+  const { account, refresh } = useSession();
+  const geo = useGeolocate();
+  const [address, setAddress] = useState(account?.address ?? "");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
+  const [error, setError] = useState<string | null>(null);
+  const at = coords ?? (account?.lat !== undefined && account?.lng !== undefined ? { lat: account.lat, lng: account.lng } : null);
+
+  async function save(next: { lat: number; lng: number } | null) {
+    if (!next) return;
+    setState("saving");
+    setError(null);
+    try {
+      await api("/api/me/location", { ...next, address });
+      await refresh();
+      setState("saved");
+    } catch (e) {
+      setError((e as Error).message);
+      setState("idle");
+    }
+  }
+
+  return (
+    <Card id="location">
+      <CardContent className="space-y-3">
+        <h2 className="flex items-center gap-2 font-bold">
+          <MapPin className="size-4 text-primary" /> {t("locTitle")}
+        </h2>
+        <p className="text-xs text-muted-foreground">{at ? t("locLive") : t("locDemo")}</p>
+        <Input placeholder={t("fAddress")} value={address} onChange={(e) => (setAddress(e.target.value), setState("idle"))} autoComplete="street-address" />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-auto min-h-8 max-w-full whitespace-normal py-1.5 text-left"
+            disabled={geo.busy || state === "saving"}
+            onClick={async () => {
+              const p = await geo.locate();
+              if (p) {
+                setCoords(p);
+                await save(p);
+              }
+            }}
+          >
+            {geo.busy ? <Loader2 className="animate-spin" /> : <LocateFixed />} {geo.busy ? t("locLocating") : t("locUseMine")}
+          </Button>
+          {at && (
+            <Button size="sm" disabled={state === "saving" || !address.trim() || address.trim() === account?.address} onClick={() => save(at)}>
+              {t("locSave")}
+            </Button>
+          )}
+          {state === "saved" && (
+            <span className="flex items-center gap-1 text-xs font-semibold text-teal">
+              <Check className="size-3.5" /> {t("locSaved")}
+            </span>
+          )}
+        </div>
+        {at && <p className="font-mono text-[11px] text-muted-foreground">{at.lat.toFixed(4)}, {at.lng.toFixed(4)}</p>}
+        {(geo.error || error) && <p className="text-xs text-destructive">{geo.error ?? error}</p>}
+      </CardContent>
+    </Card>
   );
 }

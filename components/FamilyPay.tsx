@@ -41,10 +41,12 @@ export function FamilyPayPicker({ value, onChange }: { value: FamilyPayValue; on
 }
 
 /** Share the Family Pay link by WhatsApp or copy. */
-export function FamilyPayShare({ orderId, name, item, total }: { orderId: string; name: string; item: string; total: string }) {
+export function FamilyPayShare({ orderId, token, name, item, total }: { orderId: string; token?: string; name: string; item: string; total: string }) {
   const { t } = useLang();
   const [copied, setCopied] = useState(false);
-  const url = typeof window !== "undefined" ? `${window.location.origin}/pay/${orderId}` : `/pay/${orderId}`;
+  // The token makes the link work for this one order without an account.
+  const path = `/pay/${orderId}${token ? `?t=${token}` : ""}`;
+  const url = typeof window !== "undefined" ? `${window.location.origin}${path}` : path;
   const text = `Hi ${name}, could you pay for my repair on Sudhaar (${item}, ${total})? PayPal holds the money until it's fixed and back home: ${url}`;
   return (
     <div className="flex flex-wrap gap-2">

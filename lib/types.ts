@@ -41,9 +41,10 @@ export interface Karigar {
   onboarded?: boolean;
 }
 
-/** A repairer applying through "Join as a karigar", reviewed by the Sudhaar team. */
+/** A karigar ("Join as a karigar") or Saathi ("Become a Repair Saathi") applying, reviewed by the Sudhaar team. */
 export interface KarigarApplication {
   id: string;
+  kind?: "karigar" | "saathi";
   createdAt: string;
   name: string;
   phone: string;
@@ -59,9 +60,15 @@ export interface KarigarApplication {
   /** Which ID they can show. We never store ID numbers; staff verify in person or via DigiLocker. */
   idType: "aadhaar" | "voter" | "driving" | "pan" | "none";
   status: "pending" | "approved" | "rejected";
-  checks: { idVerified: boolean; shopVisited: boolean; trialRepair: boolean };
+  /** Karigars: ID, shop visit, trial repair. Saathis: ID, OTP-handover training, trial trip. */
+  checks: Partial<Record<"idVerified" | "shopVisited" | "trialRepair" | "trained" | "trialTrip", boolean>>;
   karigarId?: string;
+  saathiId?: string;
   decidedAt?: string;
+  /** Saathi applicants only. */
+  vehicle?: SaathiVehicle;
+  hours?: ("mornings" | "evenings" | "weekends" | "full_day")[];
+  student?: boolean;
 }
 
 export interface Saathi {
@@ -69,7 +76,13 @@ export interface Saathi {
   name: string;
   rating: number;
   payoutEmail: string;
+  /** Joined through "Become a Repair Saathi" (not demo seed data). */
+  onboarded?: boolean;
+  area?: string;
+  vehicle?: SaathiVehicle;
 }
+
+export type SaathiVehicle = "bicycle" | "scooter" | "motorbike" | "walk";
 
 export interface Quote {
   id: string;
@@ -112,8 +125,24 @@ export interface OrderEvent {
   kind?: "info" | "paypal" | "ai" | "error";
 }
 
+export interface PriceChange {
+  jobId?: string;
+  item: string;
+  /** Repair price in USD before and after (pickup fee and tool fund don't change). */
+  from: number;
+  to: number;
+  reason: string;
+  status: "pending" | "awaiting_payment" | "approved" | "declined";
+  requestedAt: string;
+  decidedAt?: string;
+  /** A price increase is held as a second PayPal authorization for just the difference. */
+  topUp?: { amount: number; paypalOrderId?: string; authorizationId?: string; captureId?: string };
+}
+
 export interface PayoutLine {
   to: "karigar" | "saathi";
+  /** Which karigar / Saathi was paid, for their earnings history. */
+  partnerId?: string;
   /** Who received it (shop or Saathi name), for baskets paying several karigars. */
   label?: string;
   receiver: string;
@@ -170,6 +199,8 @@ export interface Job {
 
 /** Family Pay: someone else (e.g. a son in another city) approves the PayPal payment. */
 export interface FamilyPay {
+  /** Secret in the payment link, so a relative can pay without an account but nobody can guess other orders. */
+  token?: string;
   name: string;
   relation: string;
   email?: string;
@@ -193,6 +224,8 @@ export interface Order {
   mode: ServiceMode;
   karigarId: string;
   saathiId: string;
+  /** The customer account that booked it; only they (and admins) can see the order. */
+  customerId?: string;
   customer: { name: string; email: string; address: string; lat: number; lng: number };
   distanceKm: number;
   repairCharge: number;
@@ -212,7 +245,12 @@ export interface Order {
     invoiceId?: string;
     invoiceUrl?: string;
     refunds: { id: string; amount: number; status: string }[];
+    /** Amount the main authorization holds, and how much of it was captured. */
+    heldAmount?: number;
+    capturedAmount?: number;
   };
+  /** The karigar's price change after inspecting the item; the customer must approve it. */
+  priceChange?: PriceChange;
   beforePhoto?: string;
   afterPhoto?: string;
   completionCheck?: CompletionCheck;
@@ -229,4 +267,29 @@ export interface DB {
   orders: Order[];
   webhooks: { at: string; type: string; resource?: string; verified: boolean }[];
   applications: KarigarApplication[];
+  accounts: Account[];
+  /** Karigar and Saathi ids that switched themselves offline (no new jobs). */
+  offline?: string[];
+}
+
+export type Role = "customer" | "karigar" | "saathi" | "admin";
+
+/** A login. Phone + PIN; the PIN is stored only as a scrypt hash. */
+export interface Account {
+  id: string;
+  role: Role;
+  name: string;
+  /** 10-digit Indian mobile number, digits only. */
+  phone: string;
+  pinHash: string;
+  createdAt: string;
+  /** Customers: where pickups happen. */
+  address?: string;
+  lat?: number;
+  lng?: number;
+  /** Partners: which karigar / Saathi profile this login runs. */
+  karigarId?: string;
+  saathiId?: string;
+  /** Shared demo login listed for judges. */
+  demo?: boolean;
 }

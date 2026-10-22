@@ -3,8 +3,9 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, BadgeCheck, Clock, List, Map as MapIcon, Recycle, Sparkles, Star } from "lucide-react";
+import { LoginSheet } from "@/components/LoginSheet";
+import { useSession } from "@/components/SessionProvider";
 import { api } from "@/components/api";
-import { CATEGORY_EXAMPLE } from "@/components/CategoryIcon";
 import { CategoryChips } from "@/components/CategoryChips";
 import { useAppConfig } from "@/components/useAppConfig";
 import { FamilyPayPicker, type FamilyPayValue } from "@/components/FamilyPay";
@@ -21,7 +22,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CATEGORY_I18N } from "@/lib/i18n";
+import { catExKey, catKey } from "@/lib/i18n";
+import { CATEGORY_LABEL } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import type { Category, Karigar, Order, Quote } from "@/lib/types";
 
@@ -38,7 +40,7 @@ export default function FixPage() {
 function Fix() {
   const router = useRouter();
   const params = useSearchParams();
-  const { t, lang } = useLang();
+  const { t } = useLang();
   const [step, setStep] = useState(0);
   const [photo, setPhoto] = useState<string>();
   const [description, setDescription] = useState("");
@@ -51,6 +53,8 @@ function Fix() {
   const [selected, setSelected] = useState<string | null>(null);
   const [donate, setDonate] = useState(true);
   const [booking, setBooking] = useState(false);
+  const { account } = useSession();
+  const [loginOpen, setLoginOpen] = useState(false);
   const [family, setFamily] = useState<FamilyPayValue>(null);
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const prefilled = useRef(false);
@@ -61,12 +65,14 @@ function Fix() {
     const d = params.get("d");
     const c = params.get("c") as Category | null;
     if (d) setDescription(d);
-    else if (c && CATEGORY_EXAMPLE[c]) {
-      setDescription(CATEGORY_EXAMPLE[c][lang]);
+    else if (c && c in CATEGORY_LABEL) {
+      setDescription(t(catExKey(c)));
       setCategory(c);
     }
+  }, [params, t]);
+  useEffect(() => {
     api<{ center: { lat: number; lng: number } }>("/api/karigars").then((r) => setCenter(r.center)).catch(() => {});
-  }, [params, lang]);
+  }, [account?.id, account?.lat, account?.lng]);
 
   async function getQuote() {
     setError(null);
@@ -85,8 +91,13 @@ function Fix() {
     }
   }
 
-  async function book() {
+  // `afterLogin` is true only when called right after logging in from the sheet.
+  async function book(afterLogin?: unknown) {
     if (!quote || !selected) return;
+    if (!account && afterLogin !== true) {
+      setLoginOpen(true);
+      return;
+    }
     setBooking(true);
     setError(null);
     try {
@@ -132,10 +143,10 @@ function Fix() {
               <MicButton onText={setDescription} />
             </div>
             <div className="space-y-1.5">
-              <p className="text-xs font-semibold text-muted-foreground">{lang === "hi" ? "किस तरह की चीज़ है? (वैकल्पिक)" : "What kind of item is it? (optional)"}</p>
+              <p className="text-xs font-semibold text-muted-foreground">{t("fixKind")}</p>
               <CategoryChips value={category} onChange={setCategory} />
             </div>
-            {needsCategory && <p className="text-xs text-gold">{lang === "hi" ? "फ़ोटो के साथ एक लाइन लिखें या ऊपर से श्रेणी चुनें।" : "Add a line about the problem, or pick the kind of item above."}</p>}
+            {needsCategory && <p className="text-xs text-gold">{t("fixNeedCat")}</p>}
             <Button size="lg" className="w-full" onClick={getQuote} disabled={loading || (!photo && !description.trim()) || needsCategory}>
               {loading ? (
                 <>
@@ -156,7 +167,7 @@ function Fix() {
           <CardContent className="space-y-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <Badge variant="outline">{CATEGORY_I18N[quote.category]?.[lang] ?? quote.category}</Badge>
+                <Badge variant="outline">{t(catKey(quote.category))}</Badge>
                 <h1 className="mt-2 text-2xl font-bold">{quote.item}</h1>
                 <p className="text-sm text-muted-foreground">{quote.issue}</p>
               </div>
@@ -202,10 +213,10 @@ function Fix() {
               {!quote.repairable && (
                 <>
                   <Button variant="outline" className="flex-1" onClick={() => { setQuote(null); setPhoto(undefined); setDescription(""); setStep(0); }}>
-                    {lang === "hi" ? "दूसरी चीज़ आज़माएँ" : "Try another item"}
+                    {t("fixTryAnother")}
                   </Button>
                   <Button asChild className="flex-1">
-                    <Link href="/agent">{lang === "hi" ? "सुधार से पूछें" : "Ask Sudhaar"}</Link>
+                    <Link href="/agent">{t("fixAskSudhaar")}</Link>
                   </Button>
                 </>
               )}
@@ -244,6 +255,7 @@ function Fix() {
                       <div className="min-w-0 flex-1">
                         <p className="flex flex-wrap items-center gap-1.5 font-semibold">
                           {o.karigar.shop} <BadgeCheck className="size-4 text-primary" />
+                          {!o.karigar.onboarded && <span className="rounded-full bg-muted px-1.5 text-[10px] font-medium text-muted-foreground ring-1 ring-border">{t("sampleProfile")}</span>}
                           {o.best && <Badge variant="gold">{t("bestValue")}</Badge>}
                         </p>
                         <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
@@ -334,6 +346,7 @@ function Fix() {
         </Card>
       )}
       {error && <p className="text-center text-sm text-destructive">{error}</p>}
+      <LoginSheet open={loginOpen} onOpenChange={setLoginOpen} onDone={() => book(true)} />
     </div>
   );
 }

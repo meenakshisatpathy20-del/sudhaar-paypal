@@ -1,8 +1,14 @@
 import { resetDB } from "@/lib/db";
-import { ok } from "@/lib/http";
+import { requireRole } from "@/lib/auth";
+import { fail, ok } from "@/lib/http";
 
-// Restores the seeded demo data (karigars, saathis) and clears orders. Handy before recording a demo.
-export function POST() {
-  resetDB();
-  return ok({ reset: true });
+// Admin only: clears orders and test data (accounts and onboarded karigars are kept). Handy before recording a demo.
+export function POST(req: Request) {
+  try {
+    requireRole(req, "admin");
+    resetDB();
+    return ok({ reset: true });
+  } catch (e) {
+    return fail(e);
+  }
 }

@@ -9,7 +9,7 @@ Tracks every rule in the official rules (paypalaihackathon.devpost.com/rules) an
 | Uses an AI tool/model | Claude: vision quote, completion check, complaint review, Repair Agent | ✅ built, ⏳ verify with API key |
 | Installs and runs consistently, functions as shown in video/text | `npm install && npm run dev`; auto-seeded data; production build passes | ✅ |
 | New, or significantly updated during the submission period | Repo created and all code written after 1 Oct 2026 | ✅ |
-| Third-party SDKs used within their licences | Next.js (MIT), AG Grid Community (MIT), PayPal JS SDK loader (Apache-2.0), PayPal Agent Toolkit (ISC), Anthropic SDK (MIT) | ✅ |
+| Third-party SDKs used within their licences | Next.js (MIT), AG Grid Community (MIT), PayPal JS SDK loader (Apache-2.0), PayPal Agent Toolkit (ISC), Anthropic SDK (MIT), Leaflet (BSD-2-Clause), Noto fonts via Fontsource (OFL-1.1). Map tiles © OpenStreetMap contributors (ODbL), credited on every map. react-leaflet was dropped because its Hippocratic licence is not an open-source licence | ✅ |
 
 ## Submission requirements
 | Requirement | Status |
@@ -20,7 +20,7 @@ Tracks every rule in the official rules (paypalaihackathon.devpost.com/rules) an
 | Open-source licence file, **visible in the repo's About section** | ✅ MIT `LICENSE` · ⏳ check GitHub shows "MIT license" in About |
 | Demo video **under 3 minutes**, public on **YouTube**, shows the project working | ⏳ |
 | No third-party trademarks or copyrighted music in the video without permission | ⏳ use royalty-free or no music |
-| Test access: sandbox login / credentials / instructions in README | ⏳ fill in sandbox buyer login in README |
+| Test access: sandbox login / credentials / instructions in README | ✅ demo logins for every role in README · ⏳ sandbox buyer login in the Devpost testing field |
 | Free, unrestricted access for judges until judging ends (Dec 2026) | ⏳ keep Render service + keys alive |
 | English materials | ✅ |
 | Entrant meets eligibility (age of majority, not in an excluded country) | ⏳ confirm (solo participant) |
@@ -29,9 +29,9 @@ Tracks every rule in the official rules (paypalaihackathon.devpost.com/rules) an
 | Criterion | Evidence in Sudhaar |
 |---|---|
 | **Technological implementation** (PayPal + AI, non-trivial) | Authorize→capture escrow pattern, payouts split, invoices, refunds, webhooks, JS SDK v6, Agent Toolkit; Claude vision + structured outputs + tool-use agent with a refund limit enforced in code |
-| **Design** (complete product, not a PoC) | Customer app kept separate from the partner side (Saathi, karigar, admin console); Hindi + English everywhere; prices in ₹; installable with offline screens; live multi-stop tracking; OTPs; karigar onboarding; AG Grid admin console |
+| **Design** (complete product, not a PoC) | Phone + PIN accounts with server-side roles: customer app, Karigar app, Saathi app and admin console each see only their own data; 8 Indian languages; prices in ₹; real OpenStreetMap map with live customer location; installable with offline screens; OTP handovers; fair price-change flow; karigar and Saathi onboarding; AG Grid admin console |
 | **Potential impact** (real problem, real audience) | Founder story; informal karigars; sourced e-waste and Right to Repair facts; honest launch plan (UPI at home, PayPal for cross-border Family Pay); impact numbers on the dashboard |
-| **Innovation** | Ghar Safai (one capture split into payouts to several karigars); Family Pay; payment released only on OTP + photo check with a human fallback; AI-reviewed warranty claims with the PayPal invoice as evidence; an agent that books and pays |
+| **Innovation** | Ghar Safai (one capture split into payouts to several karigars); Family Pay; price increases approved by the customer and held as a second PayPal authorization; payment released only on OTP + photo check with a human fallback; AI-reviewed warranty claims with the PayPal invoice as evidence; an agent that books and pays |
 | **Presentation** | ⏳ video under 3 minutes following VIDEO-SCRIPT.md (sent separately) |
 
 ## Prize targets
