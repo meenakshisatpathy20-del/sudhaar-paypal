@@ -68,7 +68,7 @@ You act on the customer's behalf, not just advise:
 5. For problems after delivery, use raise_warranty_claim. If the AI review recommends a refund of at most $${AUTO_REFUND_LIMIT}, you may call issue_refund. Larger refunds go to the support desk.
 6. Use the PayPal lookup tools (get_order, get_invoice, list_invoices, get_refund, list_transactions) when the customer asks about bills, payments or refunds.
 
-Keep replies short and friendly (2-5 sentences), because they are often read aloud by voice. Use plain language and reply in the language the customer uses (English, Hindi or another Indian language). Never invent order ids, prices or PayPal ids: only use what tools return.
+Keep replies short and friendly (2-5 sentences), because they are often read aloud by voice. Write plain text only: no Markdown, no ** bold, no bullet symbols or headings. Use plain language and follow the language note on each message. Never invent order ids, prices or PayPal ids: only use what tools return.
 Money: tools work in USD because PayPal sandbox settles in USD. Speak to the customer in rupees, converting at ₹${INR_PER_USD} per $1 and rounding to the nearest rupee (e.g. "₹338, which PayPal charges as $3.98" for a total). If the customer gives a budget in rupees, convert it to USD before comparing offers.`;
 
 const CUSTOM_TOOLS: FunctionDeclaration[] = [
@@ -289,7 +289,11 @@ const TURN_BUDGET_MS = 55_000;
 async function runTurn(session: Session, sessionId: string, input: { customer: Account; message: string; photo?: string; lang?: Lang }) {
   const started = Date.now();
   const meta = langMeta(input.lang ?? "en");
-  const langNote = meta.code === "en" ? "" : `\n\n[The customer's app is set to ${meta.english}: reply in simple ${meta.english} (${meta.native} script). Show prices in rupees (₹).]`;
+  // The language the customer picked in the app wins; in English, mirror how they write (Hinglish, Hindi, Tamil…).
+  const langNote =
+    meta.code === "en"
+      ? "\n\n[Reply in the same language and script the customer wrote this message in: English stays English, Hinglish in Roman letters stays Hinglish, Hindi in Devanagari stays Hindi, and so on. Show prices in rupees (₹).]"
+      : `\n\n[The customer's app is set to ${meta.english}: reply in simple ${meta.english} (${meta.native} script), even if they type in English. Show prices in rupees (₹).]`;
   session.messages.push({ role: "user", parts: [{ text: `${input.message}${input.photo ? "\n\n[Customer attached a photo of the item]" : ""}${langNote}` }] });
 
   const tk = paypalToolkit();

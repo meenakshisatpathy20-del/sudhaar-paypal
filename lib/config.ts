@@ -20,6 +20,10 @@ export const config = {
     karigarPayoutEmail: env("PAYPAL_KARIGAR_EMAIL") || "karigar@example.com",
     saathiPayoutEmail: env("PAYPAL_SAATHI_EMAIL") || "saathi@example.com",
     customerEmail: env("PAYPAL_CUSTOMER_EMAIL") || "customer@example.com",
+    // Optional: a sandbox *buyer* login shown under the PayPal button so judges can test payments.
+    // Sandbox accounts only hold PayPal's test money; never put real credentials here.
+    demoBuyerEmail: env("PAYPAL_DEMO_BUYER_EMAIL"),
+    demoBuyerPassword: env("PAYPAL_DEMO_BUYER_PASSWORD"),
   },
   ai: {
     // Google Gemini (aistudio.google.com). "gemini-flash-latest" follows Google's current Flash model.

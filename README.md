@@ -126,19 +126,19 @@ I'm a solo participant, a 3rd-year Computer Science student.
 
 ## Testing instructions for judges
 
-**Hosted demo:** open the *Website* link in this repository's About section. It runs against the PayPal sandbox. Log in to PayPal with the sandbox buyer account given in the **testing instructions on the Devpost page**. On the free hosting plan, the first load can take about a minute while the server wakes up.
+**Hosted demo:** open the *Website* link in this repository's About section. It runs against the PayPal sandbox. Log in to PayPal with the sandbox buyer account shown **right under the PayPal button** (also in the testing instructions on the Devpost page). It's a PayPal sandbox account with test money only. On the free hosting plan, the first load can take about a minute while the server wakes up.
 
 **Demo logins** (each role sees only its own app and data; real users sign up with their own phone + PIN):
 
 | Role | Where | Phone | PIN | One tap |
 |---|---|---|---|---|
 | Customer (Anita) | any "Log in" | 9999999999 | 1234 | **Try the demo account** |
-| Karigar (Mohan Shoe Works) | `/partner` | 9000000003 | 1111 | **Karigar** demo button |
+| Karigar | `/partner` | 9000000003 (Mohan) | 1111 | **Karigar** demo button: opens the karigar of the latest booking |
 | Other sample karigars | `/partner` | 9000000001 … 9000000008 | 1111 | |
-| Saathi (Vikas / Pooja) | `/partner` | 9100000001 / 9100000002 | 2222 | **Saathi** demo button (Vikas) |
+| Saathi (Vikas / Pooja) | `/partner` | 9100000001 / 9100000002 | 2222 | **Saathi** demo button: opens the Saathi of the latest booking |
 | Admin | `/partner` | 9000000000 | 2026 | **Admin** demo button |
 
-The Saathi for a booking is picked at random, so if Vikas has no trip, log in as Pooja (9100000002).
+The demo buttons open the karigar and Saathi of the most recent booking that's waiting on them, so you always land on your own test order.
 
 1. **Home** → tap a category (e.g. *Mixer & fan*), type or **speak** the problem (🎤) or upload a photo → **Get AI quote** → see the **Fix-or-Replace meter**. Use the **language picker** (EN ▾) at the top at any point to switch the whole app, e.g. to हिंदी or தமிழ்.
 2. **Choose your karigar** (list or map) → **Book & pay with PayPal** → pay with the sandbox buyer. The status becomes **"Paid · on hold"** (authorization id shown) and live tracking starts.
@@ -182,6 +182,7 @@ The app also runs with an **empty `.env`**: PayPal and AI calls are then simulat
 | `PAYPAL_KARIGAR_EMAIL`, `PAYPAL_SAATHI_EMAIL` | for real payouts | Sandbox personal accounts that receive payouts |
 | `PAYPAL_CUSTOMER_EMAIL` | optional | Invoice recipient fallback |
 | `PAYPAL_WEBHOOK_ID` | optional | Enables webhook signature verification |
+| `PAYPAL_DEMO_BUYER_EMAIL`, `PAYPAL_DEMO_BUYER_PASSWORD` | optional | A sandbox buyer login (test money) shown under the PayPal button for judges |
 | `GEMINI_API_KEY` | for real AI + agent | Gemini API key from [Google AI Studio](https://aistudio.google.com/) (free tier available) |
 | `AI_MODEL` | optional | Defaults to `gemini-flash-latest` |
 | `SESSION_SECRET` | recommended in production | Signs login cookies. Render generates it (see `render.yaml`); locally a random one is saved in `DATA_DIR` |
