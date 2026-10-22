@@ -1,3 +1,4 @@
+import { liveStats } from "./reviews";
 import type { Account, Karigar, Order } from "./types";
 
 // Customer-facing APIs never need anyone's payout email. The demo admin login is shared,
@@ -6,7 +7,7 @@ import type { Account, Karigar, Order } from "./types";
 export const maskEmail = (email: string) => email.replace(/^(.)[^@]*(@.*)$/, "$1•••$2");
 
 export function publicKarigar(k: Karigar) {
-  const { payoutEmail, ...rest } = k;
+  const { payoutEmail, ...rest } = liveStats(k);
   void payoutEmail;
   return rest;
 }
@@ -22,7 +23,7 @@ export function publicOrder(o: Order): Order {
 }
 
 /** Admin view: seeded demo karigars show their sandbox email; onboarded people are masked. */
-export const adminKarigar = (k: Karigar): Karigar => (k.onboarded ? { ...k, payoutEmail: maskEmail(k.payoutEmail) } : k);
+export const adminKarigar = (k: Karigar): Karigar => (k.onboarded ? { ...liveStats(k), payoutEmail: maskEmail(k.payoutEmail) } : liveStats(k));
 
 /**
  * The order as a given account may see it. OTPs prove the customer is present, so only the

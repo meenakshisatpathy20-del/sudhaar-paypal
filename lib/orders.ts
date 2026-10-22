@@ -6,8 +6,10 @@ import { readDB, updateDB } from "./db";
 import {
   authorizeOrder,
   captureAuthorization,
+  captureOrder,
   createAuthorizeOrder,
   createPaidInvoice,
+  createTipOrder,
   createTopUpOrder,
   describePayPalError,
   paypalMode,
@@ -15,8 +17,10 @@ import {
   sendPayouts,
   voidAuthorization,
 } from "./paypal";
-import { AVG_ITEM_KG, basketPickupFee, computeSplit, haversineKm, karigarPrice, pickupFee, round2, serviceModeFor } from "./pricing";
-import type { Account, Category, Complaint, FamilyPay, Job, Karigar, Order, OrderEvent, OrderStatus, Quote, Saathi } from "./types";
+import { AVG_ITEM_KG, basketPickupFee, computeSplit, haversineKm, INR_PER_USD, karigarPrice, pickupFee, round2, serviceModeFor } from "./pricing";
+import { canRate, liveStats, orderKarigars } from "./reviews";
+import { acceptSlot, pickupSlots } from "./slots";
+import type { Account, Category, Complaint, FamilyPay, Job, Karigar, Order, OrderEvent, OrderStatus, PickupSlot, Quote, Saathi } from "./types";
 
 export class FlowError extends Error {
   constructor(message: string, public status = 400) {
@@ -86,6 +90,7 @@ export function offersFor(quote: Quote, at: { lat: number; lng: number } = DEMO_
   const mode = serviceModeFor(quote.category);
   const offers = db.karigars
     .filter((k) => k.verified && k.skills.includes(quote.category) && !(db.offline ?? []).includes(k.id))
+    .map(liveStats)
     .map((k) => {
       const distanceKm = haversineKm(at, placeNear(k, at));
       const fee = pickupFee(distanceKm, quote.size, mode);
@@ -93,8 +98,8 @@ export function offersFor(quote: Quote, at: { lat: number; lng: number } = DEMO_
       const price = karigarPrice(quote.repairLow, quote.repairHigh, k);
       const readyInDays = Math.max(quote.repairDays, k.turnaroundDays);
       // Lower is better: cost, then distance and days, rewarded by rating.
-      // New karigars have no rating yet: treat them as average (4.0) so they still get work.
-      const rating = k.jobsDone > 0 ? k.rating : 4;
+      // Karigars nobody has rated yet count as average (4.0) so they still get work.
+      const rating = k.ratingCount ? k.rating : 4;
       const score = round2(price + fee + distanceKm * 0.15 + readyInDays * 0.5 - (rating - 4) * 2);
       return { karigar: k, distanceKm, price, pickupFee: fee, total: round2(price + fee), readyInDays, score };
     })
@@ -125,6 +130,7 @@ export async function createOrder(input: {
   donation?: number;
   bookedBy?: "customer" | "agent";
   familyPay?: { name: string; relation: string; email?: string };
+  pickupSlot?: PickupSlot;
 }): Promise<Order> {
   const db = readDB();
   const quote = db.quotes.find((q) => q.id === input.quoteId);
@@ -167,6 +173,7 @@ export async function createOrder(input: {
     complaints: [],
     events: [],
     bookedBy: input.bookedBy ?? "customer",
+    pickupSlot: chooseSlot(input.pickupSlot),
   };
   log(order, {
     status: "awaiting_payment",
@@ -174,6 +181,14 @@ export async function createOrder(input: {
     message: `Booked ${offer.karigar.shop} for "${quote.item}" at $${offer.price.toFixed(2)} + $${offer.pickupFee.toFixed(2)} ${mode === "pickup" ? "pickup" : "visit"} fee.`,
   });
   return finalizeNewOrder(order);
+}
+
+/** The customer's chosen pickup window, or the earliest one when none was given (e.g. the agent). */
+function chooseSlot(slot?: PickupSlot): PickupSlot {
+  if (slot === undefined) return pickupSlots()[0];
+  const ok = acceptSlot(slot);
+  if (!ok) throw new FlowError("That pickup time is no longer available. Please choose another.");
+  return ok;
 }
 
 function cleanFamilyPay(fp?: { name: string; relation: string; email?: string }): FamilyPay | undefined {
@@ -215,6 +230,7 @@ export async function createBasketOrder(input: {
   donation?: number;
   bookedBy?: "customer" | "agent";
   familyPay?: { name: string; relation: string; email?: string };
+  pickupSlot?: PickupSlot;
 }): Promise<Order> {
   if (!input.items?.length) throw new FlowError("Add at least one item to the basket");
   if (input.items.length > 12) throw new FlowError("A basket can hold up to 12 items");
@@ -283,6 +299,7 @@ export async function createBasketOrder(input: {
     complaints: [],
     events: [],
     bookedBy: input.bookedBy ?? "customer",
+    pickupSlot: chooseSlot(input.pickupSlot),
   };
   log(order, {
     status: "awaiting_payment",
@@ -545,7 +562,8 @@ export async function settle(orderId: string): Promise<Order> {
       try {
         const batch = await sendPayouts(o.id, lines);
         o.paypal.payoutBatchId = batch.batchId;
-        o.payouts = lines.map((l) => ({ to: l.to, partnerId: l.partnerId, label: l.label, receiver: l.receiver, amount: l.amount, status: batch.status }));
+        // Keep any tip already paid out; this batch is the repair and pickup money.
+        o.payouts = [...o.payouts.filter((p) => p.kind === "tip"), ...lines.map((l) => ({ to: l.to, partnerId: l.partnerId, label: l.label, receiver: l.receiver, amount: l.amount, status: batch.status }))];
         log(o, {
           status: "paid_out",
           actor: "system",
@@ -714,6 +732,78 @@ function applyPrice(o: Order, pc: NonNullable<Order["priceChange"]>) {
   if (job) job.price = pc.to;
   else o.repairCharge = pc.to;
   reprice(o);
+}
+
+// ---------- After delivery: rating and thank-you tip ----------
+
+/** The customer rates a karigar who worked on their delivered order (once per karigar). */
+export async function rateKarigar(orderId: string, input: { karigarId: string; stars: number; text?: string }): Promise<Order> {
+  return mutate(orderId, (o) => {
+    if (!canRate(o)) throw new FlowError("You can rate the karigar once the item is delivered");
+    if (!orderKarigars(o).includes(input.karigarId)) throw new FlowError("That karigar didn't work on this order");
+    if (!Number.isInteger(input.stars) || input.stars < 1 || input.stars > 5) throw new FlowError("Choose 1 to 5 stars");
+    o.ratings ??= [];
+    if (o.ratings.some((r) => r.karigarId === input.karigarId)) throw new FlowError("You've already rated this karigar for this order");
+    const text = (input.text ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 300);
+    o.ratings.push({ karigarId: input.karigarId, stars: input.stars, text, at: now() });
+    log(o, { actor: "customer", message: `Rated ${readDB().karigars.find((k) => k.id === input.karigarId)?.shop ?? "the karigar"} ${input.stars}★${text ? ` and left a review` : ""}.` });
+  });
+}
+
+/** Tip amounts on offer, in rupees. Fixed choices keep it simple and stop odd amounts. */
+export const TIP_CHOICES_INR = [20, 50, 100];
+
+/** Starts a thank-you tip: creates a pay-now PayPal order the customer approves in the popup. */
+export async function startTip(orderId: string, input: { karigarId: string; inr: number }): Promise<Order> {
+  return mutate(orderId, async (o) => {
+    if (!canRate(o)) throw new FlowError("You can tip once the item is delivered");
+    if (!orderKarigars(o).includes(input.karigarId)) throw new FlowError("That karigar didn't work on this order");
+    if (!TIP_CHOICES_INR.includes(input.inr)) throw new FlowError("Choose one of the tip amounts");
+    o.tips ??= [];
+    if (o.tips.some((t) => t.karigarId === input.karigarId && t.status === "paid")) throw new FlowError("You've already tipped this karigar for this order. Thank you!");
+    // Changing the amount replaces a tip that wasn't paid yet.
+    o.tips = o.tips.filter((t) => !(t.karigarId === input.karigarId && t.status === "awaiting_payment"));
+    const k = readDB().karigars.find((x) => x.id === input.karigarId)!;
+    const amount = round2(input.inr / INR_PER_USD);
+    const tipId = id("TIP");
+    try {
+      const pp = await createTipOrder(o, tipId, k.shop, amount);
+      o.tips.push({ id: tipId, karigarId: k.id, amount, status: "awaiting_payment", paypalOrderId: pp.id, createdAt: now() });
+    } catch (e) {
+      const d = describePayPalError(e);
+      throw new FlowError(`PayPal could not start the tip: ${d.message}`, 502);
+    }
+  });
+}
+
+/** The customer approved the tip in PayPal: capture it now and pay all of it to the karigar. */
+export async function approveTip(orderId: string, tipId: string, paypalOrderId: string): Promise<Order> {
+  return mutate(orderId, async (o) => {
+    const tip = o.tips?.find((t) => t.id === tipId);
+    if (!tip || tip.status !== "awaiting_payment") throw new FlowError("No tip is waiting for payment");
+    if (tip.paypalOrderId !== paypalOrderId) throw new FlowError("PayPal order id does not match");
+    const k = readDB().karigars.find((x) => x.id === tip.karigarId)!;
+    try {
+      const cap = await captureOrder(paypalOrderId);
+      tip.captureId = cap.captureId;
+      tip.status = "paid";
+      tip.paidAt = now();
+      log(o, { actor: "customer", kind: "paypal", message: `Thank-you tip of $${tip.amount.toFixed(2)} for ${k.shop} paid with PayPal (status ${cap.status}).`, ref: cap.captureId });
+    } catch (e) {
+      const d = describePayPalError(e);
+      throw new FlowError(`PayPal could not take the tip: ${d.message}`, 502);
+    }
+    // Sudhaar keeps nothing from a tip.
+    try {
+      const batch = await sendPayouts(o.id, [{ receiver: k.payoutEmail, amount: tip.amount, note: `A thank-you tip from your Sudhaar customer (${o.id}).`, ref: `${o.id}-${tip.id}` }], `${o.id}-${tip.id}`);
+      tip.payoutBatchId = batch.batchId;
+      o.payouts.push({ to: "karigar", kind: "tip", partnerId: k.id, label: k.shop, receiver: k.payoutEmail, amount: tip.amount, status: batch.status });
+      log(o, { actor: "system", kind: "paypal", message: `Tip paid out in full to ${k.shop}: $${tip.amount.toFixed(2)}.`, ref: batch.batchId });
+    } catch (e) {
+      const d = describePayPalError(e);
+      log(o, { actor: "system", kind: "error", message: `Tip payout failed, the support team will retry: ${d.message}`, ref: d.ref });
+    }
+  });
 }
 
 // ---------- Partner availability ----------

@@ -131,6 +131,40 @@ export async function createTopUpOrder(order: Order, amount: number, reason: str
   return { id: res.id };
 }
 
+/** A thank-you tip: intent CAPTURE, because a tip is paid straight away rather than held. */
+export async function createTipOrder(order: Order, tipId: string, karigarShop: string, amount: number): Promise<{ id: string }> {
+  if (!paypalEnabled()) return { id: sim("ORDER") };
+  const body = {
+    intent: "CAPTURE",
+    purchase_units: [
+      {
+        reference_id: `${order.id}-${tipId}`,
+        custom_id: order.id,
+        invoice_id: `${order.id}-${tipId}`,
+        description: `Sudhaar ${order.id}: thank-you tip for ${karigarShop}`.slice(0, 127),
+        soft_descriptor: "SUDHAAR TIP",
+        amount: { ...money(amount), breakdown: { item_total: money(amount) } },
+        items: [{ name: `Tip for ${karigarShop}`.slice(0, 127), quantity: "1", unit_amount: money(amount) }],
+      },
+    ],
+    payment_source: { paypal: { experience_context: { brand_name: "Sudhaar", shipping_preference: "NO_SHIPPING", user_action: "PAY_NOW" } } },
+  };
+  const res = await pp<{ id: string }>("/v2/checkout/orders", { method: "POST", body, requestId: `tip-${order.id}-${tipId}` });
+  return { id: res.id };
+}
+
+/** Captures an intent-CAPTURE order right after the buyer approves it. */
+export async function captureOrder(paypalOrderId: string): Promise<{ captureId: string; status: string }> {
+  if (!paypalEnabled()) return { captureId: sim("CAPTURE"), status: "COMPLETED" };
+  const res = await pp<{ status: string; purchase_units: { payments: { captures: { id: string; status: string }[] } }[] }>(`/v2/checkout/orders/${paypalOrderId}/capture`, {
+    method: "POST",
+    body: {},
+    requestId: `capture-order-${paypalOrderId}`,
+  });
+  const cap = res.purchase_units[0].payments.captures[0];
+  return { captureId: cap.id, status: cap.status };
+}
+
 export async function authorizeOrder(paypalOrderId: string): Promise<{ authorizationId: string; status: string; payerEmail?: string }> {
   if (!paypalEnabled()) return { authorizationId: sim("AUTH"), status: "CREATED" };
   const res = await pp<{
@@ -173,13 +207,15 @@ export async function refundCapture(captureId: string, amount: number, note: str
 export async function sendPayouts(
   orderId: string,
   lines: { receiver: string; amount: number; note: string; ref: string }[],
+  /** Each batch needs its own id: the order's main payout uses the order id, a tip its own key. */
+  batchKey = orderId,
 ): Promise<{ batchId: string; status: string }> {
   if (!paypalEnabled()) return { batchId: sim("PAYOUT"), status: "SUCCESS" };
   const res = await pp<{ batch_header: { payout_batch_id: string; batch_status: string } }>("/v1/payments/payouts", {
     method: "POST",
     body: {
       sender_batch_header: {
-        sender_batch_id: `sudhaar-${orderId}`,
+        sender_batch_id: `sudhaar-${batchKey}`,
         email_subject: "You have a Sudhaar payout",
         email_message: "Thank you for the repair. Your share has been paid instantly by Sudhaar.",
       },
@@ -191,7 +227,7 @@ export async function sendPayouts(
         sender_item_id: l.ref,
       })),
     },
-    requestId: `payout-${orderId}`,
+    requestId: `payout-${batchKey}`,
   });
   return { batchId: res.batch_header.payout_batch_id, status: res.batch_header.batch_status };
 }

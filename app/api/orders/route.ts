@@ -4,6 +4,7 @@ import { readDB } from "@/lib/db";
 import { fail, ok } from "@/lib/http";
 import { createOrder, expireUnpaidOrders } from "@/lib/orders";
 import { orderFor } from "@/lib/privacy";
+import type { PickupSlot } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -28,8 +29,8 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const customer = requireRole(req, "customer");
-    const body = (await req.json()) as { quoteId: string; karigarId: string; donation?: number; familyPay?: { name: string; relation: string; email?: string } };
-    const order = await createOrder({ customer, quoteId: body.quoteId, karigarId: body.karigarId, donation: body.donation, familyPay: body.familyPay });
+    const body = (await req.json()) as { quoteId: string; karigarId: string; donation?: number; familyPay?: { name: string; relation: string; email?: string }; pickupSlot?: PickupSlot };
+    const order = await createOrder({ customer, quoteId: body.quoteId, karigarId: body.karigarId, donation: body.donation, familyPay: body.familyPay, pickupSlot: body.pickupSlot });
     return ok({ order: orderFor(customer, order), paypalOrderId: order.paypal.orderId }, 201);
   } catch (e) {
     return fail(e);

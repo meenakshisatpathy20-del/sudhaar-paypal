@@ -6,6 +6,7 @@ import { rupees } from "@/components/Inr";
 import { useLang } from "@/components/LanguageProvider";
 import { EarningsList, PartnerHeader, Tabs2, usePartner } from "@/components/partner/PartnerHome";
 import { PhotoPicker } from "@/components/PhotoPicker";
+import { SlotLine } from "@/components/SlotLine";
 import { StatusPill } from "@/components/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,6 +82,7 @@ function KarigarJob({ order, canPrice, onDone }: { order: Order; canPrice: boole
             {order.issue} · {rupees(order.repairCharge)} · {t("kaYouEarn", { amount: rupees(visit ? order.split.karigar + order.split.saathi : order.split.karigar) })}
           </p>
           {visit && <p className="text-xs text-muted-foreground">📍 {order.customer.address}</p>}
+          {visit && order.status === "authorized" && <SlotLine order={order} className="mt-1" />}
         </div>
         <StatusPill status={order.status} />
       </div>

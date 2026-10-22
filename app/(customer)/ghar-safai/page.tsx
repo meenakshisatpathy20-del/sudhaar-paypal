@@ -9,6 +9,7 @@ import { api } from "@/components/api";
 import { Chappal, Diya, Mixer, NeedleThread } from "@/components/Doodles";
 import { CategoryChips } from "@/components/CategoryChips";
 import { FamilyPayPicker, type FamilyPayValue } from "@/components/FamilyPay";
+import { SlotPicker } from "@/components/SlotPicker";
 import { rupees, rupeeTotal, UsdNote } from "@/components/Inr";
 import { useLang } from "@/components/LanguageProvider";
 import { MicButton } from "@/components/MicButton";
@@ -19,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/input";
 import { AVG_ITEM_KG, basketPickupFee, HOME_VISIT_CATEGORIES } from "@/lib/pricing";
-import type { Category, Karigar, Order, Quote } from "@/lib/types";
+import type { Category, Karigar, Order, PickupSlot, Quote } from "@/lib/types";
 
 type Offer = { karigar: Karigar; distanceKm: number; price: number; pickupFee: number; readyInDays: number; best?: boolean };
 type Line = { quote: Quote; offers: Offer[]; karigarId: string };
@@ -35,6 +36,7 @@ export default function GharSafai() {
   const [lines, setLines] = useState<Line[]>([]);
   const [donate, setDonate] = useState(false);
   const [family, setFamily] = useState<FamilyPayValue>(null);
+  const [slot, setSlot] = useState<PickupSlot | null>(null);
   const [booking, setBooking] = useState(false);
   const { account } = useSession();
   const [loginOpen, setLoginOpen] = useState(false);
@@ -84,6 +86,7 @@ export default function GharSafai() {
         items: lines.map((l) => ({ quoteId: l.quote.id, karigarId: l.karigarId })),
         donation: donate ? 1 : 0,
         familyPay: family?.name.trim() ? family : undefined,
+        pickupSlot: slot ?? undefined,
       });
       router.push(`/orders/${r.order.id}`);
     } catch (e) {
@@ -208,6 +211,7 @@ export default function GharSafai() {
                     </span>
                   </div>
                 </div>
+                <SlotPicker value={slot} onChange={setSlot} />
                 <FamilyPayPicker value={family} onChange={setFamily} />
                 <Button size="lg" className="w-full" onClick={book} disabled={booking || (family !== null && !family.name.trim())}>
                   {booking ? t("creating") : `${t("gharReview")} · ${rupeeTotal(...itemPrices, oneTrip, donate ? 1 : 0)}`}

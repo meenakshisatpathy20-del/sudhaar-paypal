@@ -4,6 +4,7 @@ import { PayPalAgentToolkit } from "@paypal/agent-toolkit/openai";
 import { aiEnabled, config, paypalEnabled } from "./config";
 import { readDB } from "./db";
 import { gemini, geminiSchema, isRateLimit } from "./llm";
+import { slotLabel } from "./slots";
 import { INR_PER_USD } from "./pricing";
 import { advance, createBasketOrder, createOrder, createQuote, familyPayPath, FlowError, offersFor, raiseComplaint, resolveComplaint } from "./orders";
 import { type Lang, langMeta } from "./i18n";
@@ -61,6 +62,7 @@ You act on the customer's behalf, not just advise:
 2. Choose the karigar yourself. Respect the customer's budget and deadline; otherwise pick the "best value" offer. Explain the choice in one line (price, distance, rating, ready time).
 3. If the customer asked you to get it fixed (or gave a budget/deadline), call book_repair right away. Otherwise propose the best option and ask "Shall I book it?".
 4. book_repair creates a PayPal order with intent AUTHORIZE. The customer must tap the PayPal button shown under your message to approve; the money is only held and is captured after the delivery OTP. Never claim the payment is done until get_order_status says it is authorized.
+4a. Bookings get the earliest pickup window (shown as pickup_window, Indian time). Tell the customer when the Saathi will come.
 4b. Ghar Safai Mode: if the customer has several things to fix (e.g. Diwali cleaning), quote each item, then book them together with book_ghar_safai_basket: one Saathi trip and one PayPal payment split across the karigars.
 4c. Family Pay: if the customer wants a family member to pay (e.g. "ask my son to pay"), pass family_payer_name and family_payer_relation. The family member gets a link and approves with their own PayPal.
 5. For problems after delivery, use raise_warranty_claim. If the AI review recommends a refund of at most $${AUTO_REFUND_LIMIT}, you may call issue_refund. Larger refunds go to the support desk.
@@ -192,7 +194,7 @@ async function runCustomTool(name: string, input: Record<string, unknown>, sessi
           .map((o) => ({
             karigar_id: o.karigar.id,
             shop: o.karigar.shop,
-            rating: o.karigar.jobsDone > 0 ? o.karigar.rating : "new karigar, no ratings yet",
+            rating: o.karigar.ratingCount ? o.karigar.rating : "new karigar, no ratings yet",
             distance_km: o.distanceKm,
             repair_price: o.price,
             pickup_fee: o.pickupFee,
@@ -212,6 +214,7 @@ async function runCustomTool(name: string, input: Record<string, unknown>, sessi
         paypal_order_id: order.paypal.orderId,
         total: order.total,
         status: order.status,
+        pickup_window: pickupWindow(order),
         next_step: familyPay
           ? `Family Pay: share the payment link ${familyPayPath(order)} with ${familyPay.name}; they approve it with their own PayPal.`
           : "Customer must approve the payment with the PayPal button shown in the chat.",
@@ -222,7 +225,7 @@ async function runCustomTool(name: string, input: Record<string, unknown>, sessi
       const familyPay = input.family_payer_name ? { name: String(input.family_payer_name), relation: String(input.family_payer_relation || "family") } : undefined;
       const order = await createBasketOrder({ customer, items, bookedBy: "agent", familyPay });
       cards.push({ type: "booking", orderId: order.id, paypalOrderId: order.paypal.orderId, total: order.total, karigar: `${order.jobs?.length} items · Ghar Safai`, status: order.status, familyPayer: familyPay?.name });
-      return { order_id: order.id, items: order.jobs?.length, pickup_fee: order.pickupFee, total: order.total, paypal_order_id: order.paypal.orderId, family_pay_link: familyPay ? familyPayPath(order) : undefined };
+      return { order_id: order.id, items: order.jobs?.length, pickup_fee: order.pickupFee, total: order.total, pickup_window: pickupWindow(order), paypal_order_id: order.paypal.orderId, family_pay_link: familyPay ? familyPayPath(order) : undefined };
     }
     case "get_order_status": {
       return summariseOrder(ownOrder(input.order_id));
@@ -329,6 +332,9 @@ export async function agentTurn(input: { customer: Account; sessionId?: string; 
     return { sessionId, reply, cards, steps };
   }
 }
+
+/** The booked pickup (or visit) window in plain words, Indian time. */
+const pickupWindow = (o: Order) => (o.pickupSlot ? slotLabel(o.pickupSlot, "en-IN", { today: "Today", tomorrow: "Tomorrow" }) : undefined);
 
 /** Tool results go back to Gemini as JSON where possible. */
 function asJson(out: unknown) {
