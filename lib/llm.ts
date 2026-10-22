@@ -32,6 +32,11 @@ export async function generate(params: GenerateContentParameters): Promise<Gener
   try {
     return await generateOnce(params);
   } catch (e) {
+    // Free-tier limits are counted per model, so a rate-limited call goes straight to the fallback model.
+    if (isRateLimit(e) && config.ai.fallbackModel && config.ai.fallbackModel !== params.model) {
+      console.warn(`Gemini ${params.model} hit its rate limit; using ${config.ai.fallbackModel} for this request.`);
+      return generateOnce({ ...params, model: config.ai.fallbackModel });
+    }
     if (!isOverloaded(e)) throw e;
   }
   await pause(1500);

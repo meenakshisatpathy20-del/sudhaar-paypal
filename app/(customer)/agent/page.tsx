@@ -1,7 +1,6 @@
 "use client";
 
 import { RequireLogin } from "@/components/LoginSheet";
-import { langMeta } from "@/lib/i18n";
 import { rupees } from "@/components/Inr";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -9,6 +8,7 @@ import { Camera, Send, Sparkles, Volume2, VolumeX } from "lucide-react";
 import { api } from "@/components/api";
 import { useLang } from "@/components/LanguageProvider";
 import { FamilyPayShare } from "@/components/FamilyPay";
+import { LangToggle } from "@/components/LangToggle";
 import { MicButton } from "@/components/MicButton";
 import { PayPalCheckout } from "@/components/PayPalCheckout";
 import { StatusPill } from "@/components/StatusPill";
@@ -88,7 +88,8 @@ function TalkPageInner() {
             <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{t("talkSub")}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="outline">{`${langMeta(lang).native} · ${langMeta(lang).locale}`}</Badge>
+            {/* The assistant listens and replies in the language picked here */}
+            <LangToggle />
             <button onClick={() => setSpeakReplies(!speakReplies)} className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-muted-foreground ring-1 ring-border hover:text-foreground">
               {speakReplies ? <Volume2 className="size-3" /> : <VolumeX className="size-3" />} {t("voiceReplies")}
             </button>
@@ -116,7 +117,7 @@ function TalkPageInner() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={`/api/uploads/${m.photo}`} alt="" className="h-28 rounded-2xl object-cover" />
               )}
-              <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>
+              <p className="whitespace-pre-wrap leading-relaxed">{m.role === "agent" ? <RichText text={m.text} /> : m.text}</p>
               {m.role === "agent" && m.text && !m.text.startsWith("⚠️") && (
                 <button onClick={() => speak(m.text, lang)} className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground">
                   <Volume2 className="size-3" /> Listen
@@ -179,7 +180,7 @@ function AgentCardView({ card }: { card: AgentCard }) {
     return (
       <div className="rounded-2xl bg-muted p-3 text-xs">
         <b>{card.item}</b>: repair {rupees(card.repairLow)}–{rupees(card.repairHigh)}
-        {card.newPrice > 0 && ` vs new ${rupees(card.newPrice)}`} <span className="text-muted-foreground">({card.source})</span>
+        {card.newPrice > 0 && ` vs new ${rupees(card.newPrice)}`} <span className="text-muted-foreground">{card.source === "simulated" ? "(simulated estimate)" : "· AI quote by Gemini"}</span>
       </div>
     );
   if (card.type === "refund")
@@ -221,5 +222,16 @@ function BookingCard({ card }: { card: Extract<AgentCard, { type: "booking" }> }
         </p>
       )}
     </div>
+  );
+}
+
+/** Shows **bold** from the assistant as bold and never shows stray Markdown symbols. */
+function RichText({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(\*\*[^*\n]+\*\*)/g).map((part, i) =>
+        part.startsWith("**") && part.endsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : part.replace(/\*\*/g, "").replace(/^\s*[*-]\s+/gm, "• "),
+      )}
+    </>
   );
 }
