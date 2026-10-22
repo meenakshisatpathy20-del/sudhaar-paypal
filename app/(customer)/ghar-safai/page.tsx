@@ -33,7 +33,7 @@ export default function GharSafai() {
   const [category, setCategory] = useState<Category | null>(null);
   const [adding, setAdding] = useState(false);
   const [lines, setLines] = useState<Line[]>([]);
-  const [donate, setDonate] = useState(true);
+  const [donate, setDonate] = useState(false);
   const [family, setFamily] = useState<FamilyPayValue>(null);
   const [booking, setBooking] = useState(false);
   const { account } = useSession();

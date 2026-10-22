@@ -56,6 +56,7 @@ export default function RealMap({ center, pins, selected, route, onSelect, saath
   const map = useRef<L.Map | null>(null);
   const layer = useRef<L.LayerGroup | null>(null);
   const fitted = useRef("");
+  const fit = useRef<() => void>(() => {});
   const select = useRef(onSelect);
   useEffect(() => {
     select.current = onSelect;
@@ -63,14 +64,23 @@ export default function RealMap({ center, pins, selected, route, onSelect, saath
 
   // Create the map once.
   useEffect(() => {
-    const m = L.map(el.current!, { scrollWheelZoom: false, attributionControl: true });
+    // Quarter-step zoom so the neighbourhood fills a small phone-sized map instead of snapping far out.
+    const m = L.map(el.current!, { scrollWheelZoom: false, attributionControl: true, zoomSnap: 0.25, zoomDelta: 0.5 });
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(m);
     map.current = m;
     layer.current = L.layerGroup().addTo(m);
+    // The box often gets its final size after Leaflet starts (lazy load, aspect-ratio layout):
+    // re-measure and re-fit whenever it changes, or the pins end up bunched or off-screen.
+    const resized = new ResizeObserver(() => {
+      m.invalidateSize();
+      fit.current();
+    });
+    resized.observe(el.current!);
     return () => {
+      resized.disconnect();
       m.remove();
       map.current = null;
       layer.current = null;
@@ -109,10 +119,15 @@ export default function RealMap({ center, pins, selected, route, onSelect, saath
     // Refit only when the set of points changes, so selecting a pin doesn't jump the map.
     const points = [center, ...pins];
     const key = points.map((p) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join("|");
+    // Pins are drawn above their point and the zoom buttons sit top-left, so leave more room there.
+    fit.current = () => {
+      if (points.length === 1) m.setView(center, 15);
+      else m.fitBounds(L.latLngBounds(points.map((p) => [p.lat, p.lng])), { paddingTopLeft: [52, 44], paddingBottomRight: [24, 20], maxZoom: 16 });
+    };
     if (key !== fitted.current) {
       fitted.current = key;
-      if (points.length === 1) m.setView(center, 15);
-      else m.fitBounds(L.latLngBounds(points.map((p) => [p.lat, p.lng])), { padding: [36, 36], maxZoom: 16 });
+      m.invalidateSize();
+      fit.current();
     }
   }, [center, pins, selected, route, saathiProgress, onSelect]);
 

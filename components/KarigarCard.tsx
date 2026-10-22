@@ -14,7 +14,7 @@ export function KarigarCard({ k, distanceKm }: { k: Karigar; distanceKm?: number
         <Avatar name={k.name} color={k.avatarColor} />
         <div className="min-w-0">
           <p className="flex items-center gap-1 truncate font-semibold">
-            {k.shop} <BadgeCheck className="size-4 shrink-0 text-primary" />
+            {k.shop} {k.onboarded && <BadgeCheck className="size-4 shrink-0 text-primary" />}
           </p>
           <p className="truncate text-xs text-muted-foreground">{k.craft}</p>
           {!k.onboarded && <p className="mt-0.5 w-fit rounded-full bg-muted px-1.5 text-[10px] font-medium text-muted-foreground ring-1 ring-border">{t("sampleProfile")}</p>}
