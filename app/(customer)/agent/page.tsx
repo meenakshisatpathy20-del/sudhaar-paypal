@@ -137,13 +137,7 @@ function TalkPageInner() {
             </div>
           </div>
         ))}
-        {busy && (
-          <div className="paper flex w-fit items-center gap-1.5 rounded-3xl rounded-bl-lg px-4 py-3">
-            {[0, 1, 2].map((d) => (
-              <span key={d} className="size-2 rounded-full bg-primary" style={{ animation: `float-slow 1s ${d * 0.15}s ease-in-out infinite` }} />
-            ))}
-          </div>
-        )}
+        {busy && <Working />}
         <div ref={end} />
       </div>
 
@@ -233,5 +227,25 @@ function RichText({ text }: { text: string }) {
         part.startsWith("**") && part.endsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : part.replace(/\*\*/g, "").replace(/^\s*[*-]\s+/gm, "• "),
       )}
     </>
+  );
+}
+
+/** Typing dots, then an honest note after a few seconds so a slow AI reply never looks frozen. */
+function Working() {
+  const { t } = useLang();
+  const [long, setLong] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setLong(true), 4000);
+    return () => clearTimeout(timer);
+  }, []);
+  return (
+    <div className="paper flex w-fit max-w-[85%] items-center gap-3 rounded-3xl rounded-bl-lg px-4 py-3">
+      <span className="flex gap-1.5">
+        {[0, 1, 2].map((d) => (
+          <span key={d} className="size-2 rounded-full bg-primary" style={{ animation: `float-slow 1s ${d * 0.15}s ease-in-out infinite` }} />
+        ))}
+      </span>
+      {long && <span className="text-xs text-muted-foreground">{t("talkWorking")}</span>}
+    </div>
   );
 }

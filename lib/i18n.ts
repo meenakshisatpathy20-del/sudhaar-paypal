@@ -115,6 +115,7 @@ const BASE = {
     // talk
     talkTitle: "Talk to Sudhaar",
     talkSub: "Tell me what's broken, your budget and when you need it. I'll find the karigar, book it and set up the PayPal payment for you to approve.",
+    talkWorking: "Checking prices and karigars… this can take up to 30 seconds.",
     talkPlaceholder: "Type or tap the mic…",
     send: "Send",
     gharKicker: "Festival special",
@@ -576,6 +577,7 @@ const BASE = {
     address: "पिकअप पता",
     talkTitle: "सुधार से बात करें",
     talkSub: "बताइए क्या टूटा है, बजट क्या है और कब चाहिए। मैं कारीगर ढूँढकर बुक करूँगा और PayPal भुगतान तैयार करूँगा, जिसे आप मंज़ूर करेंगे।",
+    talkWorking: "दाम और कारीगर देख रहा हूँ… इसमें 30 सेकंड तक लग सकते हैं।",
     talkPlaceholder: "लिखें या माइक दबाएँ…",
     send: "भेजें",
     gharKicker: "त्योहार स्पेशल",

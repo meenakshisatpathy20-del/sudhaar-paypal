@@ -1,42 +1,31 @@
 # Sudhaar screenshots
 
-A walk through the app, screen by screen. These were captured from a local run of the production build in **simulation mode** (no PayPal or Gemini keys), so the quote shows a "Simulated" badge and map streets are not loaded. The [live demo](../README.md#testing-instructions-for-judges) runs the real PayPal sandbox and Gemini.
+The app on a phone, screen by screen, from booking a repair to paying the karigar. Captured from a fresh demo run.
 
-## Customer app
+## 1. Book a repair
 
-| | |
-|---|---|
-| ![Home page](screenshots/01-home.png) | **Home.** Snap or speak what's broken, Ghar Safai Mode, and the PayPal promise: your money is held until the item is back. |
-
-| Quote | Choose a karigar | Review and pickup time |
+| Home | Compare karigars | Price and pickup time |
 |---|---|---|
-| ![AI quote with the Fix-or-Replace meter](screenshots/02-quote-fix-or-replace.png) | ![Karigars compared by price, distance, rating and ready time](screenshots/03-choose-karigar.png) | ![Booking summary with pickup time and Family Pay](screenshots/04-review-pickup-time.png) |
-| AI quote in rupees next to the price of buying new (Fix-or-Replace meter). | Verified karigars compared by price, distance, rating and ready time. | Pick when the Saathi comes. The tool-fund donation is opt-in. Family Pay lets someone else pay. |
+| ![Home page with the AI quote box](screenshots/01-home.png) | ![Two karigars compared by price, distance, pickup fee and ready time](screenshots/02-compare-karigars.png) | ![Price breakdown, pickup time and Family Pay](screenshots/03-price-and-pickup-time.png) |
+| Snap, type or speak what's broken; Ghar Safai for many items at once. | Karigars ranked by total price, distance and ready time. The pickup fee is set by distance and item size, courier-style. | Everything in rupees, the exact USD amount PayPal holds, and a pickup window. The tool-fund donation is opt-in. |
 
-| Ghar Safai basket | Family Pay link | Live order |
+## 2. Pickup, repair and delivery
+
+| Order with OTPs | Saathi's trip | Karigar's job |
 |---|---|---|
-| ![Ghar Safai basket with three items](screenshots/05-ghar-safai-basket.png) | ![A relative pays from the shared link](screenshots/06-family-pay-link.png) | ![Order page with OTPs and live tracking](screenshots/07-order-otp-and-tracking.png) |
-| Several broken things, one Saathi trip, one PayPal payment split across karigars. | A son or daughter opens the link and approves the PayPal payment, which is held until delivery. | Pickup time, OTP for every handover, and live tracking. |
+| ![Order page: paid and on hold, pickup time, OTPs](screenshots/04-order-otp-and-pickup.png) | ![Saathi app trip with pickup time and stops](screenshots/05-saathi-trip.png) | ![Karigar app job with price change and after photo](screenshots/06-karigar-job.png) |
+| PayPal holds the money. A pickup OTP and a delivery OTP protect every handover. | The Saathi sees the pickup window and every stop. OTPs come from the customer, never the app. | The karigar inspects, can ask the customer to approve a new price, and uploads an after photo for the AI check. |
 
-| Rate and tip | Verified review |
-|---|---|
-| ![Rating and a PayPal tip after delivery](screenshots/09-rate-and-tip.png) | ![Karigar profile showing a verified review](screenshots/10-verified-review.png) |
-| After delivery: rate the karigar, tip through PayPal (all of it goes to the karigar), or book again. | Real reviews are marked *Verified repair*; ratings and job counts update from delivered orders. |
+## 3. After delivery
 
-## Partner apps
+| Rate and tip | Item Passport | Verified review |
+|---|---|---|
+| ![Rate the karigar and tip through PayPal](screenshots/07-rate-and-tip.png) | ![Item Passport: money saved, waste avoided, warranty](screenshots/08-item-passport.png) | ![Karigar profile with a verified review](screenshots/09-verified-review.png) |
+| Rate the karigar, tip ₹20/₹50/₹100 through PayPal (all of it goes to the karigar), or book again. | Money saved against buying new, waste kept out of landfill, and the 15-day warranty. | Reviews from real deliveries are marked *Verified repair*; ratings update from delivered orders. |
 
-| Saathi app | Karigar app |
-|---|---|
-| ![Saathi app with a Ghar Safai trip](screenshots/08-saathi-app.png) | ![Karigar app earnings including a tip](screenshots/11-karigar-app-earnings.png) |
-| The Saathi's own trips with the pickup time and stops. OTPs come from the customer, never the app. | Earnings from real PayPal payouts, including thank-you tips. |
+## 4. Ghar Safai, languages and joining
 
-![Admin console on AG Grid](screenshots/12-admin-console.png)
-
-**Admin console** (AG Grid): orders, customers, karigars, Saathis, payouts and PayPal webhooks, with queues for refunds, photo checks and applications.
-
-## For everyone
-
-| In Tamil | Become a Repair Saathi |
-|---|---|
-| ![Home page in Tamil](screenshots/13-tamil.png) | ![Saathi sign-up form](screenshots/14-become-a-saathi.png) |
-| The whole app in 8 languages: English, Hindi, Bengali, Marathi, Telugu, Tamil, Odia and Kannada. | Students and local volunteers apply to become Saathis; karigars apply the same way. |
+| Ghar Safai basket | हिंदी | தமிழ் | Become a Saathi |
+|---|---|---|---|
+| ![Ghar Safai basket with three items](screenshots/10-ghar-safai-basket.png) | ![Home page in Hindi](screenshots/11-hindi.png) | ![Home page in Tamil](screenshots/12-tamil.png) | ![Repair Saathi sign-up](screenshots/13-become-a-saathi.png) |
+| Three items, three karigars, one Saathi trip (cheaper than three pickups) and one PayPal payment, optionally paid by family. | The whole app in 8 Indian languages. | Every script has its own font. | Students and local volunteers apply to be Saathis; karigars apply the same way. |
