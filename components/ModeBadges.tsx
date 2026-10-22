@@ -11,11 +11,11 @@ export function ModeBadges({ compact = false }: { compact?: boolean }) {
   const ai = cfg.ai.mode === "gemini";
   return (
     <div className="flex gap-1.5">
-      <Badge variant={pp ? "paypal" : "gold"} title={pp ? "Live calls to the PayPal sandbox" : "No PayPal keys: PayPal calls are simulated"}>
+      <Badge variant={pp ? "paypal" : "gold"} title={pp ? "Live calls to the PayPal sandbox" : (cfg.paypal.problem ? `${cfg.paypal.problem}: payments are simulated` : "No PayPal keys: PayPal calls are simulated")}>
         {compact ? "PayPal" : pp ? "PayPal Sandbox" : "PayPal Simulated"}
         {compact && <span className={`size-1.5 rounded-full ${pp ? "bg-[#0050b3]" : "bg-gold"}`} />}
       </Badge>
-      <Badge variant={ai ? "default" : "gold"} title={ai ? `AI: ${cfg.ai.model}` : "No AI key: AI is simulated"}>
+      <Badge variant={ai ? "default" : "gold"} title={ai ? `AI: ${cfg.ai.model}` : (cfg.ai.problem ? `${cfg.ai.problem}: AI is simulated` : "No AI key: AI is simulated")}>
         {compact ? "AI" : ai ? "AI Gemini" : "AI Simulated"}
         {compact && <span className={`size-1.5 rounded-full ${ai ? "bg-primary" : "bg-gold"}`} />}
       </Badge>

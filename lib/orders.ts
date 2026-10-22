@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { checkCompletion, quoteItem, reviewComplaint } from "./ai";
-import { config } from "./config";
+import { config, serviceProblems } from "./config";
 import { placeNear } from "./geo";
 import { readDB, updateDB } from "./db";
 import {
@@ -211,11 +211,19 @@ async function finalizeNewOrder(order: Order): Promise<Order> {
   try {
     const pp = await createAuthorizeOrder(order);
     order.paypal.orderId = pp.id;
-    log(order, { actor: "system", kind: "paypal", message: "PayPal order created with intent AUTHORIZE (money will be held, not taken).", ref: pp.id });
   } catch (e) {
-    const d = describePayPalError(e);
-    throw new FlowError(`Could not create the PayPal order: ${d.message}`, 502);
+    // PayPal rejected our keys: switch to labelled simulation (admin System check explains) rather than
+    // failing every booking. Any other PayPal error is shown to the customer as before.
+    if ((e as { status?: number }).status !== 401 || serviceProblems.paypal) {
+      const d = describePayPalError(e);
+      throw new FlowError(`Could not create the PayPal order: ${d.message}`, 502);
+    }
+    serviceProblems.paypal = "PayPal rejected the Client ID / Secret";
+    console.warn("[health] PayPal rejected the Client ID / Secret; payments are simulated until the keys are fixed.");
+    order.paypal.mode = paypalMode();
+    order.paypal.orderId = (await createAuthorizeOrder(order)).id;
   }
+  log(order, { actor: "system", kind: "paypal", message: "PayPal order created with intent AUTHORIZE (money will be held, not taken).", ref: order.paypal.orderId });
   await updateDB((db) => {
     db.orders.unshift(order);
   });

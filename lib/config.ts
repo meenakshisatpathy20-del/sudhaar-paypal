@@ -14,7 +14,8 @@ export const config = {
     clientId: env("PAYPAL_CLIENT_ID"),
     clientSecret: env("PAYPAL_CLIENT_SECRET"),
     // Sudhaar only ever talks to the PayPal sandbox.
-    apiBase: "https://api-m.sandbox.paypal.com",
+    // PAYPAL_API_BASE is only for tests against a local stand-in server.
+    apiBase: env("PAYPAL_API_BASE") || "https://api-m.sandbox.paypal.com",
     webhookId: env("PAYPAL_WEBHOOK_ID"),
     karigarPayoutEmail: env("PAYPAL_KARIGAR_EMAIL") || "karigar@example.com",
     saathiPayoutEmail: env("PAYPAL_SAATHI_EMAIL") || "saathi@example.com",
@@ -35,5 +36,16 @@ export const config = {
   currency: "USD" as const,
 };
 
-export const paypalEnabled = () => Boolean(config.paypal.clientId && config.paypal.clientSecret);
-export const aiEnabled = () => Boolean(config.ai.apiKey);
+/**
+ * Set when PayPal or Google rejects our keys (see lib/health.ts). The app then runs in clearly
+ * labelled simulation instead of failing every request, and the admin System check says why.
+ * Kept on globalThis because Next.js can load this module more than once in one server.
+ */
+type Problems = { paypal?: string; ai?: string };
+const g = globalThis as typeof globalThis & { __sudhaarProblems?: Problems };
+export const serviceProblems: Problems = (g.__sudhaarProblems ??= {});
+
+export const paypalConfigured = () => Boolean(config.paypal.clientId && config.paypal.clientSecret);
+export const aiConfigured = () => Boolean(config.ai.apiKey);
+export const paypalEnabled = () => paypalConfigured() && !serviceProblems.paypal;
+export const aiEnabled = () => aiConfigured() && !serviceProblems.ai;
