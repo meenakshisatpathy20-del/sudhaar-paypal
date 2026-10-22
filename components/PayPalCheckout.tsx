@@ -35,9 +35,11 @@ export function PayPalCheckout({
   const holder = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "working" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
+  // Created while payments were simulated (e.g. PayPal rejected the keys): never open the real popup.
+  const simulatedOrder = paypalOrderId.startsWith("SIM-");
 
   useEffect(() => {
-    if (!cfg || cfg.paypal.mode !== "sandbox" || !cfg.paypal.clientId) return;
+    if (!cfg || cfg.paypal.mode !== "sandbox" || !cfg.paypal.clientId || simulatedOrder) return;
     let cancelled = false;
     (async () => {
       try {
@@ -86,11 +88,11 @@ export function PayPalCheckout({
     return () => {
       cancelled = true;
     };
-  }, [cfg, orderId, paypalOrderId, onApproved, token, topUp, tipId]);
+  }, [cfg, orderId, paypalOrderId, onApproved, token, topUp, tipId, simulatedOrder]);
 
   if (!cfg) return null;
 
-  if (cfg.paypal.mode !== "sandbox") {
+  if (cfg.paypal.mode !== "sandbox" || simulatedOrder) {
     return (
       <div className="space-y-2">
         <button

@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { Content, FunctionDeclaration, Part } from "@google/genai";
 import { PayPalAgentToolkit } from "@paypal/agent-toolkit/openai";
-import { aiEnabled, config, paypalEnabled } from "./config";
+import { aiEnabled, config, paypalEnabled, serviceProblems } from "./config";
 import { readDB } from "./db";
 import { generate, geminiSchema, isOverloaded, isRateLimit, isTimeout } from "./llm";
 import { slotLabel } from "./slots";
@@ -257,7 +257,10 @@ async function runCustomTool(name: string, input: Record<string, unknown>, sessi
 
 export async function agentTurn(input: { customer: Account; sessionId?: string; message: string; photo?: string; lang?: Lang }) {
   if (!aiEnabled()) {
-    throw new FlowError("The Repair Agent needs GEMINI_API_KEY. The rest of Sudhaar works without it.", 503);
+    throw new FlowError(
+      serviceProblems.ai ? "The AI assistant is off: Google didn't accept the Gemini key (see Admin > System check). The rest of Sudhaar works." : "The Repair Agent needs GEMINI_API_KEY. The rest of Sudhaar works without it.",
+      503,
+    );
   }
   const existing = input.sessionId ? sessions.get(input.sessionId) : undefined;
   const sessionId = existing && existing.accountId === input.customer.id ? input.sessionId! : crypto.randomUUID();
