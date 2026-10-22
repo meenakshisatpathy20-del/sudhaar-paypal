@@ -5,12 +5,14 @@ import { rupees, rupeeTotal, UsdNote } from "@/components/Inr";
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { ArrowLeft, BadgeCheck, ChevronDown, LifeBuoy, Leaf, PiggyBank, Receipt, ShieldCheck, Sparkles, XCircle } from "lucide-react";
+import { AfterDelivery } from "@/components/AfterDelivery";
 import { api, money } from "@/components/api";
 import { EventLog } from "@/components/EventLog";
 import { FamilyPayShare } from "@/components/FamilyPay";
 import { NeighbourhoodMap } from "@/components/NeighbourhoodMap";
 import { PayPalCheckout } from "@/components/PayPalCheckout";
 import { PhotoPicker } from "@/components/PhotoPicker";
+import { SlotLine } from "@/components/SlotLine";
 import { useLang } from "@/components/LanguageProvider";
 import { langMeta } from "@/lib/i18n";
 import { STATUS_PROGRESS, StatusPill } from "@/components/StatusPill";
@@ -108,6 +110,7 @@ function OrderPageInner({ params }: { params: Promise<{ id: string }> }) {
                 </p>
                 <h1 className="mt-1 text-2xl font-bold">{order.kind === "basket" && order.jobs ? t("oBasketTitle", { n: order.jobs.length }) : order.item}</h1>
                 <p className="text-sm text-muted-foreground">{order.issue}</p>
+                {!["delivered", "paid_out", "cancelled"].includes(order.status) && <SlotLine order={order} className="mt-1" />}
               </div>
               <StatusPill status={order.status} />
             </div>
@@ -133,7 +136,7 @@ function OrderPageInner({ params }: { params: Promise<{ id: string }> }) {
                     {karigar.shop} {karigar.onboarded && <BadgeCheck className="size-4 text-primary" />}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {karigar.name} · {karigar.jobsDone > 0 ? `${karigar.rating}★` : t("newKarigar")} · {order.distanceKm} km · {order.mode === "pickup" && saathi ? `${t("oSaathi")}: ${saathi.name}` : t("oHomeVisit")}
+                    {karigar.name} · {karigar.ratingCount ? `${karigar.rating}★` : t("newKarigar")} · {order.distanceKm} km · {order.mode === "pickup" && saathi ? `${t("oSaathi")}: ${saathi.name}` : t("oHomeVisit")}
                   </p>
                 </div>
               </Link>
@@ -260,6 +263,23 @@ function OrderPageInner({ params }: { params: Promise<{ id: string }> }) {
               </p>
             </CardContent>
           </Card>
+        )}
+
+        {(order.status === "delivered" || order.status === "paid_out") && (
+          <AfterDelivery
+            order={order}
+            onChange={load}
+            karigars={
+              order.kind === "basket"
+                ? jobKarigars.map(([kid, k]) => {
+                    const job = order.jobs?.find((j) => j.karigarId === kid);
+                    return { id: kid, name: k.name, shop: k.shop, avatarColor: k.avatarColor, issue: job?.issue ?? order.issue, category: job?.category ?? order.category };
+                  })
+                : karigar
+                  ? [{ id: karigar.id, name: karigar.name, shop: karigar.shop, avatarColor: karigar.avatarColor, issue: order.issue, category: order.category }]
+                  : []
+            }
+          />
         )}
       </section>
 
@@ -519,7 +539,7 @@ function ResolveHub({ order, refunded, onChange }: { order: Order; refunded: num
           </div>
           <Sheet>
             <SheetTrigger asChild>
-              <Button size="sm" variant="gold">
+              <Button size="sm" variant="gold" className="h-auto min-h-8 max-w-[45%] whitespace-normal py-1.5 text-center">
                 {t("oReport")}
               </Button>
             </SheetTrigger>

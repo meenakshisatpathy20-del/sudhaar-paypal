@@ -18,6 +18,7 @@ import { NeighbourhoodMap } from "@/components/NeighbourhoodMap";
 import { PhotoPicker } from "@/components/PhotoPicker";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { SlotPicker } from "@/components/SlotPicker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/input";
@@ -25,7 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { catExKey, catKey } from "@/lib/i18n";
 import { CATEGORY_LABEL } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
-import type { Category, Karigar, Order, Quote } from "@/lib/types";
+import type { Category, Karigar, Order, PickupSlot, Quote } from "@/lib/types";
 
 type Offer = { karigar: Karigar; distanceKm: number; price: number; pickupFee: number; total: number; readyInDays: number; best?: boolean };
 
@@ -56,6 +57,7 @@ function Fix() {
   const { account } = useSession();
   const [loginOpen, setLoginOpen] = useState(false);
   const [family, setFamily] = useState<FamilyPayValue>(null);
+  const [slot, setSlot] = useState<PickupSlot | null>(null);
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const prefilled = useRef(false);
 
@@ -64,11 +66,11 @@ function Fix() {
     prefilled.current = true;
     const d = params.get("d");
     const c = params.get("c") as Category | null;
+    const known = c && c in CATEGORY_LABEL;
+    // "Book again" passes both the old problem and its category.
+    if (known) setCategory(c);
     if (d) setDescription(d);
-    else if (c && c in CATEGORY_LABEL) {
-      setDescription(t(catExKey(c)));
-      setCategory(c);
-    }
+    else if (known) setDescription(t(catExKey(c)));
   }, [params, t]);
   useEffect(() => {
     api<{ center: { lat: number; lng: number } }>("/api/karigars").then((r) => setCenter(r.center)).catch(() => {});
@@ -101,7 +103,7 @@ function Fix() {
     setBooking(true);
     setError(null);
     try {
-      const r = await api<{ order: Order }>("/api/orders", { quoteId: quote.id, karigarId: selected, donation: donate ? 1 : 0, familyPay: family?.name.trim() ? family : undefined });
+      const r = await api<{ order: Order }>("/api/orders", { quoteId: quote.id, karigarId: selected, donation: donate ? 1 : 0, familyPay: family?.name.trim() ? family : undefined, pickupSlot: slot ?? undefined });
       router.push(`/orders/${r.order.id}`);
     } catch (e) {
       setError((e as Error).message);
@@ -260,7 +262,7 @@ function Fix() {
                         </p>
                         <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1 text-gold">
-                            <Star className="size-3 fill-gold" /> {o.karigar.jobsDone > 0 ? o.karigar.rating.toFixed(1) : t("newKarigar")}
+                            <Star className="size-3 fill-gold" /> {o.karigar.ratingCount ? o.karigar.rating.toFixed(1) : t("newKarigar")}
                           </span>
                           <span>{o.distanceKm} km</span>
                           <span className="flex items-center gap-1">
@@ -332,6 +334,7 @@ function Fix() {
                 </span>
               </div>
             </div>
+            <SlotPicker value={slot} onChange={setSlot} visit={homeVisit} />
             <FamilyPayPicker value={family} onChange={setFamily} />
             <p className="rounded-2xl bg-[#0070e0]/10 p-3 text-xs text-paypal-blue ring-1 ring-[#0070e0]/30">{t("trustPaypal")}</p>
             <div className="flex gap-2">

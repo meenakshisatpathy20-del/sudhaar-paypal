@@ -5,7 +5,7 @@ import { useSession } from "@/components/SessionProvider";
 import { rupees } from "@/components/Inr";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight, Leaf, PiggyBank, Wrench } from "lucide-react";
+import { ArrowRight, Leaf, PiggyBank, RotateCcw, Wrench } from "lucide-react";
 import { api } from "@/components/api";
 import { CATEGORY_ICON } from "@/components/CategoryIcon";
 import { useLang } from "@/components/LanguageProvider";
@@ -102,7 +102,7 @@ function RepairsInner() {
             const k = data?.karigars[o.karigarId];
             const saved = q && q.newPrice > 0 ? Math.max(0, q.newPrice - o.repairCharge) : 0;
             return (
-              <Link key={o.id} href={`/orders/${o.id}`}>
+              <div key={o.id}>
                 <Card className="relative h-full overflow-hidden bg-gradient-to-br from-marigold/15 via-card to-teal/10 transition hover:-translate-y-0.5">
                   <CardContent className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
@@ -110,7 +110,10 @@ function RepairsInner() {
                         <p className="text-[10px] font-semibold uppercase tracking-widest text-gold">
                           {t("passportTitle")} · {t("secondLife")}
                         </p>
-                        <p className="mt-1 font-display text-lg font-bold">{o.kind === "basket" && o.jobs ? t("oBasketTitle", { n: o.jobs.length }) : o.item}</p>
+                        {/* The title link covers the whole card; "Book again" sits above it. */}
+                        <Link href={`/orders/${o.id}`} className="mt-1 block font-display text-lg font-bold after:absolute after:inset-0">
+                          {o.kind === "basket" && o.jobs ? t("oBasketTitle", { n: o.jobs.length }) : o.item}
+                        </Link>
                       </div>
                       {q?.photo && (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -125,14 +128,21 @@ function RepairsInner() {
                         <Leaf className="size-4 text-primary" /> {AVG_ITEM_KG[o.category]} kg
                       </span>
                     </div>
-                    {k && (
-                      <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Avatar name={k.name} color={k.avatarColor} className="size-6 rounded-lg text-[9px]" /> {t("fixedBy")} {k.name}
-                      </p>
-                    )}
+                    <div className="flex items-center justify-between gap-2">
+                      {k && (
+                        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Avatar name={k.name} color={k.avatarColor} className="size-6 rounded-lg text-[9px]" /> {t("fixedBy")} {k.name}
+                        </p>
+                      )}
+                      {o.kind !== "basket" && (
+                        <Link href={`/fix?d=${encodeURIComponent(o.issue)}&c=${o.category}&k=${o.karigarId}`} className="relative z-10 flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-semibold text-primary ring-1 ring-border hover:bg-muted">
+                          <RotateCcw className="size-3.5" /> {t("bookAgain")}
+                        </Link>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
-              </Link>
+              </div>
             );
           })}
         </TabsContent>

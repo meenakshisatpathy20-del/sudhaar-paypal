@@ -67,6 +67,9 @@ Many parents live alone while their children work in other cities. A parent book
 - **Prices in rupees**, with the exact USD amount PayPal handles shown under each total.
 - **Installable on a phone** (add to home screen) with a bilingual offline page and an offline banner for weak networks.
 - **Join as a karigar or a Repair Saathi**: repairers and pickup partners (students, local volunteers) apply from the customer app in their own language. The team checks ID in person (no ID numbers collected), then visits the karigar's shop and gives a trial repair, or trains the Saathi and does a trial trip. On approval, the new partner gets their own login PIN.
+- **Pick a pickup time**: customers choose when the Saathi comes (e.g. *Today, 5–7 pm*); the Saathi sees it on their trip and plumbers or electricians see their visit time.
+- **Rate, review and tip after delivery**: customers rate each karigar and can leave a review marked *Verified repair*. Ratings, job counts and reviews update for real; a new karigar shows "New" until someone rates them. An optional thank-you tip (₹20, ₹50 or ₹100) is paid through PayPal, and **all of it** goes to the karigar.
+- **Book again**: one tap on a past repair starts a new quote with the same karigar.
 - **Fix-or-Replace meter**: shows how much of the new price a repair saves.
 - **Item Passport**: every repaired item gets a "second life" card with money saved and waste avoided.
 - **Karigar profiles** (craft, years of experience, languages, reviews, price list) and a **real OpenStreetMap map** with the customer's home, karigar pins and the Saathi moving along the route. Customers can share their **live location** at sign-up or from Profile, and distances and pickup fees are measured from there.
@@ -89,6 +92,7 @@ All calls go to the PayPal **sandbox**. Every PayPal id appears on the order pag
 | **Orders v2, intent `AUTHORIZE`** | [`lib/paypal.ts`](lib/paypal.ts) `createAuthorizeOrder`, `authorizeOrder` | Holds the customer's money at booking, works like escrow |
 | **Second authorization for a price increase** | `createTopUpOrder` | If the customer approves a karigar's higher price, only the difference is authorized as its own PayPal order and captured with the first |
 | **Payments v2 capture / void** | `captureAuthorization`, `voidAuthorization` | Captures only after the delivery OTP; voids if the customer cancels before pickup |
+| **Orders v2, intent `CAPTURE`** | `createTipOrder`, `captureOrder` | Thank-you tips are paid immediately (no hold), then paid out in full to the karigar in their own Payouts batch |
 | **Payouts v1** | `sendPayouts` | Instant split to the karigar(s) and the Saathi the moment the job is confirmed. A Ghar Safai basket pays several karigars from one payment |
 | **Invoicing v2** | `createPaidInvoice` | Generates, sends and marks paid a PayPal invoice: the "digital bill" used by Resolve Hub |
 | **Refunds (Payments v2)** | `refundCapture` | Partial or full refunds from Resolve Hub (support desk or agent within limit), split across both captures when there was a price increase |
@@ -146,7 +150,9 @@ The Saathi for a booking is picked at random, so if Vikas has no trip, log in as
 8. **Talk** tab → tap the mic or type "My school bag zip broke. Get it fixed under ₹400." → approve the PayPal payment inside the chat. Replies are read aloud.
 9. **Admin console** (partner side) → AG Grid views of **orders, customers, karigars, Saathis, payouts and PayPal webhooks**, plus the **Resolve Hub** queue where refunds are approved, the **Photo checks** queue for repairs the AI could not pass, and **Applications** from new karigars. *Reset demo data* clears orders.
 10. **Join as a karigar** (banner at the bottom of the home page, or `/join`) → apply → in **Admin console → Applications** tick the three KYC checks → **Approve and list karigar**, which shows the new karigar's login PIN → the new karigar appears in quotes with a **"New"** badge instead of a made-up rating and can log in at `/partner`. **Become a Repair Saathi** (`/join?as=saathi`) works the same way, with ID, training and trial-trip checks.
-11. **Your location**: sign up with **Use my current location** (or set it later in **Profile**). The map, distances and pickup fees then start from your home. The sample karigars are placed around you, keeping their real distances, so the demo works wherever you are.
+11. **After delivery** (order page): rate the karigar and leave a review, which appears on their profile as *Verified repair*. Tip ₹50 and pay it in the PayPal popup: the karigar's Earnings tab shows it, marked *Tip*. Tap **Book again** to start a new quote with the same karigar.
+12. **Pickup time**: on the last booking step, choose when the Saathi comes; the Saathi app shows it on the trip.
+13. **Your location**: sign up with **Use my current location** (or set it later in **Profile**). The map, distances and pickup fees then start from your home. The sample karigars are placed around you, keeping their real distances, so the demo works wherever you are.
 
 ## Run it locally
 

@@ -36,9 +36,11 @@ export interface Karigar {
   bio: string;
   craft: string;
   services: { name: string; price: number }[];
-  reviews: { name: string; rating: number; text: string }[];
+  reviews: { name: string; rating: number; text: string; at?: string; /** From a real, delivered Sudhaar order. */ verified?: boolean }[];
   /** Joined through the onboarding flow (not demo seed data). */
   onboarded?: boolean;
+  /** How many ratings `rating` is based on; filled in from orders (lib/reviews.ts). */
+  ratingCount?: number;
 }
 
 /** A karigar ("Join as a karigar") or Saathi ("Become a Repair Saathi") applying, reviewed by the Sudhaar team. */
@@ -141,6 +143,8 @@ export interface PriceChange {
 
 export interface PayoutLine {
   to: "karigar" | "saathi";
+  /** A thank-you tip from the customer, paid separately after delivery. */
+  kind?: "tip";
   /** Which karigar / Saathi was paid, for their earnings history. */
   partnerId?: string;
   /** Who received it (shop or Saathi name), for baskets paying several karigars. */
@@ -197,6 +201,34 @@ export interface Job {
   completionCheck?: CompletionCheck;
 }
 
+/** The customer's rating of a karigar after delivery. */
+export interface Rating {
+  karigarId: string;
+  stars: number;
+  text: string;
+  at: string;
+}
+
+/** A thank-you tip: paid now with PayPal (intent CAPTURE), then 100% paid out to the karigar. */
+export interface Tip {
+  id: string;
+  karigarId: string;
+  /** USD, as PayPal handles it. */
+  amount: number;
+  status: "awaiting_payment" | "paid";
+  paypalOrderId?: string;
+  captureId?: string;
+  payoutBatchId?: string;
+  createdAt: string;
+  paidAt?: string;
+}
+
+/** When the Saathi should come (or the plumber/electrician visit), as an ISO time window. */
+export interface PickupSlot {
+  start: string;
+  end: string;
+}
+
 /** Family Pay: someone else (e.g. a son in another city) approves the PayPal payment. */
 export interface FamilyPay {
   /** Secret in the payment link, so a relative can pay without an account but nobody can guess other orders. */
@@ -251,6 +283,9 @@ export interface Order {
   };
   /** The karigar's price change after inspecting the item; the customer must approve it. */
   priceChange?: PriceChange;
+  pickupSlot?: PickupSlot;
+  ratings?: Rating[];
+  tips?: Tip[];
   beforePhoto?: string;
   afterPhoto?: string;
   completionCheck?: CompletionCheck;

@@ -23,7 +23,7 @@ export function KarigarCard({ k, distanceKm }: { k: Karigar; distanceKm?: number
       <p className="line-clamp-2 text-xs italic text-muted-foreground">&ldquo;{k.bio}&rdquo;</p>
       <div className="flex items-center gap-3 text-xs">
         <span className="flex items-center gap-1 font-semibold text-gold">
-          <Star className="size-3.5 fill-gold" /> {k.jobsDone > 0 ? k.rating.toFixed(1) : t("newKarigar")}
+          <Star className="size-3.5 fill-gold" /> {k.ratingCount ? k.rating.toFixed(1) : t("newKarigar")}
         </span>
         <span className="text-muted-foreground">{t("kpYears", { n: k.yearsExperience })}</span>
         {distanceKm !== undefined && (

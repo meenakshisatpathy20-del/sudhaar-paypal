@@ -13,7 +13,7 @@ export type PartnerData = {
   role: "karigar" | "saathi";
   profile: { id: string; name: string; shop?: string; rating: number; jobsDone?: number };
   online: boolean;
-  earnings: { orderId: string; item: string; amount: number; status: string; batchId?: string; at: string }[];
+  earnings: { orderId: string; item: string; amount: number; status: string; tip?: boolean; batchId?: string; at: string }[];
   totalEarned: number;
   partners?: { karigars: { id: string; name: string }[]; saathis: { id: string; name: string }[] };
 };
@@ -103,9 +103,12 @@ export function EarningsList({ data }: { data: PartnerData }) {
   return (
     <div className="paper divide-y divide-border rounded-2xl px-4">
       {data.earnings.map((e) => (
-        <div key={`${e.orderId}-${e.amount}`} className="flex items-center justify-between gap-3 py-3 text-sm">
+        <div key={`${e.orderId}-${e.amount}-${e.batchId}`} className="flex items-center justify-between gap-3 py-3 text-sm">
           <div className="min-w-0">
-            <p className="truncate font-medium">{e.item}</p>
+            <p className="truncate font-medium">
+              {e.tip && <span className="mr-1.5 rounded-full bg-marigold/20 px-1.5 text-[10px] font-semibold text-[#7a4a06]">{t("earnTip")}</span>}
+              {e.item}
+            </p>
             <p className="text-[11px] text-muted-foreground">
               {t("kaPaidOn", { date: new Date(e.at).toLocaleDateString(langMeta(lang).locale) })} · <span className="font-mono">{e.batchId}</span>
             </p>

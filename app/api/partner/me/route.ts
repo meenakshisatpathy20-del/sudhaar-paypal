@@ -21,7 +21,19 @@ export function GET(req: Request) {
     const earnings = db.orders.flatMap((o) =>
       o.payouts
         .filter((p) => (p.partnerId ? p.partnerId === id : p.label === label))
-        .map((p) => ({ orderId: o.id, item: o.kind === "basket" ? `Ghar Safai basket (${o.jobs?.length} items)` : o.item, amount: p.amount, status: p.status, batchId: o.paypal.payoutBatchId, at: o.events.findLast((e) => e.status === "paid_out")?.at ?? o.createdAt })),
+        .map((p) => {
+          // A thank-you tip has its own PayPal payout batch and date.
+          const tip = p.kind === "tip" ? o.tips?.find((x) => x.status === "paid" && x.karigarId === p.partnerId && x.amount === p.amount) : undefined;
+          return {
+            orderId: o.id,
+            item: o.kind === "basket" ? `Ghar Safai basket (${o.jobs?.length} items)` : o.item,
+            amount: p.amount,
+            status: p.status,
+            tip: Boolean(tip),
+            batchId: tip ? tip.payoutBatchId : o.paypal.payoutBatchId,
+            at: tip?.paidAt ?? o.events.findLast((e) => e.status === "paid_out")?.at ?? o.createdAt,
+          };
+        }),
     );
     return ok({
       role: karigar ? "karigar" : "saathi",

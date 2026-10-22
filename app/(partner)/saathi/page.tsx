@@ -6,6 +6,7 @@ import { api } from "@/components/api";
 import { rupees } from "@/components/Inr";
 import { useLang } from "@/components/LanguageProvider";
 import { EarningsList, PartnerHeader, Tabs2, usePartner } from "@/components/partner/PartnerHome";
+import { SlotLine } from "@/components/SlotLine";
 import { StatusPill } from "@/components/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,6 +90,7 @@ function Trip({ order, karigars, onDone }: { order: Order; karigars: Record<stri
           <p className="text-xs text-muted-foreground">
             {order.distanceKm} km · {t("saEarn", { amount: rupees(order.split.saathi) })}
           </p>
+          {order.status === "authorized" && <SlotLine order={order} className="mt-1" />}
         </div>
         <StatusPill status={order.status} />
       </div>
