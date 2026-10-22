@@ -39,6 +39,17 @@ async function accessToken(): Promise<string> {
   return token.value;
 }
 
+/** Asks PayPal for a fresh access token: proves the Client ID and Secret work. */
+export async function verifyPayPalKeys(): Promise<{ ok: true } | { ok: false; status?: number; message: string }> {
+  token = null;
+  try {
+    await accessToken();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, status: (e as PayPalError).status, message: (e as Error).message };
+  }
+}
+
 async function pp<T = Record<string, unknown>>(
   path: string,
   init: { method?: string; body?: unknown; requestId?: string } = {},

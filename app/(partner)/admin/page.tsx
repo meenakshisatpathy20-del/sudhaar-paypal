@@ -7,6 +7,7 @@ import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type ICel
 import { api, money } from "@/components/api";
 import { STATUS_LABEL } from "@/components/StatusPill";
 import { CATEGORY_LABEL } from "@/lib/pricing";
+import type { HealthReport, ServiceStatus } from "@/lib/health";
 import type { Complaint, CompletionCheck, Karigar, KarigarApplication, Order, Saathi } from "@/lib/types";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -247,6 +248,7 @@ export default function Admin() {
           Reset demo data
         </button>
       </div>
+      <SystemCheck />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-8">
         {[
           ["Repairs completed", String(i.itemsRepaired)],
@@ -517,6 +519,49 @@ function Applications({ apps: fromServer, onDone }: { apps: KarigarApplication[]
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** Are PayPal and Gemini accepting our keys? Shows the reason and the fix when they aren't. */
+function SystemCheck() {
+  const [health, setHealth] = useState<HealthReport | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = (fresh: boolean) => {
+    setBusy(true);
+    setError(null);
+    api<{ health: HealthReport }>("/api/health", fresh ? {} : undefined)
+      .then((r) => setHealth(r.health))
+      .catch((e) => setError((e as Error).message))
+      .finally(() => setBusy(false));
+  };
+  useEffect(() => run(false), []);
+  const tone = (s: ServiceStatus) => (s.state === "live" ? "bg-teal/10 ring-teal/30" : s.state === "problem" ? "bg-destructive/10 ring-destructive/30" : "bg-marigold/15 ring-marigold/30");
+  const label = (s: ServiceStatus) => (s.state === "live" ? "Live" : s.state === "problem" ? "Needs attention" : "Simulated");
+  return (
+    <div className="paper space-y-2 rounded-2xl p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-bold">System check</h2>
+        <button className="rounded-xl px-3 py-1.5 text-xs font-semibold ring-1 ring-border hover:bg-muted disabled:opacity-50" disabled={busy} onClick={() => run(true)}>
+          {busy ? "Checking…" : "Run check again"}
+        </button>
+      </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {health && (
+        <div className="grid gap-2 md:grid-cols-2">
+          {([["PayPal", health.paypal], ["Gemini AI", health.gemini]] as const).map(([name, st]) => (
+            <div key={name} className={`space-y-1 rounded-xl p-3 text-sm ring-1 ${tone(st)}`}>
+              <p className="font-semibold">
+                {name}: {label(st)}
+              </p>
+              <p className="text-muted-foreground">{st.detail}</p>
+              {st.fix && st.state !== "live" && <p className="text-xs"><b>Fix:</b> {st.fix}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+      {health && <p className="text-[11px] text-muted-foreground">Checked {new Date(health.checkedAt).toLocaleTimeString()}. After changing keys on the server, press Run check again.</p>}
     </div>
   );
 }
