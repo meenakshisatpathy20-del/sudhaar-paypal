@@ -3,7 +3,7 @@ import type { Content, FunctionDeclaration, Part } from "@google/genai";
 import { PayPalAgentToolkit } from "@paypal/agent-toolkit/openai";
 import { aiEnabled, config, paypalEnabled } from "./config";
 import { readDB } from "./db";
-import { generate, geminiSchema, isRateLimit, isTimeout } from "./llm";
+import { generate, geminiSchema, isOverloaded, isRateLimit, isTimeout } from "./llm";
 import { slotLabel } from "./slots";
 import { INR_PER_USD } from "./pricing";
 import { advance, createBasketOrder, createOrder, createQuote, familyPayPath, FlowError, offersFor, raiseComplaint, resolveComplaint } from "./orders";
@@ -274,6 +274,7 @@ export async function agentTurn(input: { customer: Account; sessionId?: string; 
     if (e instanceof FlowError) throw e;
     if (isRateLimit(e)) throw new FlowError("The AI is busy right now (usage limit reached). Please try again in a minute.", 429);
     if (isTimeout(e)) throw new FlowError("The AI took too long to reply. Please try again.", 504);
+    if (isOverloaded(e)) throw new FlowError("The AI is very busy right now. Please try again in a minute.", 503);
     console.error("Repair Agent failed:", (e as Error).message);
     throw new FlowError("The AI couldn't answer just now. Please try again.", 502);
   }

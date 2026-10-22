@@ -16,8 +16,35 @@ export const gemini = () =>
 // a chat. Models that don't accept the setting get the request again without it.
 let thinkingSupported = true;
 
-/** generateContent with low thinking where the model supports it. */
+/** True when Google says the model is overloaded or briefly unavailable (usually passes in seconds). */
+export const isOverloaded = (e: unknown) => {
+  const status = (e as { status?: number })?.status;
+  return status === 503 || status === 500 || /UNAVAILABLE|overloaded|high demand/i.test(String((e as Error)?.message ?? ""));
+};
+
+const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * generateContent that rides out Google's short "high demand" spells: one quick retry, then the
+ * lighter fallback model. Low thinking where the model supports it.
+ */
 export async function generate(params: GenerateContentParameters): Promise<GenerateContentResponse> {
+  try {
+    return await generateOnce(params);
+  } catch (e) {
+    if (!isOverloaded(e)) throw e;
+  }
+  await pause(1500);
+  try {
+    return await generateOnce(params);
+  } catch (e) {
+    if (!isOverloaded(e) || !config.ai.fallbackModel || config.ai.fallbackModel === params.model) throw e;
+    console.warn(`Gemini ${params.model} is overloaded; using ${config.ai.fallbackModel} for this request.`);
+  }
+  return generateOnce({ ...params, model: config.ai.fallbackModel });
+}
+
+async function generateOnce(params: GenerateContentParameters): Promise<GenerateContentResponse> {
   if (thinkingSupported) {
     try {
       return await gemini().models.generateContent({ ...params, config: { ...params.config, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } } });
