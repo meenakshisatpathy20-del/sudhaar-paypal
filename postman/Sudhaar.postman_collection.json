@@ -20,7 +20,7 @@
             "config"
           ]
         },
-        "description": "Shows whether the server talks to the PayPal sandbox and Claude, or runs simulated."
+        "description": "Shows whether the server talks to the PayPal sandbox and Gemini, or runs simulated."
       }
     },
     {

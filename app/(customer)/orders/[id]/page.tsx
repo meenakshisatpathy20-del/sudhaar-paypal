@@ -447,7 +447,7 @@ function PriceChangeCard({ order, onChange }: { order: Order; onChange: () => vo
 /** Customer-facing view of the before/after check that gates the PayPal capture. */
 function PhotoCheck({ check, compact }: { check: CompletionCheck; compact?: boolean }) {
   const { t } = useLang();
-  const by = check.source === "admin" ? t("oByTeam") : check.source === "claude" ? t("oByAi") : t("oBySim");
+  const by = check.source === "admin" ? t("oByTeam") : check.source === "simulated" ? t("oBySim") : t("oByAi");
   const [tone, title, body] = check.passed
     ? ["bg-teal/10 text-teal", t("oVerified", { by }), check.source === "admin" ? t("oAdminApproved") : check.reasoning]
     : check.needsReview
@@ -554,7 +554,7 @@ function ResolveHub({ order, refunded, onChange }: { order: Order; refunded: num
                   {t("oAiRecommends")} {t(`oRec_${c.ai.recommendation}`)}
                   {c.ai.refundAmount ? ` ${rupees(c.ai.refundAmount)}` : ""}
                 </b>{" "}
-                ({c.ai.source === "claude" ? t("oByAi") : t("oBySim")}): {c.ai.reasoning}
+                ({c.ai.source === "simulated" ? t("oBySim") : t("oByAi")}): {c.ai.reasoning}
               </p>
             )}
             {c.resolution ? (

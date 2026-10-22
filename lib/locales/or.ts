@@ -425,7 +425,7 @@ const dict: Dict = {
   locSet: "ଲୋକେସନ ସେଟ କରନ୍ତୁ",
   footerLine: "Sudhaar · ଫିଙ୍ଗନ୍ତୁ ନାହିଁ, ମରାମତି କରାନ୍ତୁ · PayPal ସ୍ୟାଣ୍ଡବକ୍ସରେ ଚାଲେ, ତେଣୁ ପ୍ରକୃତ ଟଙ୍କା କଟେ ନାହିଁ।",
   footerCare: "ସ୍ଥାନୀୟ କାରିଗରଙ୍କ ପାଇଁ ଯତ୍ନରେ ତିଆରି।",
-  agentNeedsKey: "AI ଏଜେଣ୍ଟ ପାଇଁ ସର୍ଭରରେ ANTHROPIC_API_KEY ଦରକାର।",
+  agentNeedsKey: "AI ଏଜେଣ୍ଟ ପାଇଁ ସର୍ଭରରେ GEMINI_API_KEY ଦରକାର।",
   attachPhoto: "ଫଟୋ ସଂଲଗ୍ନ କରନ୍ତୁ",
   gharErrVisit: "\"{item}\" ପାଇଁ ଘରକୁ ଆସିବାକୁ ହେବ, ତେଣୁ ହୋମ ଟ୍ୟାବରୁ ବୁକ କରନ୍ତୁ।",
   gharErrNotWorth: "\"{item}\" ମରାମତି କରିବା ଲାଭଜନକ ଲାଗୁନାହିଁ, ତେଣୁ ଯୋଡ଼ାଗଲା ନାହିଁ।",

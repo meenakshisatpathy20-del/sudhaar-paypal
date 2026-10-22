@@ -1,14 +1,15 @@
 import crypto from "node:crypto";
-import Anthropic from "@anthropic-ai/sdk";
+import type { Content, FunctionDeclaration, Part } from "@google/genai";
 import { PayPalAgentToolkit } from "@paypal/agent-toolkit/openai";
 import { aiEnabled, config, paypalEnabled } from "./config";
 import { readDB } from "./db";
+import { gemini, geminiSchema, isRateLimit } from "./llm";
 import { INR_PER_USD } from "./pricing";
 import { advance, createBasketOrder, createOrder, createQuote, familyPayPath, FlowError, offersFor, raiseComplaint, resolveComplaint } from "./orders";
 import { type Lang, langMeta } from "./i18n";
 import type { Account, Complaint, Order } from "./types";
 
-// Sudhaar Repair Agent: a Claude tool-use loop that acts for the customer.
+// Sudhaar Repair Agent: a Gemini function-calling loop that acts for the customer.
 // It quotes, picks the best karigar against the customer's budget/deadline, books the job and
 // creates the PayPal order (intent AUTHORIZE), tracks it, files warranty claims and issues small
 // refunds within a hard-coded policy limit. Read-only PayPal lookups (orders, invoices, refunds,
@@ -23,7 +24,8 @@ type Card =
   | { type: "refund"; orderId: string; amount: number; refundId?: string };
 
 interface Session {
-  messages: Anthropic.Beta.BetaMessageParam[];
+  /** The conversation as Gemini sees it (model turns kept whole, including thought signatures). */
+  messages: Content[];
   photo?: string;
   updatedAt: number;
   /** A conversation belongs to one customer account and can only touch their orders. */
@@ -31,8 +33,6 @@ interface Session {
 }
 
 const sessions = new Map<string, Session>();
-let client: Anthropic | null = null;
-const claude = () => (client ??= new Anthropic());
 
 let toolkit: PayPalAgentToolkit | null = null;
 function paypalToolkit() {
@@ -69,11 +69,11 @@ You act on the customer's behalf, not just advise:
 Keep replies short and friendly (2-5 sentences), because they are often read aloud by voice. Use plain language and reply in the language the customer uses (English, Hindi or another Indian language). Never invent order ids, prices or PayPal ids: only use what tools return.
 Money: tools work in USD because PayPal sandbox settles in USD. Speak to the customer in rupees, converting at ₹${INR_PER_USD} per $1 and rounding to the nearest rupee (e.g. "₹338, which PayPal charges as $3.98" for a total). If the customer gives a budget in rupees, convert it to USD before comparing offers.`;
 
-const CUSTOM_TOOLS: Anthropic.Beta.BetaTool[] = [
+const CUSTOM_TOOLS: FunctionDeclaration[] = [
   {
     name: "get_repair_quote",
     description: "Estimate the repair (AI vision on the attached photo and/or the description) and list nearby verified karigars with price, pickup fee, distance and ready time, sorted by best value.",
-    input_schema: {
+    parametersJsonSchema: {
       type: "object",
       properties: {
         description: { type: "string", description: "What is broken, in the customer's words" },
@@ -86,7 +86,7 @@ const CUSTOM_TOOLS: Anthropic.Beta.BetaTool[] = [
   {
     name: "book_repair",
     description: "Book the chosen karigar for a quote and create the PayPal order (intent AUTHORIZE). The customer then approves the payment in PayPal.",
-    input_schema: {
+    parametersJsonSchema: {
       type: "object",
       properties: {
         quote_id: { type: "string" },
@@ -102,7 +102,7 @@ const CUSTOM_TOOLS: Anthropic.Beta.BetaTool[] = [
   {
     name: "book_ghar_safai_basket",
     description: "Ghar Safai Mode: book several quoted items together with one Saathi pickup and ONE PayPal payment that is split to each karigar. Use when the customer has more than one item to fix.",
-    input_schema: {
+    parametersJsonSchema: {
       type: "object",
       properties: {
         items: {
@@ -119,17 +119,17 @@ const CUSTOM_TOOLS: Anthropic.Beta.BetaTool[] = [
   {
     name: "get_order_status",
     description: "Get the live status, timeline and PayPal ids (authorization, capture, payout, invoice, refunds) of a Sudhaar order.",
-    input_schema: { type: "object", properties: { order_id: { type: "string" } }, required: ["order_id"], additionalProperties: false },
+    parametersJsonSchema: { type: "object", properties: { order_id: { type: "string" } }, required: ["order_id"], additionalProperties: false },
   },
   {
     name: "cancel_booking",
     description: "Cancel a booking before pickup. Voids the PayPal authorization so no money is taken.",
-    input_schema: { type: "object", properties: { order_id: { type: "string" } }, required: ["order_id"], additionalProperties: false },
+    parametersJsonSchema: { type: "object", properties: { order_id: { type: "string" } }, required: ["order_id"], additionalProperties: false },
   },
   {
     name: "raise_warranty_claim",
     description: "File a Resolve Hub complaint for a delivered order. The PayPal invoice is attached automatically and an AI reviewer recommends re-repair or a refund.",
-    input_schema: {
+    parametersJsonSchema: {
       type: "object",
       properties: {
         order_id: { type: "string" },
@@ -143,7 +143,7 @@ const CUSTOM_TOOLS: Anthropic.Beta.BetaTool[] = [
   {
     name: "issue_refund",
     description: `Issue a PayPal refund for an open complaint whose AI review recommended a refund. Only works up to $${AUTO_REFUND_LIMIT}; larger amounts are escalated.`,
-    input_schema: {
+    parametersJsonSchema: {
       type: "object",
       properties: { order_id: { type: "string" }, complaint_id: { type: "string" } },
       required: ["order_id", "complaint_id"],
@@ -254,7 +254,7 @@ async function runCustomTool(name: string, input: Record<string, unknown>, sessi
 
 export async function agentTurn(input: { customer: Account; sessionId?: string; message: string; photo?: string; lang?: Lang }) {
   if (!aiEnabled()) {
-    throw new FlowError("The Repair Agent needs ANTHROPIC_API_KEY. The rest of Sudhaar works without it.", 503);
+    throw new FlowError("The Repair Agent needs GEMINI_API_KEY. The rest of Sudhaar works without it.", 503);
   }
   const existing = input.sessionId ? sessions.get(input.sessionId) : undefined;
   const sessionId = existing && existing.accountId === input.customer.id ? input.sessionId! : crypto.randomUUID();
@@ -263,64 +263,63 @@ export async function agentTurn(input: { customer: Account; sessionId?: string; 
   if (input.photo) session.photo = input.photo;
   const meta = langMeta(input.lang ?? "en");
   const langNote = meta.code === "en" ? "" : `\n\n[The customer's app is set to ${meta.english}: reply in simple ${meta.english} (${meta.native} script). Show prices in rupees (₹).]`;
-  session.messages.push({ role: "user", content: `${input.message}${input.photo ? "\n\n[Customer attached a photo of the item]" : ""}${langNote}` });
+  session.messages.push({ role: "user", parts: [{ text: `${input.message}${input.photo ? "\n\n[Customer attached a photo of the item]" : ""}${langNote}` }] });
 
   const tk = paypalToolkit();
-  const ppTools: Anthropic.Beta.BetaTool[] = (tk?.getTools() ?? []).map((t) => ({
+  const ppTools: FunctionDeclaration[] = (tk?.getTools() ?? []).map((t) => ({
     name: t.function.name,
     description: t.function.description ?? "",
-    input_schema: (t.function.parameters ?? { type: "object", properties: {} }) as Anthropic.Beta.BetaTool.InputSchema,
+    parametersJsonSchema: geminiSchema(t.function.parameters ?? { type: "object", properties: {} }),
   }));
   const ppToolNames = new Set(ppTools.map((t) => t.name));
-  const tools = [...CUSTOM_TOOLS, ...ppTools];
+  let tools = [...CUSTOM_TOOLS, ...ppTools];
 
   const cards: Card[] = [];
   const steps: { tool: string; ok: boolean; paypalToolkit: boolean }[] = [];
 
   for (let i = 0; i < 10; i++) {
-    const res = await claude().beta.messages.create({
-      model: config.ai.model,
-      max_tokens: 16000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      output_config: { effort: "medium" },
-      system: SYSTEM,
-      tools,
-      messages: session.messages,
-    });
-    session.messages.push({ role: "assistant", content: res.content });
-
-    if (res.stop_reason === "refusal") return finish("Sorry, I can't help with that request.");
-    if (res.stop_reason === "pause_turn") continue;
-    const uses = res.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use");
-    if (res.stop_reason !== "tool_use" || uses.length === 0) {
-      const text = res.content
-        .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
-        .map((b) => b.text)
-        .join("\n")
-        .trim();
-      return finish(text || "Done.");
+    let res;
+    try {
+      res = await gemini().models.generateContent({ model: config.ai.model, contents: session.messages, config: { systemInstruction: SYSTEM, tools: [{ functionDeclarations: tools }] } });
+    } catch (e) {
+      if (isRateLimit(e)) throw new FlowError("The AI is busy right now (usage limit reached). Please try again in a minute.", 429);
+      // If Gemini rejects a PayPal toolkit schema, carry on with Sudhaar's own tools instead of failing.
+      if ((e as { status?: number }).status === 400 && tools.length > CUSTOM_TOOLS.length) {
+        console.error("Gemini rejected the tool list; retrying without PayPal toolkit tools:", (e as Error).message);
+        tools = CUSTOM_TOOLS;
+        i--;
+        continue;
+      }
+      throw e;
     }
+    const turn = res.candidates?.[0]?.content;
+    if (!turn?.parts?.length) return finish("Sorry, I can't help with that request.");
+    session.messages.push({ role: "model", parts: turn.parts });
 
-    const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
-    for (const use of uses) {
-      const args = (use.input ?? {}) as Record<string, unknown>;
+    const calls = res.functionCalls ?? [];
+    if (calls.length === 0) return finish(res.text?.trim() || "Done.");
+
+    const results: Part[] = [];
+    for (const call of calls) {
+      const name = call.name ?? "";
+      const args = (call.args ?? {}) as Record<string, unknown>;
+      const viaToolkit = ppToolNames.has(name);
       try {
         let out: unknown;
-        if (ppToolNames.has(use.name) && tk) {
-          const r = await tk.handleToolCall({ id: use.id, type: "function", function: { name: use.name, arguments: JSON.stringify(args) } });
+        if (viaToolkit && tk) {
+          const r = await tk.handleToolCall({ id: call.id ?? crypto.randomUUID(), type: "function", function: { name, arguments: JSON.stringify(args) } });
           out = r.content;
         } else {
-          out = await runCustomTool(use.name, args, session, cards, input.customer);
+          out = await runCustomTool(name, args, session, cards, input.customer);
         }
-        steps.push({ tool: use.name, ok: true, paypalToolkit: ppToolNames.has(use.name) });
-        results.push({ type: "tool_result", tool_use_id: use.id, content: typeof out === "string" ? out : JSON.stringify(out) });
+        steps.push({ tool: name, ok: true, paypalToolkit: viaToolkit });
+        results.push({ functionResponse: { id: call.id, name, response: { output: asJson(out) } } });
       } catch (e) {
-        steps.push({ tool: use.name, ok: false, paypalToolkit: ppToolNames.has(use.name) });
-        results.push({ type: "tool_result", tool_use_id: use.id, is_error: true, content: (e as Error).message });
+        steps.push({ tool: name, ok: false, paypalToolkit: viaToolkit });
+        results.push({ functionResponse: { id: call.id, name, response: { error: (e as Error).message } } });
       }
     }
-    session.messages.push({ role: "user", content: results });
+    session.messages.push({ role: "user", parts: results });
   }
   return finish("I hit my step limit for this request. Please try again with a little more detail.");
 
@@ -328,6 +327,16 @@ export async function agentTurn(input: { customer: Account; sessionId?: string; 
     session.updatedAt = Date.now();
     pruneSessions();
     return { sessionId, reply, cards, steps };
+  }
+}
+
+/** Tool results go back to Gemini as JSON where possible. */
+function asJson(out: unknown) {
+  if (typeof out !== "string") return out;
+  try {
+    return JSON.parse(out);
+  } catch {
+    return out;
   }
 }
 

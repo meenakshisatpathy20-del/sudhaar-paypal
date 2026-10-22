@@ -100,7 +100,7 @@ export interface Quote {
   notes: string;
   photo?: string;
   description?: string;
-  source: "claude" | "simulated";
+  source: "gemini" | "simulated";
 }
 
 export type OrderStatus =
@@ -161,7 +161,7 @@ export interface Complaint {
     recommendation: "re_repair" | "partial_refund" | "full_refund" | "reject";
     refundAmount: number;
     reasoning: string;
-    source: "claude" | "simulated";
+    source: "gemini" | "simulated";
   };
   resolution?: {
     action: "re_repair" | "refund" | "rejected";
@@ -175,7 +175,7 @@ export interface Complaint {
 export interface CompletionCheck {
   passed: boolean;
   reasoning: string;
-  source: "claude" | "simulated" | "admin";
+  source: "gemini" | "simulated" | "admin";
   /** True when the AI could not decide (or failed) and a Sudhaar reviewer must compare the photos. */
   needsReview?: boolean;
 }

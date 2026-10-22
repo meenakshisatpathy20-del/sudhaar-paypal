@@ -18,8 +18,9 @@ export const config = {
     customerEmail: process.env.PAYPAL_CUSTOMER_EMAIL ?? "customer@example.com",
   },
   ai: {
-    apiKeyPresent: Boolean(process.env.ANTHROPIC_API_KEY),
-    model: process.env.AI_MODEL ?? "claude-opus-5-5",
+    // Google Gemini (aistudio.google.com). "gemini-flash-latest" follows Google's current Flash model.
+    apiKey: process.env.GEMINI_API_KEY ?? "",
+    model: process.env.AI_MODEL || "gemini-flash-latest",
   },
   demoCenter: {
     lat: num(process.env.DEMO_CENTER_LAT, 12.9716),
@@ -30,4 +31,4 @@ export const config = {
 };
 
 export const paypalEnabled = () => Boolean(config.paypal.clientId && config.paypal.clientSecret);
-export const aiEnabled = () => config.ai.apiKeyPresent;
+export const aiEnabled = () => Boolean(config.ai.apiKey);

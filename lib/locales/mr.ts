@@ -425,7 +425,7 @@ const dict: Dict = {
   locSet: "लोकेशन सेट करा",
   footerLine: "Sudhaar · फेकू नका, दुरुस्त करा · PayPal सँडबॉक्सवर चालतं, त्यामुळे खरे पैसे कापले जात नाहीत.",
   footerCare: "स्थानिक कारागिरांसाठी प्रेमाने बनवलं.",
-  agentNeedsKey: "AI एजंटसाठी सर्व्हरवर ANTHROPIC_API_KEY हवा.",
+  agentNeedsKey: "AI एजंटसाठी सर्व्हरवर GEMINI_API_KEY हवा.",
   attachPhoto: "फोटो जोडा",
   gharErrVisit: "\"{item}\" साठी घरी भेट लागेल, म्हणून ते होम टॅबमधून बुक करा.",
   gharErrNotWorth: "\"{item}\" दुरुस्त करणं फायद्याचं वाटत नाही, म्हणून ते जोडलं नाही.",

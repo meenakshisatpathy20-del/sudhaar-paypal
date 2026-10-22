@@ -1,50 +1,31 @@
 import fs from "node:fs";
 import path from "node:path";
-import Anthropic from "@anthropic-ai/sdk";
-import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
+import type { Part } from "@google/genai";
 import * as z from "zod/v4";
-import { aiEnabled, config } from "./config";
+import { aiEnabled } from "./config";
 import { uploadsDir } from "./db";
+import { structured } from "./llm";
 import { REFERENCE, round2 } from "./pricing";
 import type { Category, CompletionCheck, ItemSize, Order } from "./types";
 
-// Claude powers three decisions in Sudhaar:
+// Gemini powers three decisions in Sudhaar:
 //   1. Snap & Quote   - photo -> item, damage, repair-cost range vs. new price
 //   2. Completion check - before/after photos -> is the repair really done? (gates the PayPal capture)
 //   3. Resolve Hub     - complaint + bill + photos -> re-repair / refund recommendation
-// Without ANTHROPIC_API_KEY each falls back to a deterministic, clearly labelled simulation.
+// Without GEMINI_API_KEY (or if Gemini is busy) each falls back to a clearly labelled, safe default.
 
 const CATEGORIES = ["shoes", "bags", "clothes", "small-appliance", "electronics", "furniture", "plumbing", "electrical"] as const;
 
-let client: Anthropic | null = null;
-const claude = () => (client ??= new Anthropic());
+const text = (t: string): Part => ({ text: t });
 
-type ImageBlock = Anthropic.Beta.BetaImageBlockParam;
-
-function imageBlock(file?: string): ImageBlock[] {
+function imageBlock(file?: string): Part[] {
   if (!file) return [];
   const safe = path.basename(file);
   const full = path.join(uploadsDir(), safe);
   if (!fs.existsSync(full)) return [];
   const ext = path.extname(safe).toLowerCase();
-  const media_type = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
-  return [{ type: "image", source: { type: "base64", media_type, data: fs.readFileSync(full).toString("base64") } }];
-}
-
-async function ask<S extends z.ZodType>(schema: S, system: string, content: Anthropic.Beta.BetaContentBlockParam[], effort: "low" | "medium") {
-  const res = await claude().beta.messages.parse({
-    model: config.ai.model,
-    max_tokens: 4000,
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
-    output_config: { effort, format: betaZodOutputFormat(schema) },
-    system,
-    messages: [{ role: "user", content }],
-  });
-  if (res.stop_reason === "refusal" || !res.parsed_output) {
-    throw new Error(`Claude returned no structured output (stop_reason: ${res.stop_reason})`);
-  }
-  return res.parsed_output as z.infer<S>;
+  const mimeType = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
+  return [{ inlineData: { mimeType, data: fs.readFileSync(full).toString("base64") } }];
 }
 
 // ---------- 1. Snap & Quote ----------
@@ -62,7 +43,7 @@ const QuoteSchema = z.object({
   confidence: z.enum(["low", "medium", "high"]),
   notes: z.string().describe("One sentence the customer should know, e.g. what the karigar will confirm on inspection"),
 });
-export type QuoteResult = z.infer<typeof QuoteSchema> & { source: "claude" | "simulated"; warning?: string };
+export type QuoteResult = z.infer<typeof QuoteSchema> & { source: "gemini" | "simulated"; warning?: string };
 
 const QUOTE_SYSTEM = `You are the estimator for Sudhaar, a doorstep repair service that connects households with local informal repairers (karigars) such as cobblers, tailors and small-appliance repairers in Indian cities.
 Given a photo and/or description of a broken household item, identify it and estimate a fair local repair price range.
@@ -73,16 +54,11 @@ The estimate is a range; the karigar confirms the final price after inspecting t
 export async function quoteItem(input: { photo?: string; description?: string; category?: Category }): Promise<QuoteResult> {
   if (aiEnabled()) {
     try {
-      const out = await ask(
-        QuoteSchema,
-        QUOTE_SYSTEM,
-        [
-          ...imageBlock(input.photo),
-          { type: "text", text: `Customer description: ${input.description?.trim() || "(none — use the photo)"}${input.category ? `\nCustomer says the item is in this category: ${input.category}` : ""}` },
-        ],
-        "low",
-      );
-      return { ...sanitiseQuote(out), source: "claude" };
+      const out = await structured(QuoteSchema, QUOTE_SYSTEM, [
+        ...imageBlock(input.photo),
+        text(`Customer description: ${input.description?.trim() || "(none — use the photo)"}${input.category ? `\nCustomer says the item is in this category: ${input.category}` : ""}`),
+      ]);
+      return { ...sanitiseQuote(out), source: "gemini" };
     } catch (e) {
       return { ...simulateQuote(input.description, input.category), warning: `AI unavailable, used estimate table: ${(e as Error).message}` };
     }
@@ -139,30 +115,23 @@ const CompletionSchema = z.object({
 export async function checkCompletion(order: Order): Promise<CompletionCheck> {
   if (aiEnabled() && order.afterPhoto) {
     try {
-      const out = await ask(
+      const out = await structured(
         CompletionSchema,
         "You verify repairs for Sudhaar before the customer's held PayPal payment is released to the karigar. Compare the BEFORE and AFTER photos. Pass only if the AFTER photo plausibly shows the same item with the reported problem fixed. If the before photo is missing, judge whether the after photo shows a sound, repaired item of the right kind.",
-        [
-          { type: "text", text: `Item: ${order.item}. Reported issue: ${order.issue}.` },
-          { type: "text", text: "BEFORE photo:" },
-          ...imageBlock(order.beforePhoto),
-          { type: "text", text: "AFTER photo:" },
-          ...imageBlock(order.afterPhoto),
-        ],
-        "low",
+        [text(`Item: ${order.item}. Reported issue: ${order.issue}.`), text("BEFORE photo:"), ...imageBlock(order.beforePhoto), text("AFTER photo:"), ...imageBlock(order.afterPhoto)],
       );
       // A failed check also goes to a human, so a karigar is never stuck on an AI mistake.
-      return { ...out, source: "claude", needsReview: !out.passed };
+      return { ...out, source: "gemini", needsReview: !out.passed };
     } catch (e) {
       // Never release money on an error: hold the payment and ask a person to compare the photos.
       console.error("Completion check failed:", (e as Error).message);
-      return { passed: false, needsReview: true, reasoning: "The AI photo check is unavailable right now.", source: "claude" };
+      return { passed: false, needsReview: true, reasoning: "The AI photo check is unavailable right now.", source: "gemini" };
     }
   }
   return {
     passed: Boolean(order.afterPhoto),
     reasoning: order.afterPhoto
-      ? "Simulated check: after-photo uploaded by the karigar. (Add ANTHROPIC_API_KEY for a real before/after comparison.)"
+      ? "Simulated check: after-photo uploaded by the karigar. (Add GEMINI_API_KEY for a real before/after comparison.)"
       : "No after photo uploaded.",
     source: "simulated",
   };
@@ -179,7 +148,7 @@ const ComplaintSchema = z.object({
 export async function reviewComplaint(
   order: Order,
   complaint: { issue: string; details: string; photo?: string },
-): Promise<{ recommendation: "re_repair" | "partial_refund" | "full_refund" | "reject"; refundAmount: number; reasoning: string; source: "claude" | "simulated" }> {
+): Promise<{ recommendation: "re_repair" | "partial_refund" | "full_refund" | "reject"; refundAmount: number; reasoning: string; source: "gemini" | "simulated" }> {
   const refundable = round2(order.total - order.paypal.refunds.reduce((s, r) => s + r.amount, 0));
   const clamp = (n: number) => Math.min(refundable, Math.max(0, round2(n)));
   if (aiEnabled()) {
@@ -196,7 +165,7 @@ export async function reviewComplaint(
         completionCheck: order.completionCheck,
         invoiceId: order.paypal.invoiceId,
       };
-      const out = await ask(
+      const out = await structured(
         ComplaintSchema,
         `You are Sudhaar's Resolve Hub reviewer. Sudhaar gives a 15-day repair warranty. Policy:
 - Same problem returned (repair_failed) within 15 days: prefer re_repair (free), or partial_refund of the repair charge if the customer does not want another repair.
@@ -207,14 +176,13 @@ export async function reviewComplaint(
 - Reject only if the evidence clearly contradicts the claim.
 Never recommend more than refundableRemaining. Be fair to both the customer and the karigar.`,
         [
-          { type: "text", text: `Digital bill (from the PayPal invoice):\n${JSON.stringify(bill, null, 2)}` },
-          { type: "text", text: `Complaint type: ${complaint.issue}\nCustomer says: ${complaint.details}` },
-          ...(order.afterPhoto ? [{ type: "text" as const, text: "Photo when delivered:" }, ...imageBlock(order.afterPhoto)] : []),
-          ...(complaint.photo ? [{ type: "text" as const, text: "Customer's complaint photo:" }, ...imageBlock(complaint.photo)] : []),
+          text(`Digital bill (from the PayPal invoice):\n${JSON.stringify(bill, null, 2)}`),
+          text(`Complaint type: ${complaint.issue}\nCustomer says: ${complaint.details}`),
+          ...(order.afterPhoto ? [text("Photo when delivered:"), ...imageBlock(order.afterPhoto)] : []),
+          ...(complaint.photo ? [text("Customer's complaint photo:"), ...imageBlock(complaint.photo)] : []),
         ],
-        "medium",
       );
-      return { ...out, refundAmount: out.recommendation === "re_repair" || out.recommendation === "reject" ? 0 : clamp(out.refundAmount), source: "claude" };
+      return { ...out, refundAmount: out.recommendation === "re_repair" || out.recommendation === "reject" ? 0 : clamp(out.refundAmount), source: "gemini" };
     } catch {
       // fall through to policy table
     }
@@ -230,7 +198,7 @@ Never recommend more than refundableRemaining. Be fair to both the customer and 
   return {
     recommendation: pick.recommendation,
     refundAmount: clamp(pick.amount),
-    reasoning: "Simulated decision from Sudhaar's warranty policy table (add ANTHROPIC_API_KEY for an AI review of the bill and photos).",
+    reasoning: "Simulated decision from Sudhaar's warranty policy table (add GEMINI_API_KEY for an AI review of the bill and photos).",
     source: "simulated",
   };
 }

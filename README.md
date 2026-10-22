@@ -29,7 +29,7 @@ Sudhaar fixes each of those problems:
 sequenceDiagram
   actor C as Customer
   participant S as Sudhaar
-  participant AI as Claude (AI)
+  participant AI as Gemini (AI)
   participant PP as PayPal sandbox
   actor K as Karigar
   actor R as Repair Saathi
@@ -53,10 +53,10 @@ sequenceDiagram
 ```
 
 ### Repair Agent (agentic commerce)
-`/agent` is a Claude tool-use agent that **acts for the customer**: *"My mixer jar blade is loose, get it fixed under $8 by Friday."* It quotes the job (with vision if a photo is attached), picks the karigar against the budget and deadline, **books it and creates the PayPal order**, tracks status, files warranty claims and **issues refunds up to a $5 policy limit that is enforced in code**. It uses **PayPal Agent Toolkit** tools for PayPal lookups (orders, invoices, refunds, transactions, disputes). The customer approves every payment in the PayPal popup, so the agent can never spend money on its own.
+`/agent` is a Gemini function-calling agent that **acts for the customer**: *"My mixer jar blade is loose, get it fixed under $8 by Friday."* It quotes the job (with vision if a photo is attached), picks the karigar against the budget and deadline, **books it and creates the PayPal order**, tracks status, files warranty claims and **issues refunds up to a $5 policy limit that is enforced in code**. It uses **PayPal Agent Toolkit** tools for PayPal lookups (orders, invoices, refunds, transactions, disputes). The customer approves every payment in the PayPal popup, so the agent can never spend money on its own.
 
 ### 🪔 Ghar Safai Mode (my favourite feature)
-Born from my mother's Diwali cleaning: walk around the house and snap every broken thing (a bag zip, a chappal, the mixer). Claude quotes each item, the best karigar is picked for each, **one Repair Saathi collects everything in one trip** (cheaper than separate pickups), and the customer makes **one PayPal payment**. On delivery PayPal captures it once and **Payouts splits it to every karigar for their own items** plus the Saathi. Each karigar repairs only their items in the Karigar app, with an AI photo check per item.
+Born from my mother's Diwali cleaning: walk around the house and snap every broken thing (a bag zip, a chappal, the mixer). Gemini quotes each item, the best karigar is picked for each, **one Repair Saathi collects everything in one trip** (cheaper than separate pickups), and the customer makes **one PayPal payment**. On delivery PayPal captures it once and **Payouts splits it to every karigar for their own items** plus the Saathi. Each karigar repairs only their items in the Karigar app, with an AI photo check per item.
 
 ### 💞 Family Pay
 Many parents live alone while their children work in other cities. A parent books the repair (even by voice), picks *Someone else pays*, and shares a WhatsApp link. The son or daughter opens `/pay/<order>` and **approves the PayPal payment from their own account**. The money is still only held until the item is back home.
@@ -97,14 +97,14 @@ All calls go to the PayPal **sandbox**. Every PayPal id appears on the order pag
 
 ## How AI is used in the product
 
-Claude (`claude-opus-5-5`, via the official `@anthropic-ai/sdk`) with structured outputs ([`lib/ai.ts`](lib/ai.ts)):
+Google **Gemini** (`gemini-flash-latest` by default, via Google's official `@google/genai` SDK) with JSON-schema structured outputs and function calling ([`lib/llm.ts`](lib/llm.ts), [`lib/ai.ts`](lib/ai.ts)). A free API key from Google AI Studio is enough to run it:
 
 1. **Snap & Quote**: vision → item, category, size, damage, repair price range, new price, turnaround, confidence.
 2. **Completion check**: compares before/after photos **before the PayPal capture is allowed**. If the AI rejects a repair or is unavailable, the money stays held and the photos go to a person in **Admin console → Photo checks**. An error never releases a payment.
 3. **Resolve Hub review**: reads the complaint, the PayPal invoice data and the photos, then recommends re-repair, partial refund or full refund under the warranty policy.
 4. **Repair Agent**: multi-step tool use that books and pays (see above).
 
-Without an `ANTHROPIC_API_KEY`, features 1–3 fall back to a deterministic estimator that is clearly labelled "Simulated" in the UI. The agent needs a key.
+Without a `GEMINI_API_KEY`, features 1–3 fall back to a deterministic estimator that is clearly labelled "Simulated" in the UI. The agent needs a key. If Gemini is busy or over its usage limit, quotes fall back to the price table, photo checks go to a person, and the agent asks the customer to try again in a minute.
 
 ## How I built it (and how I used AI)
 
@@ -176,8 +176,8 @@ The app also runs with an **empty `.env`**: PayPal and AI calls are then simulat
 | `PAYPAL_KARIGAR_EMAIL`, `PAYPAL_SAATHI_EMAIL` | for real payouts | Sandbox personal accounts that receive payouts |
 | `PAYPAL_CUSTOMER_EMAIL` | optional | Invoice recipient fallback |
 | `PAYPAL_WEBHOOK_ID` | optional | Enables webhook signature verification |
-| `ANTHROPIC_API_KEY` | for real AI + agent | Claude API key |
-| `AI_MODEL` | optional | Defaults to `claude-opus-5-5` |
+| `GEMINI_API_KEY` | for real AI + agent | Gemini API key from [Google AI Studio](https://aistudio.google.com/) (free tier available) |
+| `AI_MODEL` | optional | Defaults to `gemini-flash-latest` |
 | `SESSION_SECRET` | recommended in production | Signs login cookies. Render generates it (see `render.yaml`); locally a random one is saved in `DATA_DIR` |
 | `DEMO_CENTER_LAT/LNG`, `DATA_DIR` | optional | Demo location and data folder |
 
@@ -191,8 +191,9 @@ app/api/            auth, me, quote, baskets, orders (+approve/action/price/pric
 components/         UI (shadcn/ui components, doodles, three.js hero, PayPal SDK v6 checkout, voice, map, Family Pay, Fix-or-Replace meter…)
 lib/
   paypal.ts         PayPal REST client (Orders, Payments, Payouts, Invoicing, Webhooks)
-  ai.ts             Claude: quote, completion check, complaint review
-  agent.ts          Repair Agent (Claude tool use + PayPal Agent Toolkit)
+  llm.ts            Gemini client and structured outputs
+  ai.ts             Gemini: quote, completion check, complaint review
+  agent.ts          Repair Agent (Gemini function calling + PayPal Agent Toolkit)
   orders.ts         Order state machine, OTP checks, price changes, settlement, Resolve Hub, photo-check review
   auth.ts / pin.ts  Phone + PIN accounts, scrypt hashes, signed session cookies, lockout
   access.ts         Who may see and act on which order

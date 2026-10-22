@@ -202,7 +202,7 @@ function Fix() {
               </p>
             )}
             <p className="flex items-start gap-2 text-xs text-muted-foreground">
-              <Badge variant={quote.source === "claude" ? "default" : "gold"}>{quote.source === "claude" ? "Claude vision" : "Simulated"}</Badge>
+              <Badge variant={quote.source === "simulated" ? "gold" : "default"}>{quote.source === "simulated" ? "Simulated" : "Gemini vision"}</Badge>
               {quote.notes}
             </p>
             {quote.warning && <p className="text-xs text-gold">{quote.warning}</p>}
