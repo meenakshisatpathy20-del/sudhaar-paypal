@@ -1,16 +1,38 @@
-import { GoogleGenAI, type Part } from "@google/genai";
+import { type GenerateContentParameters, type GenerateContentResponse, GoogleGenAI, type Part, ThinkingLevel } from "@google/genai";
 import * as z from "zod/v4";
 import { config } from "./config";
 
 // One place that talks to the AI model: Google Gemini through the official @google/genai SDK.
 
+/** A single Gemini call never waits longer than this; a stalled call fails instead of hanging the app. */
+const CALL_TIMEOUT_MS = 30_000;
+
 let client: GoogleGenAI | null = null;
 // GEMINI_BASE_URL is only for tests against a local stand-in server.
-export const gemini = () => (client ??= new GoogleGenAI({ apiKey: config.ai.apiKey, httpOptions: process.env.GEMINI_BASE_URL ? { baseUrl: process.env.GEMINI_BASE_URL } : undefined }));
+export const gemini = () =>
+  (client ??= new GoogleGenAI({ apiKey: config.ai.apiKey, httpOptions: { timeout: CALL_TIMEOUT_MS, ...(process.env.GEMINI_BASE_URL ? { baseUrl: process.env.GEMINI_BASE_URL } : {}) } }));
+
+// Newer Flash models think before answering; a low thinking level keeps replies quick enough for
+// a chat. Models that don't accept the setting get the request again without it.
+let thinkingSupported = true;
+
+/** generateContent with low thinking where the model supports it. */
+export async function generate(params: GenerateContentParameters): Promise<GenerateContentResponse> {
+  if (thinkingSupported) {
+    try {
+      return await gemini().models.generateContent({ ...params, config: { ...params.config, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } } });
+    } catch (e) {
+      if ((e as { status?: number }).status !== 400 || !/think/i.test(String((e as Error).message))) throw e;
+      console.warn("Gemini model does not accept a thinking level; sending requests without it.");
+      thinkingSupported = false;
+    }
+  }
+  return gemini().models.generateContent(params);
+}
 
 /** Ask Gemini for an answer that matches `schema`. Throws if it can't produce one. */
 export async function structured<S extends z.ZodType>(schema: S, system: string, parts: Part[]): Promise<z.infer<S>> {
-  const res = await gemini().models.generateContent({
+  const res = await generate({
     model: config.ai.model,
     contents: [{ role: "user", parts }],
     config: { systemInstruction: system, responseMimeType: "application/json", responseJsonSchema: geminiSchema(z.toJSONSchema(schema)) },
@@ -45,3 +67,6 @@ export const isRateLimit = (e: unknown) => {
   const status = (e as { status?: number })?.status;
   return status === 429 || /RESOURCE_EXHAUSTED|rate limit|quota/i.test(String((e as Error)?.message ?? ""));
 };
+
+/** True when a call gave up waiting (our timeout, or the connection was cut). */
+export const isTimeout = (e: unknown) => /timed? ?out|abort|ETIMEDOUT|ECONNRESET|socket hang up/i.test(String((e as Error)?.name ?? "") + " " + String((e as Error)?.message ?? ""));
