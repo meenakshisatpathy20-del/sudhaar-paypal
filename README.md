@@ -126,7 +126,7 @@ I'm a solo participant, a 3rd-year Computer Science student.
 
 ## Testing instructions for judges
 
-**Hosted demo:** open the *Website* link in this repository's About section. It runs against the PayPal sandbox. Log in to PayPal with the sandbox buyer account given in the **testing instructions on the Devpost page**. On the free hosting plan, the first load can take about a minute while the server wakes up.
+**Hosted demo:** open the *Website* link in this repository's About section. It runs against the PayPal sandbox. Log in to PayPal with the sandbox buyer account shown **right under the PayPal button** (also in the testing instructions on the Devpost page). It's a PayPal sandbox account with test money only. On the free hosting plan, the first load can take about a minute while the server wakes up.
 
 **Demo logins** (each role sees only its own app and data; real users sign up with their own phone + PIN):
 
@@ -182,6 +182,7 @@ The app also runs with an **empty `.env`**: PayPal and AI calls are then simulat
 | `PAYPAL_KARIGAR_EMAIL`, `PAYPAL_SAATHI_EMAIL` | for real payouts | Sandbox personal accounts that receive payouts |
 | `PAYPAL_CUSTOMER_EMAIL` | optional | Invoice recipient fallback |
 | `PAYPAL_WEBHOOK_ID` | optional | Enables webhook signature verification |
+| `PAYPAL_DEMO_BUYER_EMAIL`, `PAYPAL_DEMO_BUYER_PASSWORD` | optional | A sandbox buyer login (test money) shown under the PayPal button for judges |
 | `GEMINI_API_KEY` | for real AI + agent | Gemini API key from [Google AI Studio](https://aistudio.google.com/) (free tier available) |
 | `AI_MODEL` | optional | Defaults to `gemini-flash-latest` |
 | `SESSION_SECRET` | recommended in production | Signs login cookies. Render generates it (see `render.yaml`); locally a random one is saved in `DATA_DIR` |

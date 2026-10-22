@@ -222,6 +222,7 @@ const BASE = {
     ppPaySim: "Pay {inr} ({usd}) with PayPal (simulated)",
     ppAuthorizing: "Authorizing…",
     ppSimNote: "Simulation mode: add PayPal sandbox keys to use the real PayPal checkout.",
+    ppDemoBuyer: "Test PayPal login (sandbox, play money only):",
     ppLoading: "Loading PayPal…",
     ppHolding: "Placing a hold on {amount}…",
     // Family Pay payer page
@@ -682,6 +683,7 @@ const BASE = {
     ppPaySim: "PayPal से {inr} ({usd}) चुकाएँ (सिम्युलेटेड)",
     ppAuthorizing: "मंज़ूरी हो रही है…",
     ppSimNote: "सिम्युलेशन मोड: असली PayPal चेकआउट के लिए PayPal सैंडबॉक्स कीज़ जोड़ें।",
+    ppDemoBuyer: "टेस्ट PayPal लॉगिन (सैंडबॉक्स, सिर्फ़ नकली पैसे):",
     ppLoading: "PayPal लोड हो रहा है…",
     ppHolding: "{amount} होल्ड किया जा रहा है…",
     // Family Pay payer page

@@ -193,6 +193,7 @@ const dict: Dict = {
   ppPaySim: "PayPal ने {inr} ({usd}) द्या (सिम्युलेटेड)",
   ppAuthorizing: "मंजुरी होत आहे…",
   ppSimNote: "सिम्युलेशन मोड: खऱ्या PayPal चेकआउटसाठी PayPal सँडबॉक्स कीज जोडा.",
+  ppDemoBuyer: "टेस्ट PayPal लॉगिन (सँडबॉक्स, फक्त खोटे पैसे):",
   ppLoading: "PayPal लोड होत आहे…",
   ppHolding: "{amount} होल्ड केले जात आहेत…",
   fpHi: "नमस्कार {name},",

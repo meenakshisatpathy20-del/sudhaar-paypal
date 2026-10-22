@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 export type AppConfig = {
-  paypal: { mode: "sandbox" | "simulated"; clientId: string | null };
+  paypal: { mode: "sandbox" | "simulated"; clientId: string | null; demoBuyer?: { email: string; password: string } | null };
   ai: { mode: "gemini" | "simulated"; model: string | null };
   currency: string;
 };

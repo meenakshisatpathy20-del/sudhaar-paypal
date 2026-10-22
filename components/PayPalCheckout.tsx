@@ -118,6 +118,11 @@ export function PayPalCheckout({
   return (
     <div className="space-y-2">
       <div ref={holder} className="min-h-12 overflow-hidden rounded-xl bg-white p-2" />
+      {cfg.paypal.demoBuyer && (
+        <p className="rounded-xl bg-[#0050b3]/5 px-3 py-2 text-xs text-[#003087] ring-1 ring-[#0050b3]/20">
+          {t("ppDemoBuyer")} <b className="select-all break-all">{cfg.paypal.demoBuyer.email}</b> · <b className="select-all">{cfg.paypal.demoBuyer.password}</b>
+        </p>
+      )}
       {status === "loading" && <p className="text-xs text-muted-foreground">{t("ppLoading")}</p>}
       {status === "working" && <p className="text-xs text-muted-foreground">{t(tipId ? "ppPaying" : "ppHolding", { amount: money(total) })}</p>}
       {error && <p className="text-xs text-destructive">{error}</p>}

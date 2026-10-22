@@ -193,6 +193,7 @@ const dict: Dict = {
   ppPaySim: "PayPal மூலம் {inr} ({usd}) செலுத்துங்கள் (உருவகம்)",
   ppAuthorizing: "அங்கீகரிக்கப்படுகிறது…",
   ppSimNote: "உருவகப் பயன்முறை: உண்மையான PayPal செக்அவுட்டுக்கு PayPal சாண்ட்பாக்ஸ் விசைகளைச் சேர்க்கவும்.",
+  ppDemoBuyer: "சோதனை PayPal உள்நுழைவு (சாண்ட்பாக்ஸ், போலிப் பணம் மட்டும்):",
   ppLoading: "PayPal ஏற்றப்படுகிறது…",
   ppHolding: "{amount} நிறுத்தி வைக்கப்படுகிறது…",
   fpHi: "வணக்கம் {name},",
