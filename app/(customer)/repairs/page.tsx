@@ -2,10 +2,12 @@
 
 import { RequireLogin } from "@/components/LoginSheet";
 import { useSession } from "@/components/SessionProvider";
-import { rupees } from "@/components/Inr";
+import { orderRupees, rupees } from "@/components/Inr";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight, Leaf, PiggyBank, RotateCcw, Wrench } from "lucide-react";
+import { ArrowRight, HeartHandshake, Leaf, MessageCircleMore, PiggyBank, RotateCcw, ShoppingBasket, Wrench } from "lucide-react";
+import { SlotLine } from "@/components/SlotLine";
+import { CARE_PRICE_USD } from "@/lib/pricing";
 import { api } from "@/components/api";
 import { CATEGORY_ICON } from "@/components/CategoryIcon";
 import { useLang } from "@/components/LanguageProvider";
@@ -52,8 +54,15 @@ function RepairsInner() {
   const done = orders.filter((o) => o.status === "paid_out");
   const empty = !data ? failed ? <Empty text={t("loadFailed")} cta="" /> : <Card className="h-32 animate-pulse" /> : <Empty text={t("noRepairs")} cta={t("fixSomething")} />;
 
+  const savedTotal = done.reduce((s, o) => {
+    const q = data?.quotes[o.quoteId];
+    return s + (q && q.newPrice > 0 ? Math.max(0, q.newPrice - o.repairCharge) : 0);
+  }, 0);
+  const kgTotal = done.reduce((s, o) => s + (o.jobs?.length ? o.jobs.reduce((a, j) => a + AVG_ITEM_KG[j.category], 0) : AVG_ITEM_KG[o.category]), 0);
+
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="mx-auto grid max-w-6xl items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="min-w-0 space-y-5">
       <div>
         <h1 className="text-3xl font-bold">{t("repairsTitle")}</h1>
         {account?.demo && <p className="text-xs text-muted-foreground">{t("demoShared")}</p>}
@@ -67,7 +76,7 @@ function RepairsInner() {
             {t("passports")} ({done.length})
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="active" className="space-y-3">
+        <TabsContent value="active" className="grid gap-3 xl:grid-cols-2">
           {active.length === 0 && empty}
           {active.map((o) => {
             const Icon = CATEGORY_ICON[o.category];
@@ -83,11 +92,12 @@ function RepairsInner() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-semibold">{o.kind === "basket" && o.jobs ? t("oBasketTitle", { n: o.jobs.length }) : o.item}</p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {k?.shop} · {rupees(o.total)} · {o.id}
+                          {k?.shop} · {orderRupees(o)} · {o.id}
                         </p>
                       </div>
                       <StatusPill status={o.status} />
                     </div>
+                    {!["delivered", "cancelled"].includes(o.status) && <SlotLine order={o} className="text-xs" />}
                     <Progress value={STATUS_PROGRESS[o.status]} />
                   </CardContent>
                 </Card>
@@ -148,12 +158,62 @@ function RepairsInner() {
         </TabsContent>
       </Tabs>
     </div>
+    <aside className="space-y-4 lg:sticky lg:top-24">
+      <Card>
+        <CardContent className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("rpImpact")}</p>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-xl bg-muted/60 p-2">
+              <Wrench className="mx-auto size-4 text-primary" />
+              <p className="font-display text-lg font-bold">{done.length}</p>
+              <p className="text-[10px] text-muted-foreground">{t("rpFixed")}</p>
+            </div>
+            <div className="rounded-xl bg-muted/60 p-2">
+              <PiggyBank className="mx-auto size-4 text-gold" />
+              <p className="font-display text-lg font-bold">{rupees(savedTotal)}</p>
+              <p className="text-[10px] text-muted-foreground">{t("savedLabel")}</p>
+            </div>
+            <div className="rounded-xl bg-muted/60 p-2">
+              <Leaf className="mx-auto size-4 text-teal" />
+              <p className="font-display text-lg font-bold">{kgTotal.toFixed(1)}</p>
+              <p className="text-[10px] text-muted-foreground">kg</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      <Link href="/care" className={account?.care ? "block rounded-2xl bg-teal/10 p-4 text-sm ring-1 ring-teal/25" : "block rounded-2xl bg-teal/10 p-4 text-sm ring-1 ring-teal/25 hover:bg-teal/15"}>
+        <p className="flex items-center gap-2 font-semibold text-teal">
+          <HeartHandshake className="size-4" /> Sudhaar Care
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">{account?.care ? t("rpCareOn") : t("careUpsell", { price: rupees(CARE_PRICE_USD) })}</p>
+      </Link>
+      <Card>
+        <CardContent className="grid gap-2">
+          <Button asChild>
+            <Link href="/fix">
+              <Wrench /> {t("fixSomething")}
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/ghar-safai">
+              <ShoppingBasket /> {t("ftGhar")}
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/agent">
+              <MessageCircleMore /> {t("navTalk")}
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
+    </aside>
+    </div>
   );
 }
 
 function Empty({ text, cta }: { text: string; cta: string }) {
   return (
-    <Card className="sm:col-span-2">
+    <Card className="sm:col-span-2 xl:col-span-2">
       <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
         <Wrench className="size-8 text-primary" />
         <p className="text-sm text-muted-foreground">{text}</p>

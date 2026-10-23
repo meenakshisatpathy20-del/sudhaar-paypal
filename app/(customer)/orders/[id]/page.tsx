@@ -1,10 +1,10 @@
 "use client";
 
 import { RequireLogin } from "@/components/LoginSheet";
-import { rupees, rupeeTotal, UsdNote } from "@/components/Inr";
+import { orderRupees, rupees, rupeeTotal, UsdNote } from "@/components/Inr";
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
-import { ArrowLeft, BadgeCheck, ChevronDown, LifeBuoy, Leaf, PiggyBank, Receipt, ShieldCheck, Sparkles, XCircle } from "lucide-react";
+import { ArrowLeft, BadgeCheck, ChevronDown, Copy, ExternalLink, LifeBuoy, Leaf, Navigation, PiggyBank, Receipt, ShieldCheck, Sparkles, XCircle } from "lucide-react";
 import { AfterDelivery } from "@/components/AfterDelivery";
 import { api, money } from "@/components/api";
 import { EventLog } from "@/components/EventLog";
@@ -28,7 +28,16 @@ import { AVG_ITEM_KG, haversineKm } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import type { Complaint, CompletionCheck, Karigar, Order, OrderStatus, Quote, Saathi } from "@/lib/types";
 
-type Data = { order: Order; karigar?: Karigar; saathi?: Saathi; quote?: Quote; jobKarigars?: Record<string, { name: string; shop: string; avatarColor: string; lat: number; lng: number }> };
+type Live = { lat: number; lng: number; at: string; simulated: boolean; etaMin: number | null; kmToGo: number | null; nextStop: string | null; vehicle: string };
+type Data = {
+  order: Order;
+  karigar?: Karigar;
+  saathi?: Saathi;
+  quote?: Quote;
+  live?: Live | null;
+  trackUrl?: string;
+  jobKarigars?: Record<string, { name: string; shop: string; avatarColor: string; lat: number; lng: number }>;
+};
 
 const ISSUES: Complaint["issue"][] = ["repair_failed", "damaged", "overcharged", "delayed", "missing"];
 
@@ -155,13 +164,13 @@ function OrderPageInner({ params }: { params: Promise<{ id: string }> }) {
               {order.familyPay && !payMyself ? (
                 <div className="space-y-3 rounded-2xl bg-teal/10 p-3 ring-1 ring-teal/30">
                   <p className="text-sm">{t("oWaitingFamily", { name: order.familyPay.name, relation: order.familyPay.relation })}</p>
-                  <FamilyPayShare orderId={order.id} token={order.familyPay.token} name={order.familyPay.name} item={order.item} total={rupees(order.total)} />
+                  <FamilyPayShare orderId={order.id} token={order.familyPay.token} name={order.familyPay.name} item={order.item} total={orderRupees(order)} />
                   <button className="text-xs font-semibold text-primary underline" onClick={() => setPayMyself(true)}>
                     {t("payMyself")}
                   </button>
                 </div>
               ) : (
-                <PayPalCheckout orderId={order.id} paypalOrderId={order.paypal.orderId} total={order.total} onApproved={load} />
+                <PayPalCheckout orderId={order.id} paypalOrderId={order.paypal.orderId} total={order.total} inrLabel={orderRupees(order)} onApproved={load} />
               )}
             </CardContent>
           </Card>
@@ -188,13 +197,32 @@ function OrderPageInner({ params }: { params: Promise<{ id: string }> }) {
                 <h2 className="font-bold">{t("oLiveTracking")}</h2>
                 {order.mode === "pickup" && <span className="text-xs text-muted-foreground">{t("oSaathiRoute")}</span>}
               </div>
+              {data.live ? (
+                <div className="flex items-start gap-3 rounded-2xl bg-teal/10 p-3 text-sm ring-1 ring-teal/25">
+                  <Navigation className="mt-0.5 size-5 shrink-0 text-teal" />
+                  <div className="min-w-0">
+                    <p className="font-semibold">
+                      {data.live.etaMin !== null ? t("trEta", { name: saathi?.name.split(" ")[0] ?? t("oSaathi"), min: data.live.etaMin, km: data.live.kmToGo ?? 0 }) : t("trLive")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {data.live.nextStop && `${t("trNext")}: ${data.live.nextStop} · `}
+                      {t("trUpdated", { time: new Date(data.live.at).toLocaleTimeString(langMeta(lang).locale, { hour: "numeric", minute: "2-digit", second: "2-digit" }) })}
+                      {data.live.simulated && ` · ${t("trDemoRide")}`}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                order.mode === "pickup" && ["authorized", "picked_up", "out_for_delivery"].includes(order.status) && <p className="text-xs text-muted-foreground">{t("trWaiting")}</p>
+              )}
               <NeighbourhoodMap
                 center={{ lat: order.customer.lat, lng: order.customer.lng }}
                 pins={mapPins}
                 route={nearestFirst({ lat: order.customer.lat, lng: order.customer.lng }, mapPins).map((p) => p.id)}
-                saathiProgress={order.mode === "pickup" ? SAATHI_POS[order.status] : undefined}
+                saathiProgress={order.mode === "pickup" && !data.live ? SAATHI_POS[order.status] : undefined}
+                saathiAt={data.live ? { lat: data.live.lat, lng: data.live.lng, label: data.live.etaMin !== null ? `${saathi?.name.split(" ")[0] ?? ""} · ${data.live.etaMin} min` : undefined } : null}
                 className="aspect-[400/220]"
               />
+              {data.trackUrl && <ShareTracking url={data.trackUrl} />}
               <Timeline order={order} />
               {order.status === "authorized" && (
                 <Button variant="destructive" size="sm" onClick={() => api(`/api/orders/${order.id}/action`, { action: "cancel" }).then(load).catch((e) => setError(e.message))}>
@@ -253,7 +281,7 @@ function OrderPageInner({ params }: { params: Promise<{ id: string }> }) {
               <div className="grid grid-cols-3 gap-2 text-center">
                 <Stat icon={PiggyBank} v={rupees(saved)} l={t("oSaved")} />
                 <Stat icon={Leaf} v={`${keptKg.toFixed(1)} kg`} l={t("oKeptKg")} />
-                <Stat icon={BadgeCheck} v={t("oWarrantyDays")} l={t("oWarranty")} />
+                <Stat icon={BadgeCheck} v={order.discount?.care ? t("oWarrantyDays30") : t("oWarrantyDays")} l={t("oWarranty")} />
               </div>
               <p className="text-xs text-muted-foreground">
                 {t("oFixedBy", {
@@ -264,7 +292,9 @@ function OrderPageInner({ params }: { params: Promise<{ id: string }> }) {
             </CardContent>
           </Card>
         )}
+      </section>
 
+      <section className="min-w-0 space-y-4">
         {(order.status === "delivered" || order.status === "paid_out") && (
           <AfterDelivery
             order={order}
@@ -281,9 +311,6 @@ function OrderPageInner({ params }: { params: Promise<{ id: string }> }) {
             }
           />
         )}
-      </section>
-
-      <section className="min-w-0 space-y-4">
         <Card>
           <CardContent className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
@@ -366,10 +393,12 @@ function Breakdown({ order }: { order: Order }) {
       <Row k={t("oRepair")} v={rupeeTotal(...repairs)} />
       <Row k={order.kind === "basket" ? t("gharOneTrip") : order.mode === "pickup" ? t("oPickupKm", { km: order.distanceKm }) : t("oHomeVisit")} v={rupees(order.pickupFee)} />
       {order.donation > 0 && <Row k={t("oToolFund")} v={rupees(order.donation)} />}
+      {order.discount?.care ? <Row k={t("careCovers")} v={`−${rupees(order.discount.care)}`} tone="text-teal" /> : null}
+      {order.discount?.coupon ? <Row k={`${t("cpTitle")} ${order.discount.coupon.code}`} v={`−${rupees(order.discount.coupon.amount)}`} tone="text-teal" /> : null}
       <div className="flex justify-between border-t border-border pt-1.5 font-semibold">
         <span>{t("oTotal")}</span>
         <span className="text-right">
-          <span className="block">{rupeeTotal(...repairs, order.pickupFee, order.donation)}</span>
+          <span className="block">{orderRupees(order)}</span>
           <UsdNote usd={order.total} />
         </span>
       </div>
@@ -377,12 +406,38 @@ function Breakdown({ order }: { order: Order }) {
   );
 }
 
-function Row({ k, v }: { k: string; v: string }) {
+function Row({ k, v, tone }: { k: string; v: string; tone?: string }) {
   return (
-    <p className="flex justify-between gap-2">
-      <span className="text-muted-foreground">{k}</span>
+    <p className={cn("flex justify-between gap-2", tone)}>
+      <span className={tone ? undefined : "text-muted-foreground"}>{k}</span>
       <span className="text-right">{v}</span>
     </p>
+  );
+}
+
+/** Shiprocket-style public tracking link the customer can send to family. */
+function ShareTracking({ url }: { url: string }) {
+  const { t } = useLang();
+  const [copied, setCopied] = useState(false);
+  const full = typeof window !== "undefined" ? `${window.location.origin}${url}` : url;
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-muted/50 p-2.5 text-xs ring-1 ring-border">
+      <span className="min-w-0 flex-1 text-muted-foreground">{t("trShare")}</span>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => {
+          navigator.clipboard?.writeText(full).then(() => setCopied(true)).catch(() => {});
+        }}
+      >
+        <Copy /> {copied ? t("trCopied") : t("trCopy")}
+      </Button>
+      <Button size="sm" variant="outline" asChild>
+        <a href={url} target="_blank" rel="noreferrer">
+          <ExternalLink /> {t("trOpen")}
+        </a>
+      </Button>
+    </div>
   );
 }
 

@@ -310,10 +310,6 @@ export default function Home() {
         </Link>
       </div>
 
-      <footer className="flex flex-col items-center justify-between gap-2 border-t border-border pt-4 text-xs text-muted-foreground md:flex-row">
-        <p>{t("footerLine")}</p>
-        <p>{t("footerCare")}</p>
-      </footer>
     </div>
   );
 }

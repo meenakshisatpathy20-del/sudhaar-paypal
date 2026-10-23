@@ -42,14 +42,24 @@ export const round2 = (n: number) => Math.round(n * 100) / 100;
 /** PayPal sandbox settles in USD; customers see rupees at this approximate rate. */
 export const INR_PER_USD = 85;
 
-export function computeSplit(repairCharge: number, fee: number, donation: number) {
+/**
+ * Who gets what. A discount (coupon or Sudhaar Care) lowers what the customer pays and comes out of
+ * Sudhaar's share: the karigar and the Saathi are always paid on the full price.
+ */
+export function computeSplit(repairCharge: number, fee: number, donation: number, discount = 0) {
   const karigar = round2(repairCharge * SPLIT.karigarShareOfRepair);
   const saathi = round2(fee * SPLIT.saathiShareOfPickup);
-  const total = round2(repairCharge + fee + donation);
+  const total = round2(repairCharge + fee + donation - discount);
   // Platform keeps the remainder; donation goes to the karigar tool fund (held by the platform).
   const platform = round2(total - karigar - saathi - donation);
   return { karigar, saathi, platform, donation: round2(donation), total };
 }
+
+/** Sudhaar's share before any discount: the most a coupon can take off. */
+export const platformShare = (repairCharge: number, fee: number) => round2(repairCharge + fee - round2(repairCharge * SPLIT.karigarShareOfRepair) - round2(fee * SPLIT.saathiShareOfPickup));
+
+/** Sudhaar Care: a monthly PayPal subscription (USD, like everything in the sandbox). */
+export const CARE_PRICE_USD = 1.99;
 
 /** Karigar-specific price: midpoint of the AI range, scaled by the karigar's price factor. */
 export function karigarPrice(repairLow: number, repairHigh: number, k: Karigar) {

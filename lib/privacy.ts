@@ -32,5 +32,5 @@ export const adminKarigar = (k: Karigar): Karigar => (k.onboarded ? { ...liveSta
 export function orderFor(a: Account | null, o: Order): Order {
   const base = publicOrder(o);
   if (a && (a.role === "admin" || (a.role === "customer" && o.customerId === a.id))) return base;
-  return { ...base, pickupOtp: "", deliveryOtp: "", familyPay: base.familyPay && { ...base.familyPay, token: undefined } };
+  return { ...base, pickupOtp: "", deliveryOtp: "", trackToken: undefined, familyPay: base.familyPay && { ...base.familyPay, token: undefined } };
 }

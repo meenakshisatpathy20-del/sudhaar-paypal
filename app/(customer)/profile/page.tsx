@@ -3,7 +3,8 @@
 import { rupees } from "@/components/Inr";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Handshake, Leaf, Loader2, LocateFixed, LogOut, MapPin, PiggyBank, ShieldCheck, Volume2, Wrench } from "lucide-react";
+import Link from "next/link";
+import { Check, Handshake, HeartHandshake, Leaf, Loader2, LocateFixed, LogOut, MapPin, PiggyBank, ShieldCheck, Volume2, Wrench } from "lucide-react";
 import { api } from "@/components/api";
 import { LangToggle } from "@/components/LangToggle";
 import { useLang } from "@/components/LanguageProvider";
@@ -15,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useGeolocate } from "@/components/useGeolocate";
-import { AVG_ITEM_KG } from "@/lib/pricing";
+import { AVG_ITEM_KG, CARE_PRICE_USD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import type { Order } from "@/lib/types";
 
@@ -49,7 +50,7 @@ function ProfileInner() {
   if (!account) return null;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
+    <div className="mx-auto max-w-6xl space-y-4">
       <Card className="bg-gradient-to-br from-primary/10 to-card">
         <CardContent className="flex items-center gap-4">
           <Avatar name={account.name} color="#0f766e" className="size-16 text-lg" />
@@ -76,8 +77,17 @@ function ProfileInner() {
         </CardContent>
       </Card>
 
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+      <div className="space-y-4">
       <LocationCard />
-
+      <Link href="/care" className="block rounded-2xl bg-teal/10 p-4 text-sm ring-1 ring-teal/25 hover:bg-teal/15">
+        <p className="flex items-center gap-2 font-semibold text-teal">
+          <HeartHandshake className="size-4" /> Sudhaar Care
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">{account.care ? t("rpCareOn") : t("careUpsell", { price: rupees(CARE_PRICE_USD) })}</p>
+      </Link>
+      </div>
+      <div className="space-y-4">
       {impact && (
         <Card>
           <CardContent className="space-y-3">
@@ -125,9 +135,10 @@ function ProfileInner() {
             </span>
             <ModeBadges />
           </div>
-
         </CardContent>
       </Card>
+      </div>
+      </div>
     </div>
   );
 }

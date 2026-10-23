@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bike, Hammer, KeyRound, LayoutDashboard, Lock, LogOut } from "lucide-react";
+import { Bike, Compass, Hammer, KeyRound, LayoutDashboard, Lock, LogOut } from "lucide-react";
 import { api } from "../api";
 import { LangToggle } from "../LangToggle";
 import { Logo } from "../Logo";
@@ -54,6 +54,9 @@ export function PartnerShell({ children }: { children: React.ReactNode }) {
             <span className="hidden max-w-36 truncate rounded-full bg-muted px-2.5 py-1 text-xs font-semibold ring-1 ring-border sm:block">
               {account.name} · {account.role}
             </span>
+            <Link href="/guide" className="hidden items-center gap-1 rounded-full px-2 py-1 text-xs text-muted-foreground hover:text-foreground md:flex">
+              <Compass className="size-3.5" /> Guide
+            </Link>
             {account.role !== "admin" && <LangToggle />}
             <ModeBadges compact />
             <button
@@ -156,9 +159,14 @@ function PartnerLogin() {
           <p className="text-[11px] text-muted-foreground">New karigars get their PIN from the Sudhaar team after the shop visit. A real launch would add SMS OTP.</p>
         </CardContent>
       </Card>
-      <Link href="/" className="text-center text-xs text-muted-foreground hover:text-foreground">
-        ← Back to the customer app
-      </Link>
+      <div className="flex justify-center gap-4 text-xs text-muted-foreground">
+        <Link href="/" className="hover:text-foreground">
+          ← Back to the customer app
+        </Link>
+        <Link href="/guide" className="hover:text-foreground">
+          Demo guide
+        </Link>
+      </div>
     </div>
   );
 }

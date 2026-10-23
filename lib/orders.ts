@@ -17,10 +17,12 @@ import {
   sendPayouts,
   voidAuthorization,
 } from "./paypal";
-import { AVG_ITEM_KG, basketPickupFee, computeSplit, haversineKm, INR_PER_USD, karigarPrice, pickupFee, round2, serviceModeFor } from "./pricing";
+import { careActive } from "./care";
+import { couponDiscount } from "./coupons";
+import { AVG_ITEM_KG, basketPickupFee, computeSplit, haversineKm, INR_PER_USD, karigarPrice, pickupFee, platformShare, round2, serviceModeFor } from "./pricing";
 import { canRate, liveStats, orderKarigars } from "./reviews";
 import { acceptSlot, pickupSlots } from "./slots";
-import type { Account, Category, Complaint, FamilyPay, Job, Karigar, Order, OrderEvent, OrderStatus, PickupSlot, Quote, Saathi } from "./types";
+import type { Account, Category, Complaint, DB, FamilyPay, Job, Karigar, Order, OrderEvent, OrderStatus, PickupSlot, Quote, Saathi } from "./types";
 
 export class FlowError extends Error {
   constructor(message: string, public status = 400) {
@@ -123,6 +125,23 @@ function customerSnapshot(a: Account): Order["customer"] {
   return { name: a.name, email: config.paypal.customerEmail, address: a.address ?? "", lat: a.lat ?? config.demoCenter.lat, lng: a.lng ?? config.demoCenter.lng };
 }
 
+/** Sudhaar Care covers the pickup / visit fee; a coupon then comes off Sudhaar's remaining share. */
+function discountsFor(db: DB, customer: Account, repairCharge: number, fee: number, basket: boolean, coupon?: string) {
+  const care = careActive(customer) ? fee : 0;
+  const c = coupon?.trim() ? couponDiscount(db, coupon, { customer, repairCharge, pickupFee: fee, careCovered: care, basket }) : undefined;
+  const amount = round2(care + (c?.amount ?? 0));
+  const discount: Order["discount"] = amount > 0 ? { care: care || undefined, coupon: c && { code: c.code, amount: c.amount } } : undefined;
+  return { discount, amount };
+}
+
+/** Total discount on an order (coupon + Sudhaar Care). */
+export const discountOf = (o: Pick<Order, "discount">) => round2((o.discount?.care ?? 0) + (o.discount?.coupon?.amount ?? 0));
+
+function discountNote(o: Order) {
+  const parts = [o.discount?.care ? `Sudhaar Care covers the $${o.discount.care.toFixed(2)} ${o.mode === "pickup" ? "pickup" : "visit"} fee` : "", o.discount?.coupon ? `coupon ${o.discount.coupon.code} takes off $${o.discount.coupon.amount.toFixed(2)}` : ""].filter(Boolean);
+  return parts.length ? ` ${parts.join("; ")} (paid from Sudhaar's share; the karigar and Saathi are paid in full).` : "";
+}
+
 export async function createOrder(input: {
   customer: Account;
   quoteId: string;
@@ -131,6 +150,7 @@ export async function createOrder(input: {
   bookedBy?: "customer" | "agent";
   familyPay?: { name: string; relation: string; email?: string };
   pickupSlot?: PickupSlot;
+  coupon?: string;
 }): Promise<Order> {
   const db = readDB();
   const quote = db.quotes.find((q) => q.id === input.quoteId);
@@ -139,7 +159,8 @@ export async function createOrder(input: {
   const offer = offersFor(quote, customer).find((o) => o.karigar.id === input.karigarId);
   if (!offer) throw new FlowError("That karigar cannot take this job", 404);
   const donation = Math.min(5, Math.max(0, round2(input.donation ?? 0)));
-  const split = computeSplit(offer.price, offer.pickupFee, donation);
+  const off = discountsFor(db, input.customer, offer.price, offer.pickupFee, false, input.coupon);
+  const split = computeSplit(offer.price, offer.pickupFee, donation, off.amount);
   const mode = serviceModeFor(quote.category);
   const saathi = pickSaathi(db.saathis, db.offline);
   const order: Order = {
@@ -162,6 +183,8 @@ export async function createOrder(input: {
     repairCharge: offer.price,
     pickupFee: offer.pickupFee,
     donation,
+    discount: off.discount,
+    trackToken: crypto.randomBytes(8).toString("hex"),
     total: split.total,
     currency: "USD",
     split: { karigar: split.karigar, saathi: split.saathi, platform: split.platform, donation: split.donation },
@@ -180,6 +203,7 @@ export async function createOrder(input: {
     actor: order.bookedBy,
     message: `Booked ${offer.karigar.shop} for "${quote.item}" at $${offer.price.toFixed(2)} + $${offer.pickupFee.toFixed(2)} ${mode === "pickup" ? "pickup" : "visit"} fee.`,
   });
+  if (order.discount) log(order, { actor: "system", message: `Discount applied:${discountNote(order)}` });
   return finalizeNewOrder(order);
 }
 
@@ -239,6 +263,7 @@ export async function createBasketOrder(input: {
   bookedBy?: "customer" | "agent";
   familyPay?: { name: string; relation: string; email?: string };
   pickupSlot?: PickupSlot;
+  coupon?: string;
 }): Promise<Order> {
   if (!input.items?.length) throw new FlowError("Add at least one item to the basket");
   if (input.items.length > 12) throw new FlowError("A basket can hold up to 12 items");
@@ -273,7 +298,8 @@ export async function createBasketOrder(input: {
   const fee = basketPickupFee(fees, stops);
   const repairCharge = round2(jobs.reduce((s, j) => s + j.price, 0));
   const donation = Math.min(5, Math.max(0, round2(input.donation ?? 0)));
-  const split = computeSplit(repairCharge, fee, donation);
+  const off = discountsFor(db, input.customer, repairCharge, fee, true, input.coupon);
+  const split = computeSplit(repairCharge, fee, donation, off.amount);
   const saathi = pickSaathi(db.saathis, db.offline);
   const order: Order = {
     id: id("SD"),
@@ -296,6 +322,8 @@ export async function createBasketOrder(input: {
     repairCharge,
     pickupFee: fee,
     donation,
+    discount: off.discount,
+    trackToken: crypto.randomBytes(8).toString("hex"),
     total: split.total,
     currency: "USD",
     split: { karigar: split.karigar, saathi: split.saathi, platform: split.platform, donation: split.donation },
@@ -314,6 +342,7 @@ export async function createBasketOrder(input: {
     actor: order.bookedBy,
     message: `Ghar Safai basket booked: ${jobs.length} items with ${stops} karigar${stops > 1 ? "s" : ""}, one Saathi trip ($${fee.toFixed(2)} pickup instead of $${round2(fees.reduce((a, b) => a + b, 0)).toFixed(2)} for separate trips).`,
   });
+  if (order.discount) log(order, { actor: "system", message: `Discount applied:${discountNote(order)}` });
   return finalizeNewOrder(order);
 }
 
@@ -351,6 +380,11 @@ export async function approveOrder(orderId: string, paypalOrderId: string): Prom
       const auth = await authorizeOrder(paypalOrderId);
       o.paypal.authorizationId = auth.authorizationId;
       o.paypal.heldAmount = o.total;
+      const code = o.discount?.coupon?.code;
+      if (code) {
+        const c = readDB().coupons?.find((x) => x.code === code);
+        if (c) c.uses += 1;
+      }
       if (o.familyPay) {
         o.familyPay.paidBy = auth.payerEmail ?? o.familyPay.email ?? o.familyPay.name;
         o.familyPay.paidAt = now();
@@ -663,7 +697,9 @@ export async function resolveComplaint(orderId: string, complaintId: string, dec
 /** Re-price the order after a karigar's price change: pickup fee and tool fund stay the same. */
 function reprice(o: Order) {
   o.repairCharge = o.jobs?.length ? round2(o.jobs.reduce((sum, j) => sum + j.price, 0)) : o.repairCharge;
-  const split = computeSplit(o.repairCharge, o.pickupFee, o.donation);
+  // A cheaper repair leaves Sudhaar less to give away, so the coupon shrinks to fit if needed.
+  if (o.discount?.coupon) o.discount.coupon.amount = round2(Math.min(o.discount.coupon.amount, Math.max(0, platformShare(o.repairCharge, o.pickupFee) - (o.discount.care ?? 0))));
+  const split = computeSplit(o.repairCharge, o.pickupFee, o.donation, discountOf(o));
   o.total = split.total;
   o.split = { karigar: split.karigar, saathi: split.saathi, platform: split.platform, donation: split.donation };
 }

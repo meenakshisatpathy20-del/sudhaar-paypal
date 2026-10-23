@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
-import { rupees, UsdNote } from "../Inr";
+import { rupees } from "../Inr";
 import { useLang } from "../LanguageProvider";
 import { useSession } from "../SessionProvider";
 import { langMeta } from "@/lib/i18n";
@@ -11,10 +11,27 @@ import { cn } from "@/lib/utils";
 
 export type PartnerData = {
   role: "karigar" | "saathi";
-  profile: { id: string; name: string; shop?: string; rating: number; jobsDone?: number };
+  profile: {
+    id: string;
+    name: string;
+    shop?: string;
+    rating: number;
+    jobsDone?: number;
+    bio?: string;
+    turnaroundDays?: number;
+    services?: { name: string; price: number }[];
+    area?: string;
+    vehicle?: string;
+    ratingCount?: number;
+    craft?: string;
+  };
   online: boolean;
   earnings: { orderId: string; item: string; amount: number; status: string; tip?: boolean; batchId?: string; at: string }[];
   totalEarned: number;
+  stats: { active: number; finished: number; tips: number; weekTotal: number; km?: number; avgStars: number | null };
+  week: { day: string; amount: number }[];
+  reviews: { orderId: string; item: string; stars: number; text: string; at: string; by: string }[];
+  sharingLocation: { at: string; simulated: boolean; lat: number; lng: number } | null;
   partners?: { karigars: { id: string; name: string }[]; saathis: { id: string; name: string }[] };
 };
 
@@ -67,31 +84,29 @@ export function PartnerHeader({ data, isAdmin, viewAs, setViewAs, onChange }: { 
           ))}
         </select>
       )}
-      <div className="paper space-y-3 rounded-2xl bg-gradient-to-br from-marigold/25 to-card p-5">
-        <div className="flex items-start justify-between gap-2">
+      <div className="paper flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl bg-gradient-to-br from-marigold/25 via-card to-teal/10 p-5">
+        <div className="min-w-0 flex-1">
           <p className="text-sm text-muted-foreground">{t("kaHello", { name: data.profile.name.split(" ")[0] })}</p>
+          <p className="font-display text-2xl font-bold">{data.profile.shop ?? data.profile.name}</p>
+          <p className="text-xs text-muted-foreground">{data.role === "karigar" ? t("kaKeep") : t("saKeep")}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {data.role === "karigar" && (
+            <Link href={`/karigars/${data.profile.id}`} className="rounded-full px-3 py-1 text-xs font-semibold text-primary ring-1 ring-primary/30 hover:bg-primary/10">
+              {t("kaProfile")}
+            </Link>
+          )}
           <button
             role="switch"
             aria-checked={data.online}
             disabled={busy || isAdmin}
             onClick={toggle}
-            className={cn("flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ring-1 transition disabled:opacity-60", data.online ? "bg-teal/15 text-teal ring-teal/30" : "bg-muted text-muted-foreground ring-border")}
+            className={cn("flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition disabled:opacity-60", data.online ? "bg-teal/15 text-teal ring-teal/30" : "bg-muted text-muted-foreground ring-border")}
           >
             <span className={cn("size-2 rounded-full", data.online ? "bg-teal" : "bg-muted-foreground")} />
             {data.online ? t("kaOnline") : t("kaOffline")}
           </button>
         </div>
-        <div>
-          <p className="text-xs text-muted-foreground">{t("kaEarned")}</p>
-          <p className="font-display text-4xl font-bold">{rupees(data.totalEarned)}</p>
-          <UsdNote usd={data.totalEarned} verb="pays" />
-        </div>
-        <p className="text-xs text-muted-foreground">{data.role === "karigar" ? t("kaKeep") : t("saKeep")}</p>
-        {data.role === "karigar" && (
-          <Link href={`/karigars/${data.profile.id}`} className="text-xs font-semibold text-primary underline">
-            {t("kaProfile")}
-          </Link>
-        )}
       </div>
     </div>
   );
@@ -128,6 +143,84 @@ export function Tabs2({ value, onChange, items }: { value: string; onChange: (v:
     <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
       {items.map(([v, label]) => (
         <button key={v} onClick={() => onChange(v)} className={cn("rounded-lg py-1.5 text-sm font-semibold", value === v ? "bg-card shadow-sm" : "text-muted-foreground")}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** A row of headline numbers at the top of the Karigar and Saathi apps. */
+export function StatStrip({ items }: { items: { label: string; value: string; sub?: string; tone?: string }[] }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+      {items.map((i) => (
+        <div key={i.label} className="paper rounded-2xl p-3.5">
+          <p className="text-[11px] font-medium text-muted-foreground">{i.label}</p>
+          <p className={cn("font-display text-2xl font-bold", i.tone)}>{i.value}</p>
+          {i.sub && <p className="truncate text-[10px] text-muted-foreground">{i.sub}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Last 7 days of PayPal payouts as simple bars. */
+export function WeekChart({ week }: { week: PartnerData["week"] }) {
+  const { t, lang } = useLang();
+  const max = Math.max(...week.map((d) => d.amount), 0.01);
+  return (
+    <div className="paper space-y-3 rounded-2xl p-4">
+      <p className="text-sm font-semibold">{t("ptWeek")}</p>
+      <div className="flex h-32 items-end gap-2" role="img" aria-label={t("ptWeek")}>
+        {week.map((d) => (
+          <div key={d.day} className="flex flex-1 flex-col items-center gap-1">
+            <span className="text-[10px] text-muted-foreground">{d.amount ? rupees(d.amount) : ""}</span>
+            <div className="w-full rounded-t-md bg-teal/70" style={{ height: `${Math.max(3, (d.amount / max) * 88)}px`, opacity: d.amount ? 1 : 0.25 }} />
+            <span className="text-[10px] text-muted-foreground">{new Date(d.day + "T12:00:00Z").toLocaleDateString(langMeta(lang).locale, { weekday: "short" })}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Asks PayPal's Payouts API for the latest status of this partner's payouts. */
+export function PayoutCheck({ onDone }: { onDone: () => void }) {
+  const { t } = useLang();
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          setNote(null);
+          try {
+            const r = await api<{ checked: number; results: { batchId: string; status: string }[] }>("/api/partner/payouts", {});
+            setNote(r.checked ? t("ptChecked", { n: r.checked, status: [...new Set(r.results.map((x) => x.status))].join(", ") }) : t("ptNothingToCheck"));
+            onDone();
+          } catch (e) {
+            setNote((e as Error).message);
+          } finally {
+            setBusy(false);
+          }
+        }}
+        className="rounded-full bg-[#0070e0]/10 px-3 py-1.5 text-xs font-semibold text-paypal-blue ring-1 ring-[#0070e0]/30 hover:bg-[#0070e0]/15 disabled:opacity-60"
+      >
+        {busy ? "…" : t("ptCheckPaypal")}
+      </button>
+      {note && <span className="text-xs text-muted-foreground">{note}</span>}
+    </div>
+  );
+}
+
+export function TabsN({ value, onChange, items }: { value: string; onChange: (v: string) => void; items: [string, string][] }) {
+  return (
+    <div className="flex gap-1 overflow-x-auto rounded-xl bg-muted p-1 no-scrollbar">
+      {items.map(([v, label]) => (
+        <button key={v} onClick={() => onChange(v)} className={cn("flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold", value === v ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground")}>
           {label}
         </button>
       ))}

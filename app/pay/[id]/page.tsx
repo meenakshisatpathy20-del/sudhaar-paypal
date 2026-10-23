@@ -9,7 +9,7 @@ import { useLang } from "@/components/LanguageProvider";
 import { Logo } from "@/components/Logo";
 import { StatusPill } from "@/components/StatusPill";
 import { Timeline } from "@/components/Timeline";
-import { rupees, rupeeTotal, UsdNote } from "@/components/Inr";
+import { orderRupees, rupees, rupeeTotal, UsdNote } from "@/components/Inr";
 import { PayPalCheckout } from "@/components/PayPalCheckout";
 import { Avatar } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -80,10 +80,24 @@ export default function FamilyPayPage({ params, searchParams }: { params: Promis
                 <span>{rupees(order.donation)}</span>
               </p>
             )}
+            {order.discount?.care ? (
+              <p className="flex justify-between text-teal">
+                <span>{t("careCovers")}</span>
+                <span>−{rupees(order.discount.care)}</span>
+              </p>
+            ) : null}
+            {order.discount?.coupon ? (
+              <p className="flex justify-between text-teal">
+                <span>
+                  {t("cpTitle")} {order.discount.coupon.code}
+                </span>
+                <span>−{rupees(order.discount.coupon.amount)}</span>
+              </p>
+            ) : null}
             <p className="flex justify-between border-t border-border pt-1 font-semibold">
               <span>{t("oTotal")}</span>
               <span className="text-right">
-                <span className="block font-display text-lg">{rupeeTotal(...repairs, order.pickupFee, order.donation)}</span>
+                <span className="block font-display text-lg">{orderRupees(order)}</span>
                 <UsdNote usd={order.total} />
               </span>
             </p>
@@ -96,7 +110,7 @@ export default function FamilyPayPage({ params, searchParams }: { params: Promis
               {t("fpExpired", { name: order.customer.name.split(" ")[0] })}
             </p>
           )}
-          {!paid && !expired && order.paypal.orderId && <PayPalCheckout orderId={order.id} paypalOrderId={order.paypal.orderId} total={order.total} onApproved={load} token={token} />}
+          {!paid && !expired && order.paypal.orderId && <PayPalCheckout orderId={order.id} paypalOrderId={order.paypal.orderId} total={order.total} inrLabel={orderRupees(order)} onApproved={load} token={token} />}
           {paid && (
             <div className="space-y-2 rounded-2xl bg-teal/10 p-4 text-center">
               <HeartHandshake className="mx-auto size-7 text-teal" />

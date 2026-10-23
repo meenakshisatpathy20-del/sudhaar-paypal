@@ -10,6 +10,7 @@ import { Chappal, Diya, Mixer, NeedleThread } from "@/components/Doodles";
 import { CategoryChips } from "@/components/CategoryChips";
 import { FamilyPayPicker, type FamilyPayValue } from "@/components/FamilyPay";
 import { SlotPicker } from "@/components/SlotPicker";
+import { CouponBox, type AppliedCoupon } from "@/components/CouponBox";
 import { rupees, rupeeTotal, UsdNote } from "@/components/Inr";
 import { useLang } from "@/components/LanguageProvider";
 import { MicButton } from "@/components/MicButton";
@@ -41,6 +42,7 @@ export default function GharSafai() {
   const { account } = useSession();
   const [loginOpen, setLoginOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [coupon, setCoupon] = useState<AppliedCoupon>(null);
 
   async function add() {
     setError(null);
@@ -71,7 +73,11 @@ export default function GharSafai() {
   const repairSum = itemPrices.reduce((s, p) => s + p, 0);
   const savedVsNew = chosen.reduce((s, c) => s + Math.max(0, c.line.quote.newPrice - c.offer.price), 0);
   const kg = chosen.reduce((s, c) => s + AVG_ITEM_KG[c.line.quote.category], 0);
-  const total = repairSum + oneTrip + (donate ? 1 : 0);
+  // Sudhaar Care covers the one-trip pickup; a coupon (e.g. GHARSAFAI) comes off Sudhaar's share.
+  const careCovered = account?.care ? oneTrip : 0;
+  const couponOff = coupon?.amount ?? 0;
+  const total = Math.round((repairSum + oneTrip + (donate ? 1 : 0) - careCovered - couponOff) * 100) / 100;
+  const totalLabel = rupeeTotal(...itemPrices, oneTrip, donate ? 1 : 0, -careCovered, -couponOff);
 
   // `afterLogin` is true only when called right after logging in from the sheet.
   async function book(afterLogin?: unknown) {
@@ -87,6 +93,7 @@ export default function GharSafai() {
         donation: donate ? 1 : 0,
         familyPay: family?.name.trim() ? family : undefined,
         pickupSlot: slot ?? undefined,
+        coupon: coupon?.code,
       });
       router.push(`/orders/${r.order.id}`);
     } catch (e) {
@@ -203,18 +210,21 @@ export default function GharSafai() {
                     </span>
                     <span>{rupees(donate ? 1 : 0)}</span>
                   </label>
+                  {careCovered > 0 && <Row k={t("careCovers")} v={`−${rupees(careCovered)}`} />}
+                  {coupon && <Row k={`${t("cpTitle")} ${coupon.code}`} v={`−${rupees(coupon.amount)}`} />}
                   <div className="flex justify-between border-t border-border pt-1.5 font-semibold">
                     <span>{t("total")}</span>
                     <span className="text-right">
-                      <span className="block font-display text-lg">{rupeeTotal(...itemPrices, oneTrip, donate ? 1 : 0)}</span>
+                      <span className="block font-display text-lg">{totalLabel}</span>
                       <UsdNote usd={total} />
                     </span>
                   </div>
                 </div>
+                <CouponBox repairCharge={repairSum} pickupFee={oneTrip} basket value={coupon} onChange={setCoupon} />
                 <SlotPicker value={slot} onChange={setSlot} />
                 <FamilyPayPicker value={family} onChange={setFamily} />
                 <Button size="lg" className="w-full" onClick={book} disabled={booking || (family !== null && !family.name.trim())}>
-                  {booking ? t("creating") : `${t("gharReview")} · ${rupeeTotal(...itemPrices, oneTrip, donate ? 1 : 0)}`}
+                  {booking ? t("creating") : `${t("gharReview")} · ${totalLabel}`}
                 </Button>
               </>
             )}

@@ -1,4 +1,4 @@
-import type { Account, DB, Karigar, Saathi } from "./types";
+import type { Account, Coupon, DB, Karigar, Saathi } from "./types";
 import { config } from "./config";
 
 const c = config.demoCenter;
@@ -81,13 +81,23 @@ export function seedKarigars(): Karigar[] {
 export function seedSaathis(): Saathi[] {
   const s = config.paypal.saathiPayoutEmail;
   return [
-    { id: "s-vikas", name: "Vikas (college student)", rating: 4.9, payoutEmail: s },
-    { id: "s-pooja", name: "Pooja (part-time)", rating: 4.8, payoutEmail: s },
+    { id: "s-vikas", name: "Vikas (college student)", rating: 4.9, payoutEmail: s, area: "Market Road", vehicle: "bicycle" },
+    { id: "s-pooja", name: "Pooja (part-time)", rating: 4.8, payoutEmail: s, area: "Old Town", vehicle: "scooter" },
   ];
 }
 
 export function seedDB(): DB {
-  return { karigars: seedKarigars(), saathis: seedSaathis(), quotes: [], orders: [], webhooks: [], applications: [], accounts: [] };
+  return { karigars: seedKarigars(), saathis: seedSaathis(), quotes: [], orders: [], webhooks: [], applications: [], accounts: [], coupons: seedCoupons() };
+}
+
+/** Starter coupons. Each discount comes out of Sudhaar's share (capped by it). */
+export function seedCoupons(): Coupon[] {
+  const createdAt = new Date().toISOString();
+  return [
+    { code: "FIRSTFIX", description: "₹50 off your first repair", kind: "flat", value: 50, firstOrderOnly: true, active: true, uses: 0, createdAt },
+    { code: "GHARSAFAI", description: "15% off a Ghar Safai basket (up to ₹150)", kind: "percent", value: 15, maxInr: 150, basketOnly: true, active: true, uses: 0, createdAt },
+    { code: "DIWALI25", description: "₹25 off any repair above ₹200", kind: "flat", value: 25, minOrderInr: 200, active: true, uses: 0, createdAt },
+  ];
 }
 
 /**

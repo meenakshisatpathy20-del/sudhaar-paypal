@@ -2,9 +2,12 @@ import crypto from "node:crypto";
 import { config, paypalEnabled } from "./config";
 import type { Order } from "./types";
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 // Thin client for the PayPal REST APIs Sudhaar uses (all in the PayPal sandbox):
 //   Orders v2 (intent AUTHORIZE) -> Payments v2 (capture / void / refund)
 //   Payouts v1 (split to karigar + saathi) -> Invoicing v2 (digital bill)
+//   Catalog Products + Billing Plans + Subscriptions v1 (Sudhaar Care)
 //   Webhooks v1 (signature verification)
 // When no sandbox credentials are configured the same functions return clearly
 // marked simulated ids, so the app still runs end to end for local development.
@@ -93,6 +96,9 @@ export async function createAuthorizeOrder(order: Order): Promise<{ id: string }
     },
   ];
   if (order.donation > 0) items.push({ name: "Karigar tool fund (donation)", quantity: "1", unit_amount: money(order.donation) });
+  // Coupons and Sudhaar Care show up in PayPal as a discount on the full price.
+  const discount = round2((order.discount?.care ?? 0) + (order.discount?.coupon?.amount ?? 0));
+  const itemTotal = round2(order.total + discount);
   const body = {
     intent: "AUTHORIZE",
     purchase_units: [
@@ -102,7 +108,7 @@ export async function createAuthorizeOrder(order: Order): Promise<{ id: string }
         invoice_id: `${order.id}-${Date.now()}`,
         description: `Sudhaar repair ${order.id}`,
         soft_descriptor: "SUDHAAR",
-        amount: { ...money(order.total), breakdown: { item_total: money(order.total) } },
+        amount: { ...money(order.total), breakdown: discount > 0 ? { item_total: money(itemTotal), discount: money(discount) } : { item_total: money(order.total) } },
         items,
       },
     ],
@@ -280,6 +286,7 @@ export async function createPaidInvoice(order: Order, payerEmail: string): Promi
       invoicer: { business_name: "Sudhaar – Repair, don't replace" },
       primary_recipients: [{ billing_info: { email_address: payerEmail } }],
       items: lines,
+      ...(invoiceDiscount(order) > 0 ? { amount: { breakdown: { discount: { invoice_discount: { amount: money(invoiceDiscount(order)) } } } } } : {}),
     },
     requestId: `invoice-${order.id}`,
   });
@@ -301,6 +308,67 @@ export async function createPaidInvoice(order: Order, payerEmail: string): Promi
   });
   const detail = await pp<{ detail?: { metadata?: { recipient_view_url?: string } } }>(`/v2/invoicing/invoices/${invoiceId}`);
   return { invoiceId, url: detail.detail?.metadata?.recipient_view_url };
+}
+
+const invoiceDiscount = (o: Order) => round2((o.discount?.care ?? 0) + (o.discount?.coupon?.amount ?? 0));
+
+// ---------- Subscriptions v1: Sudhaar Care (catalog product -> billing plan -> subscription) ----------
+
+export async function createCareProduct(): Promise<string> {
+  if (!paypalEnabled()) return sim("PROD");
+  const res = await pp<{ id: string }>("/v1/catalogs/products", {
+    method: "POST",
+    body: { name: "Sudhaar Care", description: "Monthly plan: free doorstep pickup on every repair and a 30-day repair warranty.", type: "SERVICE" },
+    requestId: `care-product-${config.paypal.clientId.slice(0, 12)}`,
+  });
+  return res.id;
+}
+
+export async function createCarePlan(productId: string, priceUsd: number): Promise<string> {
+  if (!paypalEnabled()) return sim("PLAN");
+  const res = await pp<{ id: string }>("/v1/billing/plans", {
+    method: "POST",
+    body: {
+      product_id: productId,
+      name: "Sudhaar Care – monthly",
+      description: "Free doorstep pickup on every repair, 30-day warranty",
+      status: "ACTIVE",
+      billing_cycles: [{ frequency: { interval_unit: "MONTH", interval_count: 1 }, tenure_type: "REGULAR", sequence: 1, total_cycles: 0, pricing_scheme: { fixed_price: money(priceUsd) } }],
+      payment_preferences: { auto_bill_outstanding: true, payment_failure_threshold: 2 },
+    },
+    requestId: `care-plan-${productId}`,
+  });
+  return res.id;
+}
+
+export type SubscriptionInfo = { id: string; status: string; customId?: string; nextBillingAt?: string; lastPaymentAt?: string; approveUrl?: string };
+
+export async function createSubscription(planId: string, customId: string, returnUrl: string, cancelUrl: string): Promise<SubscriptionInfo> {
+  if (!paypalEnabled()) {
+    const id = sim("SUB");
+    return { id, status: "APPROVAL_PENDING", customId, approveUrl: `${returnUrl}${returnUrl.includes("?") ? "&" : "?"}subscription_id=${id}` };
+  }
+  const res = await pp<{ id: string; status: string; links?: { rel: string; href: string }[] }>("/v1/billing/subscriptions", {
+    method: "POST",
+    body: {
+      plan_id: planId,
+      custom_id: customId,
+      application_context: { brand_name: "Sudhaar", user_action: "SUBSCRIBE_NOW", shipping_preference: "NO_SHIPPING", return_url: returnUrl, cancel_url: cancelUrl },
+    },
+    requestId: `care-sub-${customId}-${Date.now()}`,
+  });
+  return { id: res.id, status: res.status, customId, approveUrl: res.links?.find((l) => l.rel === "approve")?.href };
+}
+
+export async function getSubscription(id: string): Promise<SubscriptionInfo> {
+  if (!paypalEnabled() || id.startsWith("SIM-")) return { id, status: "ACTIVE", nextBillingAt: new Date(Date.now() + 30 * 86400_000).toISOString() };
+  const res = await pp<{ id: string; status: string; custom_id?: string; billing_info?: { next_billing_time?: string; last_payment?: { time?: string } } }>(`/v1/billing/subscriptions/${id}`);
+  return { id: res.id, status: res.status, customId: res.custom_id, nextBillingAt: res.billing_info?.next_billing_time, lastPaymentAt: res.billing_info?.last_payment?.time };
+}
+
+export async function cancelSubscription(id: string, reason: string): Promise<void> {
+  if (!paypalEnabled() || id.startsWith("SIM-")) return;
+  await pp(`/v1/billing/subscriptions/${id}/cancel`, { method: "POST", body: { reason: reason.slice(0, 127) }, requestId: `care-cancel-${id}` });
 }
 
 // ---------- Webhooks v1: verify the signature of incoming events ----------

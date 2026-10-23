@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, MapPin, MessageCircleMore, UserRound, Wrench } from "lucide-react";
+import { Briefcase, HeartHandshake, Home, MapPin, MessageCircleMore, UserRound, Wrench } from "lucide-react";
+import { JudgeBar } from "./JudgeBar";
+import { SiteFooter } from "./SiteFooter";
 import { cn } from "@/lib/utils";
 import { LangToggle } from "../LangToggle";
 import { useLang } from "../LanguageProvider";
@@ -21,6 +23,8 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
     { href: "/agent", label: t("navTalk"), icon: MessageCircleMore, active: path.startsWith("/agent") },
     { href: "/profile", label: t("navProfile"), icon: UserRound, active: path.startsWith("/profile") },
   ];
+  // Desktop-only extra: Sudhaar Care (the phone bar keeps four tabs).
+  const desktopTabs = [...tabs.slice(0, 3), { href: "/care", label: "Care", icon: HeartHandshake, active: path.startsWith("/care") }, tabs[3]];
   return (
     <div className="min-h-screen pb-24 md:pb-10">
       <header className="sticky top-0 z-40 border-b border-border bg-background/70 backdrop-blur-xl">
@@ -31,16 +35,19 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
             <span className="truncate">{account?.role === "customer" ? (account.address ?? (account.lat !== undefined ? t("locTitle") : t("locSet"))) : t("location")}</span>
           </Link>
           <nav className="mx-auto hidden items-center gap-1 md:flex">
-            {tabs.map((tb) => (
+            {desktopTabs.map((tb) => (
               <Link key={tb.href} href={tb.href} className={cn("flex items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-medium transition", tb.active ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground")}>
                 <tb.icon className="size-4" /> {tb.label}
               </Link>
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-2 md:ml-0">
-            <div className="hidden lg:block">
+            <div className="hidden xl:block">
               <ModeBadges />
             </div>
+            <Link href="/partner" className="hidden items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground ring-1 ring-border hover:text-foreground lg:flex">
+              <Briefcase className="size-3.5" /> {t("ftPartners")}
+            </Link>
             <LangToggle />
             {!loading &&
               (account ? (
@@ -55,8 +62,10 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+      <JudgeBar />
       <OfflineBanner />
       <main className="mx-auto w-full max-w-6xl px-4 pt-5">{children}</main>
+      <SiteFooter />
       <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-4 rounded-2xl border border-border bg-card/95 p-1.5 shadow-2xl backdrop-blur-xl md:hidden">
         {tabs.map((tb) => (
           <Link key={tb.href} href={tb.href} className={cn("flex flex-col items-center gap-0.5 rounded-xl py-1.5 text-[11px] font-medium transition", tb.active ? "bg-primary/15 text-primary" : "text-muted-foreground")}>
