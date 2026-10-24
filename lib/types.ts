@@ -351,7 +351,7 @@ export interface DB {
   offline?: string[];
   coupons?: Coupon[];
   /** The PayPal catalog product and billing plan behind Sudhaar Care, created on first use. */
-  care?: { productId?: string; planId?: string; mode?: "sandbox" | "simulated" };
+  care?: { productId?: string; planId?: string; mode?: "sandbox" | "simulated"; /** Start of the PayPal Client ID the plan was made with. */ owner?: string };
   saathiLocations?: Record<string, SaathiLocation>;
 }
 

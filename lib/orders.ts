@@ -22,6 +22,7 @@ import { couponDiscount } from "./coupons";
 import { AVG_ITEM_KG, basketPickupFee, computeSplit, haversineKm, INR_PER_USD, karigarPrice, pickupFee, platformShare, round2, serviceModeFor } from "./pricing";
 import { canRate, liveStats, orderKarigars } from "./reviews";
 import { acceptSlot, pickupSlots } from "./slots";
+import { warrantyDays, warrantyDaysLeft } from "./warranty";
 import type { Account, Category, Complaint, DB, FamilyPay, Job, Karigar, Order, OrderEvent, OrderStatus, PickupSlot, Quote, Saathi } from "./types";
 
 export class FlowError extends Error {
@@ -638,6 +639,11 @@ export async function raiseComplaint(orderId: string, input: { issue: Complaint[
   const current = readDB().orders.find((o) => o.id === orderId);
   if (!current) throw new FlowError("Order not found", 404);
   if (!current.paypal.captureId) throw new FlowError("Complaints open after the item is delivered and paid.");
+  if (warrantyDaysLeft(current) < 0) throw new FlowError(`The ${warrantyDays(current)}-day warranty for this repair has ended.`);
+  if (current.complaints.some((c) => !c.resolution)) throw new FlowError("You already have an open claim for this repair. We'll update you on it.");
+  const details = String(input.details ?? "").trim().slice(0, 1000);
+  if (details.length < 5) throw new FlowError("Tell us a little about what went wrong.");
+  input = { ...input, details };
   const ai = await reviewComplaint(current, input);
   return mutate(orderId, (o) => {
     const c: Complaint = { id: id("C"), createdAt: now(), issue: input.issue, details: input.details, photo: input.photo, ai };

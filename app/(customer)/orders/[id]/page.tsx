@@ -6,12 +6,13 @@ import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { ArrowLeft, BadgeCheck, ChevronDown, Copy, ExternalLink, LifeBuoy, Leaf, Navigation, PiggyBank, Receipt, ShieldCheck, Sparkles, XCircle } from "lucide-react";
 import { AfterDelivery } from "@/components/AfterDelivery";
+import { ClaimTimeline } from "@/components/resolve/Claims";
+import { warrantyDays, warrantyDaysLeft } from "@/lib/warranty";
 import { api, money } from "@/components/api";
 import { EventLog } from "@/components/EventLog";
 import { FamilyPayShare } from "@/components/FamilyPay";
 import { NeighbourhoodMap } from "@/components/NeighbourhoodMap";
 import { PayPalCheckout } from "@/components/PayPalCheckout";
-import { PhotoPicker } from "@/components/PhotoPicker";
 import { SlotLine } from "@/components/SlotLine";
 import { useLang } from "@/components/LanguageProvider";
 import { langMeta } from "@/lib/i18n";
@@ -21,12 +22,10 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { AVG_ITEM_KG, haversineKm } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
-import type { Complaint, CompletionCheck, Karigar, Order, OrderStatus, Quote, Saathi } from "@/lib/types";
+import type { CompletionCheck, Karigar, Order, OrderStatus, Quote, Saathi } from "@/lib/types";
 
 type Live = { lat: number; lng: number; at: string; simulated: boolean; etaMin: number | null; kmToGo: number | null; nextStop: string | null; vehicle: string };
 type Data = {
@@ -39,7 +38,6 @@ type Data = {
   jobKarigars?: Record<string, { name: string; shop: string; avatarColor: string; lat: number; lng: number }>;
 };
 
-const ISSUES: Complaint["issue"][] = ["repair_failed", "damaged", "overcharged", "delayed", "missing"];
 
 const SAATHI_POS: Partial<Record<OrderStatus, number>> = { authorized: 0.02, picked_up: 0.25, at_karigar: 0.5, repairing: 0.5, repaired: 0.5, out_for_delivery: 0.75, delivered: 0.99, paid_out: 0.99 };
 const ACTIVE: OrderStatus[] = ["authorized", "picked_up", "at_karigar", "repairing", "repaired", "out_for_delivery"];
@@ -87,7 +85,6 @@ function OrderPageInner({ params }: { params: Promise<{ id: string }> }) {
   if (!data) return <Card className="h-64 animate-pulse" />;
   const { order, karigar, saathi, quote } = data;
   const captured = Boolean(order.paypal.captureId);
-  const refunded = order.paypal.refunds.reduce((s, r) => s + r.amount, 0);
   const saved = order.jobs?.length
     ? order.jobs.reduce((s, j) => s + Math.max(0, j.newPrice - j.price), 0)
     : quote && quote.newPrice > 0
@@ -350,7 +347,7 @@ function OrderPageInner({ params }: { params: Promise<{ id: string }> }) {
           </CardContent>
         </Card>
 
-        {captured && <ResolveHub order={order} refunded={refunded} onChange={load} />}
+        {captured && <ResolveHub order={order} />}
 
         <Card>
           <CardContent>
@@ -559,29 +556,10 @@ function Photo({ label, file }: { label: string; file?: string }) {
   );
 }
 
-function ResolveHub({ order, refunded, onChange }: { order: Order; refunded: number; onChange: () => void }) {
-  const [issue, setIssue] = useState<Complaint["issue"]>("repair_failed");
-  const [details, setDetails] = useState("");
-  const [photo, setPhoto] = useState<string>();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+function ResolveHub({ order }: { order: Order }) {
   const { t } = useLang();
-
-  async function submit() {
-    setBusy(true);
-    setError(null);
-    try {
-      await api(`/api/orders/${order.id}/complaint`, { issue, details, photo });
-      setDetails("");
-      onChange();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-
+  const left = warrantyDaysLeft(order);
+  const open = order.complaints.some((c) => !c.resolution);
   return (
     <Card>
       <CardContent className="space-y-3">
@@ -590,69 +568,20 @@ function ResolveHub({ order, refunded, onChange }: { order: Order; refunded: num
             <h2 className="flex items-center gap-2 font-bold">
               <LifeBuoy className="size-4 text-gold" /> Resolve Hub
             </h2>
-            <p className="text-xs text-muted-foreground">{t("oResolveSub")}</p>
+            <p className="text-xs text-muted-foreground">{left >= 0 ? t("rhWarrantyLeft", { n: left, days: warrantyDays(order) }) : t("rhWarrantyOver")}</p>
           </div>
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button size="sm" variant="gold" className="h-auto min-h-8 max-w-[45%] whitespace-normal py-1.5 text-center">
-                {t("oReport")}
-              </Button>
-            </SheetTrigger>
-            <SheetContent>
-              <SheetTitle>{t("oWhatWrong")}</SheetTitle>
-              <SheetDescription>{t("oWhatWrongSub")}</SheetDescription>
-              <div className="flex flex-wrap gap-1.5">
-                {ISSUES.map((i) => (
-                  <button key={i} onClick={() => setIssue(i)} className={cn("rounded-full px-3 py-1 text-xs font-semibold ring-1", issue === i ? "bg-primary text-primary-foreground ring-primary" : "ring-border")}>
-                    {t(`oIssue_${i}`)}
-                  </button>
-                ))}
-              </div>
-              <div className="rounded-2xl border border-dashed border-border bg-muted/50 p-3 text-xs">
-                <p className="font-semibold">{t("oBillAttached")}</p>
-                <p className="text-muted-foreground">
-                  Invoice <span className="font-mono">{order.paypal.invoiceId ?? "pending"}</span> · capture <span className="font-mono">{order.paypal.captureId}</span> · {t("oPaid")} {money(order.total)}
-                  {refunded > 0 && ` · ${t("oRefunded")} ${money(refunded)}`}
-                </p>
-              </div>
-              <Textarea placeholder={t("oTellUs")} value={details} onChange={(e) => setDetails(e.target.value)} />
-              <PhotoPicker compact label={t("oAddPhoto")} onUploaded={(f) => setPhoto(f)} />
-              <Button size="lg" disabled={busy || !details.trim()} onClick={submit}>
-                {busy ? t("oReviewing") : t("oSubmit")}
-              </Button>
-              {error && <p className="text-xs text-destructive">{error}</p>}
-            </SheetContent>
-          </Sheet>
+          {left >= 0 && !open && (
+            <Button asChild size="sm" variant="gold" className="h-auto min-h-8 max-w-[45%] whitespace-normal py-1.5 text-center">
+              <Link href={`/resolve?order=${order.id}`}>{t("oReport")}</Link>
+            </Button>
+          )}
         </div>
-
         {order.complaints.map((c) => (
-          <div key={c.id} className="space-y-2 rounded-2xl bg-muted/50 p-3 text-sm ring-1 ring-border">
-            <p className="font-semibold">
-              {t(`oIssue_${c.issue}`)} <span className="font-mono text-xs text-muted-foreground">{c.id}</span>
-            </p>
-            <p className="text-muted-foreground">{c.details}</p>
-            {c.ai && (
-              <p className="rounded-xl bg-primary/10 p-2 text-xs text-primary">
-                <b>
-                  {t("oAiRecommends")} {t(`oRec_${c.ai.recommendation}`)}
-                  {c.ai.refundAmount ? ` ${rupees(c.ai.refundAmount)}` : ""}
-                </b>{" "}
-                ({c.ai.source === "simulated" ? t("oBySim") : t("oByAi")}): {c.ai.reasoning}
-              </p>
-            )}
-            {c.resolution ? (
-              <p className="text-xs font-semibold text-primary">
-                {t("oResolved")} {t(`oRes_${c.resolution.action}`)}
-                {c.resolution.amount ? ` ${rupees(c.resolution.amount)}` : ""} {c.resolution.refundId && <span className="font-mono">({c.resolution.refundId})</span>}
-              </p>
-            ) : (
-              <p className="rounded-xl bg-marigold/15 p-2.5 text-xs text-[#7a4a06]">
-                {t("oSupportReviewing")}
-              </p>
-            )}
-          </div>
+          <ClaimTimeline key={c.id} order={order} complaint={c} />
         ))}
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        <Link href="/resolve" className="block text-xs font-semibold text-primary underline">
+          {t("rhOpenHub")}
+        </Link>
       </CardContent>
     </Card>
   );

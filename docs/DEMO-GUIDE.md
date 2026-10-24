@@ -2,7 +2,7 @@
 
 A walkthrough of every page and feature, written for judges and first-time visitors. The same guide is inside the app at **`/guide`**, with one-tap logins for each role.
 
-Sudhaar is **four apps that work together**:
+Sudhaar is **one website** with four roles. Customers use Home, My Repairs, Resolve Hub, Talk and Care. The karigar, Saathi and admin dashboards are on the same site behind a partner login (the **Partners** menu at the top right, or `/partner`):
 
 | App | Who | Where | Demo login (phone / PIN) |
 |---|---|---|---|
@@ -43,7 +43,7 @@ Sudhaar is **four apps that work together**:
    - **Item passport**: money saved and kg kept out of landfill.
    - **Rate** the karigar, and send a **₹20–100 tip** through PayPal; all of it goes to the karigar.
    - **Book again** starts a new quote with the same karigar.
-   - **Resolve Hub → Report an issue**: Gemini reviews the bill and the photos and suggests a re-repair or a refund.
+   - **Resolve Hub** (top menu): pick the repair and raise a claim. Gemini reviews the bill and the photos and suggests a re-repair or a refund; the claim's timeline shows each step.
 8. **Admin, follow the money.** Open **Partner login → Admin**.
    - **Overview**: what PayPal holds, has captured, paid out and refunded, plus every PayPal API in use.
    - **PayPal activity**: each call with its id.
@@ -67,8 +67,9 @@ Sudhaar is **four apps that work together**:
 | `/ghar-safai` Ghar Safai | Add several items, one Saathi trip and one payment; coupon **GHARSAFAI** | Gemini; PayPal Orders v2 + Payouts (several karigars from one payment) |
 | `/agent` Talk | Speak or type in 8 languages: *“My school bag zip broke, fix it under ₹400.”* The agent quotes, books and creates the PayPal order; you approve it in the chat | Gemini function calling (7 tools); PayPal Agent Toolkit (orders, invoices, refunds, transactions, disputes) |
 | `/care` Sudhaar Care | Subscribe with PayPal → approve → return as a member; free pickups and a 30-day warranty; cancel | PayPal Catalog Products, Billing Plans, Subscriptions, Webhooks |
+| `/resolve` Resolve Hub | Pick a delivered repair (days of warranty left are shown), raise a claim with a photo (the PayPal invoice is attached), then follow it: Gemini's review → the Sudhaar team's decision → PayPal refund id. One open claim per repair; the warranty is enforced on the server | Gemini complaint review; PayPal Refunds |
 | `/repairs` My Repairs | Active repairs with pickup times and progress; item passports; impact totals; Care status | — |
-| `/profile` Profile | Saved location (maps and pickup fees start here), impact, language, read replies aloud | — |
+| `/profile` Profile | Your details (edit name), saved location, Sudhaar Care status, PayPal payments and invoices, impact, language and voice, change PIN, help links | — |
 | `/karigars/[id]` Karigar profile | Craft, experience, price list, verified reviews, map, “Get a quote from …” | — |
 | `/pay/[id]?t=…` Family Pay | A relative pays from their own PayPal; the money is still only held until delivery | PayPal JS SDK v6 + Orders v2 |
 | `/join` Join | Apply as a karigar or as a Repair Saathi, in your own language | — |

@@ -1,5 +1,5 @@
-import { CustomerShell } from "@/components/shell/CustomerShell";
+import { SiteShell } from "@/components/shell/SiteShell";
 
 export default function CustomerLayout({ children }: { children: React.ReactNode }) {
-  return <CustomerShell>{children}</CustomerShell>;
+  return <SiteShell>{children}</SiteShell>;
 }

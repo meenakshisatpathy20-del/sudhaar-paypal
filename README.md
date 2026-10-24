@@ -20,7 +20,7 @@ Sudhaar fixes each of those problems:
 | "I have to carry it to a shop and go back" | **Repair Saathi** pickup and delivery (plumbers and electricians do home visits) |
 | "Is it worth repairing?" | **AI Snap & Quote**: repair-cost range vs. new price, so you see the saving |
 | "I'll get overcharged / I can't trust a stranger" | Price shown upfront, **PayPal holds the money** until delivery, OTP at every handover |
-| "What if it breaks again?" | 15-day warranty and **Resolve Hub**: complaint with the PayPal invoice attached, AI review, PayPal refund |
+| "What if it breaks again?" | 15-day warranty (30 with Sudhaar Care) and **Resolve Hub**, a page of its own: pick the repair, raise a claim with the PayPal invoice attached, follow the AI review, the team's decision and the PayPal refund |
 | Karigars get few customers and get paid late | Free listing, karigar keeps **90%** of the repair charge, **instant PayPal payout** |
 
 ## What it does (end to end)
@@ -74,10 +74,11 @@ Many parents live alone while their children work in other cities. A parent book
 - **Item Passport**: every repaired item gets a "second life" card with money saved and waste avoided.
 - **Karigar profiles** (craft, years of experience, languages, reviews, price list) and a **real OpenStreetMap map** with the customer's home, karigar pins and the Saathi moving along the route. Customers can share their **live location** at sign-up or from Profile, and distances and pickup fees are measured from there.
 - Warm, hand-drawn **doodle illustrations** with a light **three.js** scene, designed for everyday phones.
-- A **customer app** (Home · My Repairs · Talk · Profile) kept separate from the **partner side**. Each partner logs in with their own phone + PIN and sees only their own work:
+- **One website for everyone.** Customers get Home · My Repairs · Resolve Hub · Talk · Care. Karigars, Saathis and the Sudhaar team use the same site: their dashboards sit behind a partner login (the **Partners** menu), the menu changes to their role once they log in, and every API enforces the same rules. Each partner sees only their own work:
   - **Karigar app**: a desktop dashboard with earnings, this week, tips and rating; a **job board by stage** (coming to you → on your bench → ready to go back); inspect and start, **ask the customer to approve a new price** when the damage turns out bigger, after photo and AI check; a 7-day payouts chart; **verified reviews**; **My shop** to edit the rate card, bio and turnaround; earnings with a **"Check payout status with PayPal"** button (Payouts API); online/offline switch.
   - **Saathi app**: trips with OTP handovers, a **numbered route map** with directions, **live location sharing** (GPS or a labelled demo ride), earnings with the PayPal payout check, km ridden, a handover checklist, and a profile (area, vehicle used for ETAs).
   - **Admin console**: an **overview of where the money is** (held, captured, paid out, refunded, tips, discounts, Care billing) with every PayPal API in use and the latest PayPal calls; a **PayPal activity** log; orders, payouts, customers, karigars and Saathis (AG Grid); Resolve Hub refunds; Photo checks; partner applications; **coupons**; **Sudhaar Care members**; the **live Saathi fleet** map; webhooks; and the system check.
+- **Profile**: edit your name, saved location, Sudhaar Care, PayPal payments and invoices, your impact, language and voice, and change your PIN (stored only as a hash).
 - **A demo guide inside the app** (`/guide`, linked from the bar at the top and the footer): one-tap logins for all four roles, the whole journey step by step, and every page with what to try and the APIs behind it.
 
 ### 📦 Shiprocket-style live tracking
@@ -159,7 +160,7 @@ The demo buttons open the karigar and Saathi of the most recent booking that's w
 3. In another browser (or a private window, so both logins stay active) open **`/partner`** and log in as the **Saathi** → enter the **pickup OTP** the customer reads out from their order page (Saathis never receive OTPs) → *Handed to karigar*.
 4. **Karigar app** (`/partner`, Karigar demo button) → *Inspect & start repair* → optionally **Change price after inspection** with a reason (*Ask the customer*); the customer approves it on their order page and pays the difference in a second PayPal popup → upload an after photo → **Mark repaired** (the AI completion check runs). If the AI rejects the photo or is unavailable, the money stays held and the repair appears in **Admin console → Photo checks** for a person to approve or send back.
 5. **Saathi app** → *Collect from karigar & go* → enter the **delivery OTP** → PayPal **captures**, sends **payouts** and issues the **invoice**. The order page shows the ids and an **Item Passport**.
-6. Order page → **Resolve Hub** → *Report an issue* → AI recommends an action → in the **Admin console → Resolve Hub** tab, **Approve PayPal refund** → the customer's order shows the refund.
+6. **Resolve Hub** (top menu, or *Report an issue* on the order page) → pick the repair → describe the problem → AI recommends an action → in the **Admin console → Resolve Hub** tab, **Approve PayPal refund** → the claim's timeline shows the PayPal refund id.
 7. **Ghar Safai Mode** (home page banner) → add 2–3 items (e.g. *school bag zip*, *chappal sole*, *mixer blade*) → see the one-trip saving → **Review & pay once**. Optionally tick **Someone else pays**, enter a name and open the shared `/pay/…` link to pay as the family member. In the Karigar app, switch between karigars to repair each one's items; after delivery the order shows **one capture and one payout per karigar**.
 8. **Talk** tab → tap the mic or type "My school bag zip broke. Get it fixed under ₹400." → approve the PayPal payment inside the chat. Replies are read aloud.
 9. **Admin console** (partner side) → AG Grid views of **orders, customers, karigars, Saathis, payouts and PayPal webhooks**, plus the **Resolve Hub** queue where refunds are approved, the **Photo checks** queue for repairs the AI could not pass, and **Applications** from new karigars. *Reset demo data* clears orders.
