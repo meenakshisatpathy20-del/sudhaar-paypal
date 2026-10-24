@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useSession } from "@/components/SessionProvider";
-import { homeFor } from "@/components/shell/PartnerShell";
+import { homeFor } from "@/components/shell/SiteShell";
 
 // /partner: the shell shows the login; once logged in, each partner goes to their own app.
 export default function PartnerHome() {

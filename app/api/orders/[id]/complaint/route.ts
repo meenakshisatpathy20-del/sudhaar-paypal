@@ -14,10 +14,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const customer = requireRole(req, "customer");
     const { id } = await params;
     assertCanView(customer, getOrder(id));
-    const body = (await req.json()) as { issue: Complaint["issue"]; details: string; photo?: string };
+    const body = (await req.json()) as { issue: Complaint["issue"]; details: string; photo?: string; evidence?: unknown };
     if (!ISSUES.includes(body.issue)) throw new FlowError("Pick what went wrong");
     if (!body.details?.trim()) throw new FlowError("Tell us what happened");
-    return ok({ order: orderFor(customer, await raiseComplaint(id, { issue: body.issue, details: body.details.slice(0, 1000), photo: body.photo })) });
+    return ok({ order: orderFor(customer, await raiseComplaint(id, { issue: body.issue, details: body.details.slice(0, 1000), photo: body.photo, evidence: Array.isArray(body.evidence) ? body.evidence.map(String) : undefined })) });
   } catch (e) {
     return fail(e);
   }

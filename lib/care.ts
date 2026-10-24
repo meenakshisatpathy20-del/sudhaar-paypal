@@ -1,3 +1,4 @@
+import { config } from "./config";
 import { readDB, updateDB } from "./db";
 import { FlowError } from "./orders";
 import { cancelSubscription, createCarePlan, createCareProduct, createSubscription, describePayPalError, getSubscription, paypalMode } from "./paypal";
@@ -12,15 +13,20 @@ export const CARE_BENEFITS = ["Free doorstep pickup and delivery on every repair
 
 export const careActive = (a: Pick<Account, "care"> | null | undefined) => a?.care?.status === "ACTIVE";
 
-/** The billing plan, created in PayPal the first time anyone subscribes (and again if the mode changes). */
-async function ensurePlan(): Promise<string> {
+/**
+ * The billing plan, created in PayPal the first time anyone subscribes. Plans belong to one PayPal
+ * account, so the saved plan is only reused with the same mode and Client ID; `fresh` forces a new one.
+ */
+async function ensurePlan(fresh = false): Promise<string> {
   const mode = paypalMode();
+  const owner = config.paypal.clientId.slice(0, 16);
   const existing = readDB().care;
-  if (existing?.planId && existing.mode === mode) return existing.planId;
-  const productId = existing?.productId && existing.mode === mode ? existing.productId : await createCareProduct();
+  const same = existing?.mode === mode && existing?.owner === owner;
+  if (!fresh && same && existing?.planId) return existing.planId;
+  const productId = !fresh && same && existing?.productId ? existing.productId : await createCareProduct();
   const planId = await createCarePlan(productId, CARE_PRICE_USD);
   await updateDB((db) => {
-    db.care = { productId, planId, mode };
+    db.care = { productId, planId, mode, owner };
   });
   return planId;
 }
@@ -30,8 +36,16 @@ export async function startCare(account: Account, origin: string): Promise<{ app
   if (account.role !== "customer") throw new FlowError("Only customers can join Sudhaar Care", 403);
   if (careActive(account)) throw new FlowError("You're already a Sudhaar Care member");
   try {
-    const planId = await ensurePlan();
-    const sub = await createSubscription(planId, account.id, `${origin}/api/care/return`, `${origin}/care?status=cancelled`);
+    const back = [`${origin}/api/care/return`, `${origin}/care?status=cancelled`] as const;
+    let sub;
+    try {
+      sub = await createSubscription(await ensurePlan(), account.id, ...back);
+    } catch (e) {
+      // The saved plan isn't valid in this PayPal account any more (deleted, or new keys): make a new one once.
+      const status = (e as { status?: number }).status;
+      if (status !== 404 && status !== 422) throw e;
+      sub = await createSubscription(await ensurePlan(true), account.id, ...back);
+    }
     if (!sub.approveUrl) throw new FlowError("PayPal did not return an approval link", 502);
     await setMembership(account.id, { subscriptionId: sub.id, status: "APPROVAL_PENDING", mode: paypalMode(), startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
     return { approveUrl: sub.approveUrl };

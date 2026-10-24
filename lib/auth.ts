@@ -141,6 +141,6 @@ export async function signUpCustomer(req: Request, input: { name?: unknown; phon
 
 /** What the browser may know about the logged-in account. */
 export function publicAccount(a: Account) {
-  return { id: a.id, role: a.role, name: a.name, phone: `•••••• ${a.phone.slice(-4)}`, address: a.address, lat: a.lat, lng: a.lng, karigarId: a.karigarId, saathiId: a.saathiId, demo: a.demo ?? false, care: a.care?.status === "ACTIVE" };
+  return { id: a.id, role: a.role, name: a.name, phone: `•••••• ${a.phone.slice(-4)}`, address: a.address, lat: a.lat, lng: a.lng, karigarId: a.karigarId, saathiId: a.saathiId, demo: a.demo ?? false, care: a.care?.status === "ACTIVE", createdAt: a.createdAt };
 }
 export type PublicAccount = ReturnType<typeof publicAccount>;

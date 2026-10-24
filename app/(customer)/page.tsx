@@ -1,5 +1,6 @@
 "use client";
 
+import { PhoneLine } from "@/components/PhoneLine";
 import { rupees } from "@/components/Inr";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -123,6 +124,8 @@ export default function Home() {
       </section>
 
       {/* GHAR SAFAI */}
+      <PhoneLine />
+
       <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#ffd9a8] via-[#ffecd1] to-[#ffd0bd] p-5 ring-1 ring-border md:p-6">
         <div className="relative z-10 grid items-center gap-4 md:grid-cols-[1fr_auto]">
           <div className="space-y-2">

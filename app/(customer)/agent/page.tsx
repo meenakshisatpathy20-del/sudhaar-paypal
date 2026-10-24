@@ -1,5 +1,6 @@
 "use client";
 
+import { PhoneLine } from "@/components/PhoneLine";
 import { RequireLogin } from "@/components/LoginSheet";
 import { rupees } from "@/components/Inr";
 import Link from "next/link";
@@ -190,6 +191,7 @@ function TalkPageInner() {
         </CardContent>
       </Card>
       <p className="rounded-2xl bg-[#0070e0]/10 p-3 text-xs text-paypal-blue ring-1 ring-[#0070e0]/30">{t("tkSafe")}</p>
+      <PhoneLine className="flex-col items-start" />
     </aside>
     </div>
   );

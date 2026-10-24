@@ -6,6 +6,7 @@ import { round2 } from "@/lib/pricing";
 import { adminKarigar } from "@/lib/privacy";
 import { liveLocation } from "@/lib/tracking";
 import { CARE_PRICE_USD } from "@/lib/pricing";
+import { bolnaConfig, callbackEnabled } from "@/lib/bolna";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,13 @@ export async function GET(req: Request) {
       fleet,
       coupons: db.coupons ?? [],
       carePlan: db.care ?? null,
+      // Bolna phone line: what's configured (never the secrets), recent calls and phone bookings.
+      voice: {
+        functions: Boolean((process.env.VOICE_API_TOKEN ?? "").trim()),
+        callback: callbackEnabled(),
+        phoneNumber: bolnaConfig().phoneNumber || null,
+        calls: db.voiceCalls ?? [],
+      },
     });
   } catch (e) {
     return fail(e);

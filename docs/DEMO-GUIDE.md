@@ -2,7 +2,7 @@
 
 A walkthrough of every page and feature, written for judges and first-time visitors. The same guide is inside the app at **`/guide`**, with one-tap logins for each role.
 
-Sudhaar is **four apps that work together**:
+Sudhaar is **one website** with four roles. Customers use Home, My Repairs, Resolve Hub, Talk and Care. The karigar, Saathi and admin dashboards are on the same site behind a partner login (the **Partners** menu at the top right, or `/partner`):
 
 | App | Who | Where | Demo login (phone / PIN) |
 |---|---|---|---|
@@ -43,11 +43,12 @@ Sudhaar is **four apps that work together**:
    - **Item passport**: money saved and kg kept out of landfill.
    - **Rate** the karigar, and send a **₹20–100 tip** through PayPal; all of it goes to the karigar.
    - **Book again** starts a new quote with the same karigar.
-   - **Resolve Hub → Report an issue**: Gemini reviews the bill and the photos and suggests a re-repair or a refund.
+   - **Resolve Hub** (top menu): pick the repair and raise a claim in 3 steps (what went wrong → details and photos → review). The claim page shows the claim id, priority and decision deadline, the stage stepper, Gemini's suggestion, a conversation with the team and the karigar, the photos and the activity log. You can add photos, reply, or withdraw the claim.
 8. **Admin, follow the money.** Open **Partner login → Admin**.
    - **Overview**: what PayPal holds, has captured, paid out and refunded, plus every PayPal API in use.
    - **PayPal activity**: each call with its id.
-   - **Resolve Hub**: approve the refund, which goes through PayPal Refunds.
+   - **Resolve Hub**: the claims desk (open, past SLA, resolution rate, average time to decide, refunded, CSV). Open a claim: assign it, set priority, ask the customer or karigar ("Move the case"), add an internal note, then decide: PayPal refund, free re-repair or close with a reason. A refunded claim can't be reopened; a rejected or withdrawn one can.
+   - The **bell** in the header shows new claims, replies and decisions to whoever they concern.
    - **Coupons**: create a code or switch one off.
    - **Sudhaar Care**: the members list.
    - **Live fleet**: Saathis on the map.
@@ -67,8 +68,10 @@ Sudhaar is **four apps that work together**:
 | `/ghar-safai` Ghar Safai | Add several items, one Saathi trip and one payment; coupon **GHARSAFAI** | Gemini; PayPal Orders v2 + Payouts (several karigars from one payment) |
 | `/agent` Talk | Speak or type in 8 languages: *“My school bag zip broke, fix it under ₹400.”* The agent quotes, books and creates the PayPal order; you approve it in the chat | Gemini function calling (7 tools); PayPal Agent Toolkit (orders, invoices, refunds, transactions, disputes) |
 | `/care` Sudhaar Care | Subscribe with PayPal → approve → return as a member; free pickups and a 30-day warranty; cancel | PayPal Catalog Products, Billing Plans, Subscriptions, Webhooks |
+| `/resolve` Resolve Hub | Your claims (search, open/closed filter) and the 3-step claim form: pick a delivered repair (days of warranty left shown) → what went wrong (sets priority + deadline) → details and up to 5 photos → review (PayPal invoice attached). One open claim per repair; the warranty is enforced on the server | Gemini complaint review |
+| `/resolve/RH-…` Claim | Claim id, status, priority, decision deadline (SLA), stage stepper, Gemini's suggestion, conversation (customer, karigar, team; internal notes for the team only), photo evidence, activity log, withdraw. Admins get Team actions: assign, priority, move the case, decide (refund / re-repair / close), reopen. Karigars on the job can reply and add photos | PayPal Refunds; notifications |
 | `/repairs` My Repairs | Active repairs with pickup times and progress; item passports; impact totals; Care status | — |
-| `/profile` Profile | Saved location (maps and pickup fees start here), impact, language, read replies aloud | — |
+| `/profile` Profile | Your details (edit name), saved location, Sudhaar Care status, PayPal payments and invoices, impact, language and voice, change PIN, help links | — |
 | `/karigars/[id]` Karigar profile | Craft, experience, price list, verified reviews, map, “Get a quote from …” | — |
 | `/pay/[id]?t=…` Family Pay | A relative pays from their own PayPal; the money is still only held until delivery | PayPal JS SDK v6 + Orders v2 |
 | `/join` Join | Apply as a karigar or as a Repair Saathi, in your own language | — |
@@ -146,5 +149,5 @@ Each code works once per customer.
 - PayPal runs in the **sandbox**; no real money moves.
 - Karigars marked **Sample profile** are demo data. People who join through `/join` are real records.
 - In-app voice uses the browser's speech recognition, so support depends on the browser and phone.
-- A **Hindi phone line on Bolna** (for people without smartphones) is planned and is not part of this build.
+- The **Hindi phone line on Bolna** is built (`/api/voice/*`, the agent prompt and functions in `bolna/`, **Admin → Phone line**). It goes live once a Bolna agent and phone number are connected (see `docs/BOLNA.md`). Until then the website hides the phone card.
 - The free host sleeps when idle (the first load can take about a minute), and a restart resets demo data.

@@ -28,7 +28,7 @@ const STORY: [string, string, string][] = [
   ["Saathi", "In a private window, open Partner login → Saathi. Press Demo ride: the customer's map and tracking page show the Saathi moving with an ETA. Enter the pickup OTP.", "/partner"],
   ["Karigar", "Partner login → Karigar. Inspect & start repair, optionally Change price (the customer approves a second PayPal hold), upload an after photo, Mark repaired (Gemini checks the photo).", "/partner"],
   ["Saathi", "Collect from karigar, then enter the delivery OTP. This captures the PayPal payment and sends Payouts to the karigar (90%) and Saathi (75% of pickup).", "/partner"],
-  ["Customer", "See the PayPal invoice, item passport, rate the karigar and send a ₹20–100 tip (100% paid out). Raise a Resolve Hub claim to see Gemini's refund suggestion.", "/repairs"],
+  ["Customer", "See the PayPal invoice, item passport, rate the karigar and send a ₹20–100 tip (100% paid out). Open Resolve Hub, pick the repair and raise a claim to see Gemini's suggestion.", "/resolve"],
   ["Admin", "Partner login → Admin: money flow, PayPal activity, refund the claim, create a coupon, see Care members and the live fleet map.", "/partner"],
 ];
 
@@ -38,7 +38,11 @@ const PAGES: [string, string, string, string][] = [
   ["/ghar-safai", "Customer", "Many items, one Saathi trip, one payment, split payouts; GHARSAFAI coupon", "Gemini · PayPal Orders v2 + Payouts (one batch, many karigars)"],
   ["/orders/[id]", "Customer", "Pay, OTPs, live Saathi on the map + ETA, share tracking, price change approval, invoice, rate & tip, Resolve Hub", "PayPal JS SDK v6, Authorizations, Captures, Refunds, Invoicing, Payouts · Gemini photo check & complaint review"],
   ["/track/[id]?t=…", "Anyone with the link", "Shiprocket-style tracking: timeline, live map, ETA. No OTPs or prices", "—"],
+  ["/resolve", "Customer", "Resolve Hub: your claims with search and filters, and a 3-step claim form (what went wrong → details + up to 5 photos → review, PayPal invoice attached)", "Gemini complaint review"],
+  ["/resolve/RH-…", "Customer, karigar, admin", "One claim: priority and decision deadline, stage stepper, conversation, photo evidence, activity log, withdraw. Admins assign, ask questions, add internal notes and decide (PayPal refund, free re-repair, close)", "PayPal Refunds · notifications"],
+  ["/profile", "Customer", "Details, saved location, Sudhaar Care, PayPal payments and invoices, impact, language and voice, change PIN", "—"],
   ["/agent", "Customer", "Talk to Sudhaar in 8 languages by voice: quote, book, track, cancel, warranty claim", "Gemini function calling (7 tools) · PayPal Orders v2 · PayPal Agent Toolkit (read orders, invoices, refunds, transactions, disputes)"],
+  ["Phone line", "Callers without a smartphone", "Hindi voice agent on Bolna: quote, book, status, cancel, warranty claim; family pays with a PayPal link; “Call me” button; Admin → Phone line", "Bolna (custom functions, inbound lookup, webhook, outbound call API) · Gemini · PayPal Orders v2"],
   ["/care", "Customer", "Sudhaar Care monthly plan: free pickups, 30-day warranty; subscribe and cancel", "PayPal Catalog Products, Billing Plans, Subscriptions, Webhooks"],
   ["/pay/[id]?t=…", "Family member", "Family Pay: a relative pays from their own PayPal", "PayPal JS SDK v6 + Orders v2"],
   ["/join", "New partner", "Apply as a karigar or Repair Saathi (in 8 languages)", "—"],
@@ -73,8 +77,9 @@ export default function GuidePage() {
         </Badge>
         <h1 className="mt-3 font-display text-4xl font-bold">See all of Sudhaar in 5 minutes</h1>
         <p className="mt-2 max-w-3xl text-muted-foreground">
-          Sudhaar is four apps that work together: customers, Repair Saathis (pickup partners), karigars (repairers) and the Sudhaar team. Tip: keep the customer in a normal window and open partner apps in a
-          private window, so both logins stay active side by side.
+          Sudhaar is one website for everyone: customers, Repair Saathis (pickup partners), karigars (repairers) and the Sudhaar team. Customers use Home, My Repairs, Resolve Hub, Talk and Care; the karigar,
+          Saathi and admin dashboards are on the same site behind a partner login (Partners menu, top right). Tip: keep the customer in a normal window and a partner in a private window, so both logins stay
+          active side by side.
         </p>
         <p className="mt-3 text-sm">
           PayPal: <b>{cfg?.paypal.mode === "sandbox" ? "live sandbox" : "simulated (no keys on this server)"}</b> · AI: <b>{cfg?.ai.mode === "gemini" ? `Gemini (${cfg.ai.model})` : "simulated"}</b>
@@ -104,7 +109,7 @@ export default function GuidePage() {
             </Card>
           ))}
         </div>
-        <p className="text-xs text-muted-foreground">Opening another role logs this browser into that role. Partner apps are also at /partner.</p>
+        <p className="text-xs text-muted-foreground">Opening another role logs this browser into that role. Partner dashboards are also in the Partners menu (top right).</p>
         {error && <p className="text-sm text-destructive">{error}</p>}
       </section>
 
@@ -141,7 +146,7 @@ export default function GuidePage() {
             <tbody className="divide-y divide-border">
               {PAGES.map(([path, who, what, apis]) => (
                 <tr key={path} className="align-top">
-                  <td className="px-4 py-2.5 font-mono text-xs">{path.includes("[") ? path : <Link className="text-primary underline" href={path}>{path}</Link>}</td>
+                  <td className="px-4 py-2.5 font-mono text-xs">{path.includes("[") || !path.startsWith("/") ? path : <Link className="text-primary underline" href={path}>{path}</Link>}</td>
                   <td className="px-4 py-2.5 text-xs">{who}</td>
                   <td className="px-4 py-2.5">{what}</td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">{apis}</td>
