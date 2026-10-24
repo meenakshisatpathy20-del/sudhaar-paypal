@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/components/api";
 import { rupees } from "@/components/Inr";
 import { useLang } from "@/components/LanguageProvider";
 import { EarningsList, PartnerHeader, PayoutCheck, StatStrip, TabsN, usePartner, WeekChart, type PartnerData } from "@/components/partner/PartnerHome";
 import { PhotoPicker } from "@/components/PhotoPicker";
 import { SlotLine } from "@/components/SlotLine";
+import { ClaimCard } from "@/components/resolve/Claims";
 import { StatusPill } from "@/components/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useOrders } from "@/components/useOrders";
+import { isOpenClaim } from "@/lib/claims-shared";
 import { INR_PER_USD } from "@/lib/pricing";
 import { langMeta } from "@/lib/i18n";
 import type { CompletionCheck, Job, Order } from "@/lib/types";
@@ -22,6 +24,9 @@ export default function KarigarApp() {
   const { orders, reload } = useOrders();
   const partner = usePartner("karigar");
   const [tab, setTab] = useState("jobs");
+  useEffect(() => {
+    if (window.location.hash === "#claims") setTab("claims");
+  }, []);
   const kid = partner.data?.profile.id;
   if (partner.error) return <p className="paper mx-auto max-w-md rounded-2xl p-5 text-sm text-destructive">{partner.error}</p>;
   if (!partner.data || !kid) return <p className="paper mx-auto max-w-md rounded-2xl p-5 text-sm text-muted-foreground">…</p>;
@@ -30,6 +35,9 @@ export default function KarigarApp() {
   const mine = orders.filter((o) => (o.kind === "basket" ? o.jobs?.some((j) => j.karigarId === kid) : o.karigarId === kid));
   const active = mine.filter((o) => ["authorized", "picked_up", "at_karigar", "repairing", "repaired"].includes(o.status));
   const done = mine.filter((o) => ["out_for_delivery", "delivered", "paid_out"].includes(o.status)).slice(0, 8);
+  // Resolve Hub claims on this karigar's repairs: they can reply and add photos.
+  const claims = mine.flatMap((o) => o.complaints.map((c) => ({ order: o, claim: c }))).sort((a, b) => b.claim.createdAt.localeCompare(a.claim.createdAt));
+  const openClaims = claims.filter((x) => isOpenClaim(x.claim)).length;
   const refresh = () => {
     reload();
     partner.reload();
@@ -63,6 +71,7 @@ export default function KarigarApp() {
             items={[
               ["jobs", `${t("kaJobs")} (${active.length})`],
               ["earnings", t("kaHistory")],
+              ["claims", `${t("kbClaims")}${openClaims ? ` (${openClaims})` : ""}`],
               ["reviews", `${t("kbReviews")} (${d.reviews.length})`],
               ["shop", t("kbShop")],
             ]}
@@ -109,6 +118,15 @@ export default function KarigarApp() {
             <div className="space-y-3">
               <PayoutCheck onDone={partner.reload} />
               <EarningsList data={d} />
+            </div>
+          )}
+          {tab === "claims" && (
+            <div id="claims" className="space-y-3">
+              <p className="text-sm text-muted-foreground">{t("kbClaimsHint")}</p>
+              {claims.length === 0 && <p className="paper rounded-2xl p-5 text-sm text-muted-foreground">{t("kbNoClaims")}</p>}
+              {claims.map(({ order, claim }) => (
+                <ClaimCard key={claim.id} order={order} claim={claim} />
+              ))}
             </div>
           )}
           {tab === "reviews" && <Reviews data={d} />}

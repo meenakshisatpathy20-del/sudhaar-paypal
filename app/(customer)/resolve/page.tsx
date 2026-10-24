@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
-import { Bot, LifeBuoy, Receipt, ShieldCheck, UserCheck, Wallet } from "lucide-react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { Bot, LifeBuoy, MessagesSquare, Receipt, Search, ShieldCheck, UserCheck, Wallet } from "lucide-react";
 import { RequireLogin } from "@/components/LoginSheet";
 import { useLang } from "@/components/LanguageProvider";
-import { ClaimForm, ClaimTimeline } from "@/components/resolve/Claims";
+import { ClaimCard, ClaimForm } from "@/components/resolve/Claims";
+import { api } from "@/components/api";
+import { Input } from "@/components/ui/input";
+import { isOpenClaim } from "@/lib/claims-shared";
 import { CATEGORY_ICON } from "@/components/CategoryIcon";
 import { orderRupees } from "@/components/Inr";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +18,7 @@ import { useOrders } from "@/components/useOrders";
 import { langMeta } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { deliveredAt, warrantyDaysLeft } from "@/lib/warranty";
-import type { Order } from "@/lib/types";
+import type { Complaint, Order } from "@/lib/types";
 
 export default function ResolvePage() {
   return (
@@ -32,17 +35,36 @@ export default function ResolvePage() {
 function Resolve() {
   const { t, lang } = useLang();
   const params = useSearchParams();
-  const { orders, reload } = useOrders(5000);
+  const { orders } = useOrders(5000);
   const [selected, setSelected] = useState<string | null>(params.get("order"));
   useEffect(() => {
     if (params.get("order")) setSelected(params.get("order"));
   }, [params]);
 
+  const [claims, setClaims] = useState<{ claim: Complaint; order: Order }[]>([]);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | "open" | "closed">("all");
+  const loadClaims = useCallback(() => {
+    api<{ claims: { claim: Complaint; order: Order }[] }>("/api/claims")
+      .then((r) => setClaims(r.claims))
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    loadClaims();
+    const timer = setInterval(loadClaims, 8000);
+    return () => clearInterval(timer);
+  }, [loadClaims]);
+
   const delivered = orders.filter((o) => o.paypal.captureId);
-  const open = (o: Order) => o.complaints.some((c) => !c.resolution);
+  const open = (o: Order) => o.complaints.some(isOpenClaim);
   const eligible = delivered.filter((o) => warrantyDaysLeft(o) >= 0);
   const expired = delivered.filter((o) => warrantyDaysLeft(o) < 0);
-  const claims = orders.flatMap((o) => o.complaints.map((c) => ({ order: o, complaint: c }))).sort((a, b) => b.complaint.createdAt.localeCompare(a.complaint.createdAt));
+  const q = query.trim().toLowerCase();
+  const shown = claims.filter(
+    ({ claim: c, order: o }) =>
+      (filter === "all" || (filter === "open") === isOpenClaim(c)) && (!q || [c.id, o.id, o.item, c.details, t(`oIssue_${c.issue}` as never)].some((x) => x.toLowerCase().includes(q))),
+  );
+  const openCount = claims.filter((x) => isOpenClaim(x.claim)).length;
   const chosen = eligible.find((o) => o.id === selected && !open(o));
   const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(langMeta(lang).locale, { day: "numeric", month: "short" }) : "");
   const how: [typeof Receipt, string, string][] = [
@@ -75,10 +97,28 @@ function Resolve() {
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <section className="min-w-0 space-y-4">
-          <h2 className="text-xl font-bold">{t("rhYourClaims")}</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="flex items-center gap-2 text-xl font-bold">
+              <MessagesSquare className="size-5 text-primary" /> {t("rhYourClaims")}
+            </h2>
+            <div className="flex rounded-xl bg-muted p-1 text-xs font-semibold">
+              {(["all", "open", "closed"] as const).map((f) => (
+                <button key={f} onClick={() => setFilter(f)} className={cn("rounded-lg px-3 py-1.5", filter === f ? "bg-card shadow-sm" : "text-muted-foreground")}>
+                  {f === "all" ? t("rhAll", { n: claims.length }) : f === "open" ? t("rhOpenN", { n: openCount }) : t("rhClosedN", { n: claims.length - openCount })}
+                </button>
+              ))}
+            </div>
+          </div>
+          {claims.length > 0 && (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("rhSearch")} className="pl-9" />
+            </div>
+          )}
           {claims.length === 0 && <p className="paper rounded-2xl p-5 text-sm text-muted-foreground">{t("rhNoClaims")}</p>}
-          {claims.map(({ order, complaint }) => (
-            <ClaimTimeline key={complaint.id} order={order} complaint={complaint} />
+          {claims.length > 0 && shown.length === 0 && <p className="paper rounded-2xl p-5 text-sm text-muted-foreground">{t("rhNoMatch")}</p>}
+          {shown.map(({ order, claim }) => (
+            <ClaimCard key={claim.id} order={order} claim={claim} />
           ))}
         </section>
 
@@ -125,13 +165,7 @@ function Resolve() {
               </div>
               {chosen && (
                 <div className="border-t border-border pt-3">
-                  <ClaimForm
-                    order={chosen}
-                    onDone={() => {
-                      setSelected(null);
-                      reload();
-                    }}
-                  />
+                  <ClaimForm key={chosen.id} order={chosen} onCancel={() => setSelected(null)} />
                 </div>
               )}
               {expired.length > 0 && <p className="text-[11px] text-muted-foreground">{t("rhExpired", { n: expired.length })}</p>}

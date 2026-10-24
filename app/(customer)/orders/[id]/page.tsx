@@ -6,7 +6,8 @@ import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { ArrowLeft, BadgeCheck, ChevronDown, Copy, ExternalLink, LifeBuoy, Leaf, Navigation, PhoneCall, PiggyBank, Receipt, ShieldCheck, Sparkles, XCircle } from "lucide-react";
 import { AfterDelivery } from "@/components/AfterDelivery";
-import { ClaimTimeline } from "@/components/resolve/Claims";
+import { ClaimCard } from "@/components/resolve/Claims";
+import { isOpenClaim } from "@/lib/claims-shared";
 import { warrantyDays, warrantyDaysLeft } from "@/lib/warranty";
 import { api, money } from "@/components/api";
 import { EventLog } from "@/components/EventLog";
@@ -564,7 +565,7 @@ function Photo({ label, file }: { label: string; file?: string }) {
 function ResolveHub({ order }: { order: Order }) {
   const { t } = useLang();
   const left = warrantyDaysLeft(order);
-  const open = order.complaints.some((c) => !c.resolution);
+  const open = order.complaints.some(isOpenClaim);
   return (
     <Card>
       <CardContent className="space-y-3">
@@ -582,7 +583,7 @@ function ResolveHub({ order }: { order: Order }) {
           )}
         </div>
         {order.complaints.map((c) => (
-          <ClaimTimeline key={c.id} order={order} complaint={c} />
+          <ClaimCard key={c.id} order={order} claim={c} />
         ))}
         <Link href="/resolve" className="block text-xs font-semibold text-primary underline">
           {t("rhOpenHub")}

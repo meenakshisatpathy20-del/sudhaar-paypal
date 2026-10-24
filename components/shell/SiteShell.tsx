@@ -1,5 +1,6 @@
 "use client";
 
+import { NotificationBell } from "./NotificationBell";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -72,6 +73,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
           <div className="ml-auto flex items-center gap-2 md:ml-0">
             {(!role || role === "customer") && <PartnersMenu />}
             <LangToggle />
+            {!loading && account && <NotificationBell />}
             {!loading && <AccountMenu />}
           </div>
         </div>

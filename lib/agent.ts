@@ -235,7 +235,7 @@ async function runCustomTool(name: string, input: Record<string, unknown>, sessi
       return { order_id: o.id, status: o.status };
     }
     case "raise_warranty_claim": {
-      const o = await raiseComplaint(ownOrder(input.order_id).id, { issue: input.issue as Complaint["issue"], details: String(input.details ?? "") });
+      const o = await raiseComplaint(ownOrder(input.order_id).id, { issue: input.issue as Complaint["issue"], details: String(input.details ?? ""), channel: "agent" });
       const c = o.complaints[0];
       return { complaint_id: c.id, ai_review: c.ai, auto_refund_limit_usd: AUTO_REFUND_LIMIT };
     }
@@ -246,7 +246,7 @@ async function runCustomTool(name: string, input: Record<string, unknown>, sessi
       if (!c.ai || c.ai.refundAmount <= 0) throw new FlowError("The AI review did not recommend a refund for this complaint");
       // Policy is enforced here in code, not only in the prompt.
       if (c.ai.refundAmount > AUTO_REFUND_LIMIT) return { escalated: true, reason: `Refund of $${c.ai.refundAmount.toFixed(2)} is above the $${AUTO_REFUND_LIMIT} agent limit; sent to the support desk.` };
-      const o = await resolveComplaint(before.id, c.id, { action: "refund", amount: c.ai.refundAmount });
+      const o = await resolveComplaint(before.id, c.id, { action: "refund", amount: c.ai.refundAmount, by: { name: "Sudhaar AI agent" }, remarks: `Small refund under the $${AUTO_REFUND_LIMIT} policy limit, sent automatically.` });
       const r = o.complaints.find((x) => x.id === c.id)?.resolution;
       cards.push({ type: "refund", orderId: o.id, amount: r?.amount ?? 0, refundId: r?.refundId });
       return { refunded: r?.amount, paypal_refund_id: r?.refundId };

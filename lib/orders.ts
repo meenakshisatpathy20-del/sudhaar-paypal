@@ -23,6 +23,8 @@ import { AVG_ITEM_KG, basketPickupFee, computeSplit, haversineKm, INR_PER_USD, k
 import { canRate, liveStats, orderKarigars } from "./reviews";
 import { acceptSlot, pickupSlots } from "./slots";
 import { warrantyDays, warrantyDaysLeft } from "./warranty";
+import { activity, DEFAULT_PRIORITY, isOpenClaim, slaDue } from "./claims-shared";
+import { announceClaim, announceDecision } from "./claims";
 import type { Account, Category, Complaint, DB, FamilyPay, Job, Karigar, Order, OrderEvent, OrderStatus, PickupSlot, Quote, Saathi } from "./types";
 
 export class FlowError extends Error {
@@ -635,33 +637,77 @@ export async function settle(orderId: string): Promise<Order> {
 
 // ---------- Resolve Hub ----------
 
-export async function raiseComplaint(orderId: string, input: { issue: Complaint["issue"]; details: string; photo?: string }): Promise<Order> {
+/** Claim id like RH-241024-3F2A: the date first, so the team can read a claim's age at a glance. */
+function claimId() {
+  const d = new Date();
+  const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  return `RH-${ymd}-${crypto.randomBytes(2).toString("hex").toUpperCase()}`;
+}
+
+export async function raiseComplaint(
+  orderId: string,
+  input: { issue: Complaint["issue"]; details: string; photo?: string; evidence?: string[]; channel?: Complaint["channel"] },
+): Promise<Order> {
   const current = readDB().orders.find((o) => o.id === orderId);
   if (!current) throw new FlowError("Order not found", 404);
   if (!current.paypal.captureId) throw new FlowError("Complaints open after the item is delivered and paid.");
   if (warrantyDaysLeft(current) < 0) throw new FlowError(`The ${warrantyDays(current)}-day warranty for this repair has ended.`);
-  if (current.complaints.some((c) => !c.resolution)) throw new FlowError("You already have an open claim for this repair. We'll update you on it.");
+  if (current.complaints.some(isOpenClaim)) throw new FlowError("You already have an open claim for this repair. We'll update you on it.");
   const details = String(input.details ?? "").trim().slice(0, 1000);
   if (details.length < 5) throw new FlowError("Tell us a little about what went wrong.");
-  input = { ...input, details };
+  const photos = [...new Set([input.photo, ...(input.evidence ?? [])].filter((u): u is string => typeof u === "string" && /^[\w-]+\.(jpg|jpeg|png|webp)$/i.test(u)))].slice(0, 5);
+  input = { ...input, details, photo: photos[0] };
   const ai = await reviewComplaint(current, input);
-  return mutate(orderId, (o) => {
-    const c: Complaint = { id: id("C"), createdAt: now(), issue: input.issue, details: input.details, photo: input.photo, ai };
+  const o = await mutate(orderId, (o) => {
+    const at = now();
+    const priority = DEFAULT_PRIORITY[input.issue] ?? "medium";
+    const name = o.customer.name;
+    const c: Complaint = {
+      id: claimId(),
+      createdAt: at,
+      issue: input.issue,
+      details: input.details,
+      photo: photos[0],
+      ai,
+      status: "open",
+      priority,
+      slaDueAt: slaDue(at, priority),
+      channel: input.channel ?? "web",
+      evidence: photos.map((url) => ({ url, at, by: "customer" as const, name })),
+      thread: [],
+      activity: [],
+    };
+    activity(c, "customer", name, `Claim raised${input.channel === "phone" ? " on the phone line" : ""}: ${input.issue.replaceAll("_", " ")}`, photos.length ? `${photos.length} photo(s) attached` : undefined);
+    activity(c, "system", "Gemini", `AI review recommends ${ai.recommendation.replaceAll("_", " ")}${ai.refundAmount ? ` ($${ai.refundAmount.toFixed(2)})` : ""}`, ai.reasoning);
     o.complaints.unshift(c);
-    log(o, { actor: "customer", message: `Complaint raised in Resolve Hub: ${input.issue.replaceAll("_", " ")}.` });
+    log(o, { actor: "customer", message: `Claim ${c.id} raised in Resolve Hub: ${input.issue.replaceAll("_", " ")}.` });
     log(o, {
       actor: "system",
       kind: "ai",
       message: `AI review recommends ${ai.recommendation.replaceAll("_", " ")}${ai.refundAmount ? ` ($${ai.refundAmount.toFixed(2)})` : ""}: ${ai.reasoning}`,
     });
   });
+  await announceClaim(o.id, o.complaints[0].id);
+  return o;
 }
 
-export async function resolveComplaint(orderId: string, complaintId: string, decision: { action: "refund" | "re_repair" | "rejected"; amount?: number }): Promise<Order> {
-  return mutate(orderId, async (o) => {
+export async function resolveComplaint(orderId: string, complaintId: string, decision: { action: "refund" | "re_repair" | "rejected"; amount?: number; remarks?: string; by?: { id?: string; name: string } }): Promise<Order> {
+  let decided = false;
+  const o = await mutate(orderId, async (o) => {
     const c = o.complaints.find((x) => x.id === complaintId);
     if (!c) throw new FlowError("Complaint not found", 404);
-    if (c.resolution) return;
+    if (c.resolution || !isOpenClaim(c)) return;
+    const who = decision.by?.name ?? "Sudhaar team";
+    const remarks = decision.remarks?.trim() || undefined;
+    // Every outcome closes the claim, records who decided, and tells the customer in the conversation.
+    const close = (status: "resolved" | "rejected", action: string) => {
+      decided = true;
+      c.status = status;
+      c.closedAt = now();
+      if (c.resolution && remarks) c.resolution.remarks = remarks;
+      activity(c, "admin", who, action, remarks);
+      if (remarks) (c.thread ??= []).push({ id: crypto.randomBytes(4).toString("hex"), at: now(), by: "admin", name: /sudhaar/i.test(who) ? who : `${who} (Sudhaar team)`, text: remarks });
+    };
     if (decision.action === "refund") {
       const refunded = o.paypal.refunds.reduce((s, r) => s + r.amount, 0);
       const amount = round2(Math.min(decision.amount ?? 0, o.total - refunded));
@@ -676,6 +722,7 @@ export async function resolveComplaint(orderId: string, complaintId: string, dec
           o.paypal.refunds.push({ id: extra.refundId, amount: round2(amount - fromMain), status: extra.status });
           if (fromMain <= 0) {
             c.resolution = { action: "refund", amount, refundId: extra.refundId, at: now() };
+            close("resolved", `PayPal refund of $${amount.toFixed(2)} approved (refund ${extra.refundId})`);
             log(o, { actor: "admin", kind: "paypal", message: `Refunded $${amount.toFixed(2)} to the customer via PayPal (status ${extra.status}).`, ref: extra.refundId });
             return;
           }
@@ -683,6 +730,7 @@ export async function resolveComplaint(orderId: string, complaintId: string, dec
         const r = await refundCapture(o.paypal.captureId!, fromMain, `Sudhaar Resolve Hub: ${c.issue.replaceAll("_", " ")} on ${o.item}`, c.id);
         o.paypal.refunds.push({ id: r.refundId, amount: fromMain, status: r.status });
         c.resolution = { action: "refund", amount, refundId: r.refundId, at: now() };
+        close("resolved", `PayPal refund of $${amount.toFixed(2)} approved (refund ${r.refundId})`);
         log(o, { actor: "admin", kind: "paypal", message: `Refunded $${amount.toFixed(2)} to the customer via PayPal (status ${r.status}).`, ref: r.refundId });
       } catch (e) {
         const d = describePayPalError(e);
@@ -690,12 +738,17 @@ export async function resolveComplaint(orderId: string, complaintId: string, dec
       }
     } else if (decision.action === "re_repair") {
       c.resolution = { action: "re_repair", at: now() };
+      close("resolved", "Free warranty re-repair approved");
       log(o, { actor: "admin", message: "Free warranty re-repair approved. A Repair Saathi will collect the item again at no cost." });
     } else {
       c.resolution = { action: "rejected", at: now() };
+      close("rejected", "Claim closed without refund");
       log(o, { actor: "admin", message: "Complaint reviewed and closed without refund." });
     }
   });
+  const c = o.complaints.find((x) => x.id === complaintId);
+  if (c && decided) await announceDecision(o.id, c.id, decision.by?.id);
+  return o;
 }
 
 // ---------- Price change after inspection (karigar asks, customer decides) ----------

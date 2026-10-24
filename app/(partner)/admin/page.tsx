@@ -1,5 +1,7 @@
 "use client";
 
+import { ClaimsDesk } from "@/components/admin/ClaimsDesk";
+import { isOpenClaim } from "@/lib/claims-shared";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AgGridReact } from "ag-grid-react";
@@ -8,7 +10,7 @@ import { api, money } from "@/components/api";
 import { STATUS_LABEL } from "@/components/StatusPill";
 import { CATEGORY_LABEL } from "@/lib/pricing";
 import type { HealthReport, ServiceStatus } from "@/lib/health";
-import type { Complaint, CompletionCheck, Coupon, Karigar, KarigarApplication, Order, Saathi } from "@/lib/types";
+import type { CompletionCheck, Coupon, Karigar, KarigarApplication, Order, Saathi } from "@/lib/types";
 import { ActivityList, CareAdmin, CouponsAdmin, FleetMap, MoneyOverview, PhoneLineAdmin, type AccountRow, type FleetRow, type Money, type PayPalEvent, type VoiceAdmin } from "@/components/admin/AdminExtras";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -65,6 +67,11 @@ type Row = {
 export default function Admin() {
   const [data, setData] = useState<AdminData | null>(null);
   const [tab, setTab] = useState<Tab>("overview");
+  // Deep link from a claim page: /admin?tab=resolve
+  useEffect(() => {
+    const want = new URLSearchParams(window.location.search).get("tab") as Tab | null;
+    if (want) setTab(want);
+  }, []);
   const [apps, setApps] = useState<KarigarApplication[]>([]);
   const load = useCallback(() => {
     api<AdminData>("/api/admin").then(setData).catch(() => {});
@@ -95,7 +102,7 @@ export default function Admin() {
       capture: o.paypal.captureId,
       payoutBatch: o.paypal.payoutBatchId,
       invoice: o.paypal.invoiceId,
-      complaints: o.complaints.filter((c) => !c.resolution).length,
+      complaints: o.complaints.filter(isOpenClaim).length,
       bookedBy: o.bookedBy,
     }));
   }, [data]);
@@ -234,7 +241,7 @@ export default function Admin() {
     [],
   );
 
-  const openComplaints = (data?.orders ?? []).flatMap((o) => o.complaints.filter((c) => !c.resolution).map((c) => ({ order: o, complaint: c })));
+  const openComplaints = (data?.orders ?? []).flatMap((o) => o.complaints.filter(isOpenClaim).map((c) => ({ order: o, complaint: c })));
   const photoChecks = (data?.orders ?? []).flatMap((o): PhotoCheckItem[] =>
     o.jobs?.length
       ? o.jobs
@@ -314,7 +321,7 @@ export default function Admin() {
       {tab === "phone" && <PhoneLineAdmin voice={data.voice} orders={data.orders} />}
       {tab === "care" && <CareAdmin accounts={data.accounts} m={data.money} carePlan={data.carePlan} />}
       {tab === "fleet" && <FleetMap fleet={data.fleet} />}
-      {tab === "resolve" && <ResolveQueue items={openComplaints} onDone={load} />}
+      {tab === "resolve" && <ClaimsDesk onChange={load} />}
       {tab === "checks" && <PhotoCheckQueue items={photoChecks} onDone={load} />}
       {tab === "applications" && <Applications apps={apps} onDone={load} />}
       <div className={["orders", "payouts", "karigars", "customers", "saathis", "webhooks"].includes(tab) ? "h-[560px] overflow-hidden rounded-2xl" : "hidden"}>
@@ -325,68 +332,6 @@ export default function Admin() {
         {tab === "saathis" && <AgGridReact theme={theme} rowData={saathiRows} columnDefs={saathiCols} defaultColDef={{ sortable: true, resizable: true }} />}
         {tab === "webhooks" && <AgGridReact theme={theme} rowData={data.webhooks} columnDefs={hookCols} defaultColDef={{ sortable: true, resizable: true }} />}
       </div>
-    </div>
-  );
-}
-
-/** Support desk: humans approve the AI's recommendation before any PayPal refund is sent. */
-function ResolveQueue({ items, onDone }: { items: { order: Order; complaint: Complaint }[]; onDone: () => void }) {
-  const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  async function resolve(o: Order, c: Complaint, action: "refund" | "re_repair" | "rejected", amount?: number) {
-    setBusy(c.id);
-    setError(null);
-    try {
-      await api(`/api/orders/${o.id}/resolve`, { complaintId: c.id, action, amount });
-      onDone();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(null);
-    }
-  }
-  if (items.length === 0) return <p className="paper rounded-2xl p-6 text-sm text-muted-foreground">No open complaints. 🎉</p>;
-  return (
-    <div className="space-y-3">
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {items.map(({ order: o, complaint: c }) => (
-        <div key={c.id} className="paper space-y-2 rounded-2xl p-4">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="font-semibold">
-              {c.issue.replaceAll("_", " ")} · {o.item}{" "}
-              <Link href={`/orders/${o.id}`} className="font-mono text-xs text-primary underline">
-                {o.id}
-              </Link>
-            </p>
-            <span className="text-xs text-muted-foreground">
-              paid {money(o.total)} · capture <span className="font-mono">{o.paypal.captureId}</span>
-            </span>
-          </div>
-          <p className="text-sm text-muted-foreground">&ldquo;{c.details}&rdquo;</p>
-          {c.ai && (
-            <p className="rounded-xl bg-primary/10 p-2 text-xs">
-              <b>
-                AI recommends {c.ai.recommendation.replaceAll("_", " ")}
-                {c.ai.refundAmount ? ` of ${money(c.ai.refundAmount)}` : ""}
-              </b>{" "}
-              ({c.ai.source}): {c.ai.reasoning}
-            </p>
-          )}
-          <div className="flex flex-wrap gap-2">
-            {c.ai && c.ai.refundAmount > 0 && (
-              <button disabled={busy === c.id} onClick={() => resolve(o, c, "refund", c.ai!.refundAmount)} className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50">
-                Approve PayPal refund {money(c.ai.refundAmount)}
-              </button>
-            )}
-            <button disabled={busy === c.id} onClick={() => resolve(o, c, "re_repair")} className="rounded-xl px-3 py-2 text-xs font-semibold ring-1 ring-border hover:bg-muted disabled:opacity-50">
-              Free re-repair
-            </button>
-            <button disabled={busy === c.id} onClick={() => resolve(o, c, "rejected")} className="rounded-xl px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50">
-              Close without refund
-            </button>
-          </div>
-        </div>
-      ))}
     </div>
   );
 }

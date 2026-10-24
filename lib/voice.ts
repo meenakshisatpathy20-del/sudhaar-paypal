@@ -227,7 +227,7 @@ export async function voiceComplaint(input: { phone?: unknown; order_id?: unknow
   const o = all.find((x) => x.id === String(input.order_id ?? "").trim().toUpperCase()) ?? all[0];
   if (!o) throw new FlowError("No delivered repair under warranty on this number.");
   const issue = ISSUES.includes(input.issue as Complaint["issue"]) ? (input.issue as Complaint["issue"]) : "repair_failed";
-  const updated = await raiseComplaint(o.id, { issue, details: `[Phone] ${String(input.details ?? "").slice(0, 900)}` });
+  const updated = await raiseComplaint(o.id, { issue, details: String(input.details ?? "").slice(0, 900), channel: "phone" });
   const ai = updated.complaints[0]?.ai;
   return {
     order_id: o.id,

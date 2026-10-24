@@ -207,6 +207,38 @@ export interface PayoutLine {
   payoutItemId?: string;
 }
 
+export type ClaimStatus = "open" | "in_review" | "awaiting_customer" | "awaiting_karigar" | "resolved" | "rejected" | "withdrawn";
+export type ClaimPriority = "low" | "medium" | "high" | "critical";
+export type ClaimActor = Role | "system";
+
+/** A message on a claim. Internal notes are seen only by the Sudhaar team. */
+export interface ClaimMessage {
+  id: string;
+  at: string;
+  by: ClaimActor;
+  name: string;
+  text: string;
+  internal?: boolean;
+}
+
+export interface ClaimEvidence {
+  url: string;
+  at: string;
+  by: Role;
+  name: string;
+  caption?: string;
+}
+
+/** One line of the claim's activity log: who did what, with remarks. */
+export interface ClaimActivity {
+  at: string;
+  by: ClaimActor;
+  name: string;
+  action: string;
+  remarks?: string;
+}
+
+/** A Resolve Hub warranty claim. Fields after `resolution` were added later, so old claims may lack them. */
 export interface Complaint {
   id: string;
   createdAt: string;
@@ -224,7 +256,29 @@ export interface Complaint {
     amount?: number;
     refundId?: string;
     at: string;
+    remarks?: string;
   };
+  status?: ClaimStatus;
+  priority?: ClaimPriority;
+  /** When the Sudhaar team promises a decision, from the priority. */
+  slaDueAt?: string;
+  channel?: "web" | "phone" | "agent";
+  evidence?: ClaimEvidence[];
+  thread?: ClaimMessage[];
+  activity?: ClaimActivity[];
+  assignedTo?: { id: string; name: string };
+  closedAt?: string;
+}
+
+/** An in-site notification (the bell in the header). Text is an i18n key so it shows in the reader's language. */
+export interface Notification {
+  id: string;
+  accountId: string;
+  at: string;
+  key: string;
+  params: Record<string, string>;
+  href: string;
+  read?: boolean;
 }
 
 /** The before/after photo check that gates the PayPal capture. */
@@ -368,6 +422,7 @@ export interface DB {
   /** The PayPal catalog product and billing plan behind Sudhaar Care, created on first use. */
   care?: { productId?: string; planId?: string; mode?: "sandbox" | "simulated"; /** Start of the PayPal Client ID the plan was made with. */ owner?: string };
   saathiLocations?: Record<string, SaathiLocation>;
+  notifications?: Notification[];
 }
 
 export type Role = "customer" | "karigar" | "saathi" | "admin";

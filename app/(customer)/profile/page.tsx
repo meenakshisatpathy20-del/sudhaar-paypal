@@ -1,5 +1,6 @@
 "use client";
 
+import { isOpenClaim } from "@/lib/claims-shared";
 import { rupees } from "@/components/Inr";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -56,7 +57,7 @@ function ProfileInner() {
   const refunded = orders.reduce((s, o) => s + o.paypal.refunds.reduce((a, r) => a + r.amount, 0), 0);
   const invoices = done.filter((o) => o.paypal.invoiceId);
   const payer = done.find((o) => o.customer.email && !o.customer.email.endsWith("@example.com"))?.customer.email;
-  const openClaims = orders.reduce((s, o) => s + o.complaints.filter((c) => !c.resolution).length, 0);
+  const openClaims = orders.reduce((s, o) => s + o.complaints.filter(isOpenClaim).length, 0);
   if (!account) return null;
   const since = account.createdAt ? new Date(account.createdAt).toLocaleDateString(langMeta(lang).locale, { month: "long", year: "numeric" }) : "";
   const m = care?.membership;

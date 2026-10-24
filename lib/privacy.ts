@@ -31,6 +31,9 @@ export const adminKarigar = (k: Karigar): Karigar => (k.onboarded ? { ...liveSta
  */
 export function orderFor(a: Account | null, o: Order): Order {
   const base = publicOrder(o);
-  if (a && (a.role === "admin" || (a.role === "customer" && o.customerId === a.id))) return base;
-  return { ...base, pickupOtp: "", deliveryOtp: "", trackToken: undefined, familyPay: base.familyPay && { ...base.familyPay, token: undefined } };
+  if (a?.role === "admin") return base;
+  // Internal Resolve Hub notes are for the Sudhaar team only.
+  const complaints = base.complaints.map((c) => (c.thread?.some((m) => m.internal) ? { ...c, thread: c.thread.filter((m) => !m.internal) } : c));
+  if (a && a.role === "customer" && o.customerId === a.id) return { ...base, complaints };
+  return { ...base, complaints, pickupOtp: "", deliveryOtp: "", trackToken: undefined, familyPay: base.familyPay && { ...base.familyPay, token: undefined } };
 }
