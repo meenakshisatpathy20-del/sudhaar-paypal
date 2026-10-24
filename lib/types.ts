@@ -93,6 +93,18 @@ export interface SaathiLocation {
   simulated?: boolean;
 }
 
+/** One call on the Bolna phone line, as reported by Bolna after the call. */
+export interface VoiceCall {
+  id: string;
+  at: string;
+  from?: string;
+  status?: string;
+  durationSec?: number;
+  summary?: string;
+  transcript?: string;
+  orderIds?: string[];
+}
+
 /** A discount code. The discount comes out of Sudhaar's own share, never the karigar's or Saathi's. */
 export interface Coupon {
   code: string;
@@ -336,7 +348,8 @@ export interface Order {
   payouts: PayoutLine[];
   complaints: Complaint[];
   events: OrderEvent[];
-  bookedBy: "customer" | "agent";
+  /** "phone": booked on the Bolna phone line. */
+  bookedBy: "customer" | "agent" | "phone";
 }
 
 export interface DB {
@@ -350,6 +363,8 @@ export interface DB {
   /** Karigar and Saathi ids that switched themselves offline (no new jobs). */
   offline?: string[];
   coupons?: Coupon[];
+  /** Calls on the Bolna phone line (from Bolna's post-call webhook). */
+  voiceCalls?: VoiceCall[];
   /** The PayPal catalog product and billing plan behind Sudhaar Care, created on first use. */
   care?: { productId?: string; planId?: string; mode?: "sandbox" | "simulated"; /** Start of the PayPal Client ID the plan was made with. */ owner?: string };
   saathiLocations?: Record<string, SaathiLocation>;
@@ -377,4 +392,6 @@ export interface Account {
   demo?: boolean;
   /** Customers: Sudhaar Care subscription. */
   care?: CareMembership;
+  /** Created on the phone line (the caller hasn't used the website yet). */
+  viaPhone?: boolean;
 }

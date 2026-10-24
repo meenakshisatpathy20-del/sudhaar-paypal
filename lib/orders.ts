@@ -148,7 +148,7 @@ export async function createOrder(input: {
   quoteId: string;
   karigarId: string;
   donation?: number;
-  bookedBy?: "customer" | "agent";
+  bookedBy?: "customer" | "agent" | "phone";
   familyPay?: { name: string; relation: string; email?: string };
   pickupSlot?: PickupSlot;
   coupon?: string;
@@ -201,7 +201,7 @@ export async function createOrder(input: {
   };
   log(order, {
     status: "awaiting_payment",
-    actor: order.bookedBy,
+    actor: order.bookedBy === "phone" ? "agent" : order.bookedBy,
     message: `Booked ${offer.karigar.shop} for "${quote.item}" at $${offer.price.toFixed(2)} + $${offer.pickupFee.toFixed(2)} ${mode === "pickup" ? "pickup" : "visit"} fee.`,
   });
   if (order.discount) log(order, { actor: "system", message: `Discount applied:${discountNote(order)}` });
@@ -261,7 +261,7 @@ export async function createBasketOrder(input: {
   customer: Account;
   items: { quoteId: string; karigarId: string }[];
   donation?: number;
-  bookedBy?: "customer" | "agent";
+  bookedBy?: "customer" | "agent" | "phone";
   familyPay?: { name: string; relation: string; email?: string };
   pickupSlot?: PickupSlot;
   coupon?: string;
@@ -340,7 +340,7 @@ export async function createBasketOrder(input: {
   };
   log(order, {
     status: "awaiting_payment",
-    actor: order.bookedBy,
+    actor: order.bookedBy === "phone" ? "agent" : order.bookedBy,
     message: `Ghar Safai basket booked: ${jobs.length} items with ${stops} karigar${stops > 1 ? "s" : ""}, one Saathi trip ($${fee.toFixed(2)} pickup instead of $${round2(fees.reduce((a, b) => a + b, 0)).toFixed(2)} for separate trips).`,
   });
   if (order.discount) log(order, { actor: "system", message: `Discount applied:${discountNote(order)}` });

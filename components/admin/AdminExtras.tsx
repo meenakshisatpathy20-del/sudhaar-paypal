@@ -7,7 +7,7 @@ import { NeighbourhoodMap } from "../NeighbourhoodMap";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { cn } from "@/lib/utils";
-import type { Coupon, Order } from "@/lib/types";
+import type { Coupon, Order, VoiceCall } from "@/lib/types";
 
 export type Money = { held: number; captured: number; tipsIn: number; paidOut: number; refunded: number; discounts: number; careMembers: number; careMonthly: number };
 export type PayPalEvent = { at: string; orderId: string; message: string; ref: string; error: boolean };
@@ -242,6 +242,77 @@ export function FleetMap({ fleet }: { fleet: FleetRow[] }) {
             </p>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+export type VoiceAdmin = { functions: boolean; callback: boolean; phoneNumber: string | null; calls: VoiceCall[] };
+
+/** The Bolna phone line: setup status, recent calls and bookings made by phone (with their pay links). */
+export function PhoneLineAdmin({ voice, orders }: { voice: VoiceAdmin; orders: Order[] }) {
+  const booked = orders.filter((o) => o.bookedBy === "phone");
+  const [copied, setCopied] = useState<string | null>(null);
+  const item = (ok: boolean, label: string, hint: string) => (
+    <div className={cn("rounded-xl p-3 text-sm ring-1", ok ? "bg-teal/10 ring-teal/25" : "bg-muted ring-border")}>
+      <p className="font-semibold">
+        {ok ? "✓" : "○"} {label}
+      </p>
+      <p className="text-xs text-muted-foreground">{hint}</p>
+    </div>
+  );
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-3">
+        {item(voice.functions, "Voice functions", voice.functions ? "VOICE_API_TOKEN is set: Bolna can quote, book, track, cancel and file claims." : "Set VOICE_API_TOKEN and add the functions in Bolna (docs/BOLNA.md).")}
+        {item(Boolean(voice.phoneNumber), "Phone number", voice.phoneNumber ? `Shown on the website: ${voice.phoneNumber}` : "Set VOICE_PHONE_NUMBER to show the number customers dial.")}
+        {item(voice.callback, "Call me (outbound)", voice.callback ? "BOLNA_API_KEY and BOLNA_AGENT_ID are set." : "Set BOLNA_API_KEY and BOLNA_AGENT_ID to let customers ask for a call.")}
+      </div>
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <div className="paper space-y-2 rounded-2xl p-4">
+          <p className="font-semibold">Bookings made by phone ({booked.length})</p>
+          {booked.length === 0 && <p className="text-sm text-muted-foreground">None yet.</p>}
+          {booked.map((o) => {
+            const link = o.familyPay?.token ? `${typeof window !== "undefined" ? window.location.origin : ""}/pay/${o.id}?t=${o.familyPay.token}` : "";
+            return (
+              <div key={o.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 text-sm">
+                <span>
+                  <Link href={`/orders/${o.id}`} className="font-mono text-xs text-primary underline">
+                    {o.id}
+                  </Link>{" "}
+                  {o.item} · {o.customer.name} · <span className="text-muted-foreground">{o.status.replaceAll("_", " ")}</span>
+                </span>
+                {o.status === "awaiting_payment" && link && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(link).then(() => setCopied(o.id)).catch(() => {});
+                    }}
+                  >
+                    {copied === o.id ? "Copied" : "Copy PayPal pay link"}
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+          <p className="text-[11px] text-muted-foreground">A phone booking is paid through its Family Pay link (PayPal). Send it to the caller&apos;s family on WhatsApp or SMS; nothing is charged until it&apos;s approved, and money is only captured after delivery.</p>
+        </div>
+        <div className="paper space-y-2 rounded-2xl p-4">
+          <p className="font-semibold">Recent calls ({voice.calls.length})</p>
+          {voice.calls.length === 0 && <p className="text-sm text-muted-foreground">No calls logged yet. Point Bolna&apos;s post-call webhook at /api/voice/webhook.</p>}
+          {voice.calls.slice(0, 20).map((c) => (
+            <details key={c.id} className="border-t border-border pt-2 text-sm">
+              <summary className="cursor-pointer">
+                {new Date(c.at).toLocaleString()} · {c.from || "unknown"} · {c.status || "—"}
+                {c.durationSec ? ` · ${c.durationSec}s` : ""}
+                {c.orderIds?.length ? ` · ${c.orderIds.join(", ")}` : ""}
+              </summary>
+              {c.summary && <p className="mt-1 text-xs">{c.summary}</p>}
+              {c.transcript && <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-muted p-2 text-[11px]">{c.transcript}</pre>}
+            </details>
+          ))}
+        </div>
       </div>
     </div>
   );

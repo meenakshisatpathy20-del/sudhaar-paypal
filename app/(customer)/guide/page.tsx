@@ -41,6 +41,7 @@ const PAGES: [string, string, string, string][] = [
   ["/resolve", "Customer", "Resolve Hub: pick a delivered repair within warranty, raise a claim (PayPal invoice attached), follow AI review → team decision → PayPal refund", "Gemini complaint review · PayPal Refunds"],
   ["/profile", "Customer", "Details, saved location, Sudhaar Care, PayPal payments and invoices, impact, language and voice, change PIN", "—"],
   ["/agent", "Customer", "Talk to Sudhaar in 8 languages by voice: quote, book, track, cancel, warranty claim", "Gemini function calling (7 tools) · PayPal Orders v2 · PayPal Agent Toolkit (read orders, invoices, refunds, transactions, disputes)"],
+  ["Phone line", "Callers without a smartphone", "Hindi voice agent on Bolna: quote, book, status, cancel, warranty claim; family pays with a PayPal link; “Call me” button; Admin → Phone line", "Bolna (custom functions, inbound lookup, webhook, outbound call API) · Gemini · PayPal Orders v2"],
   ["/care", "Customer", "Sudhaar Care monthly plan: free pickups, 30-day warranty; subscribe and cancel", "PayPal Catalog Products, Billing Plans, Subscriptions, Webhooks"],
   ["/pay/[id]?t=…", "Family member", "Family Pay: a relative pays from their own PayPal", "PayPal JS SDK v6 + Orders v2"],
   ["/join", "New partner", "Apply as a karigar or Repair Saathi (in 8 languages)", "—"],
@@ -144,7 +145,7 @@ export default function GuidePage() {
             <tbody className="divide-y divide-border">
               {PAGES.map(([path, who, what, apis]) => (
                 <tr key={path} className="align-top">
-                  <td className="px-4 py-2.5 font-mono text-xs">{path.includes("[") ? path : <Link className="text-primary underline" href={path}>{path}</Link>}</td>
+                  <td className="px-4 py-2.5 font-mono text-xs">{path.includes("[") || !path.startsWith("/") ? path : <Link className="text-primary underline" href={path}>{path}</Link>}</td>
                   <td className="px-4 py-2.5 text-xs">{who}</td>
                   <td className="px-4 py-2.5">{what}</td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">{apis}</td>

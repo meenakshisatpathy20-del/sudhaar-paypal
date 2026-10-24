@@ -6,6 +6,7 @@ export type AppConfig = {
   paypal: { mode: "sandbox" | "simulated"; clientId: string | null; problem?: string | null; demoBuyer?: { email: string; password: string } | null };
   ai: { mode: "gemini" | "simulated"; model: string | null; problem?: string | null };
   currency: string;
+  voice?: { phoneNumber: string | null; callback: boolean };
 };
 
 let cached: Promise<AppConfig> | null = null;

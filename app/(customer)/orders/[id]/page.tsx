@@ -4,7 +4,7 @@ import { RequireLogin } from "@/components/LoginSheet";
 import { orderRupees, rupees, rupeeTotal, UsdNote } from "@/components/Inr";
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
-import { ArrowLeft, BadgeCheck, ChevronDown, Copy, ExternalLink, LifeBuoy, Leaf, Navigation, PiggyBank, Receipt, ShieldCheck, Sparkles, XCircle } from "lucide-react";
+import { ArrowLeft, BadgeCheck, ChevronDown, Copy, ExternalLink, LifeBuoy, Leaf, Navigation, PhoneCall, PiggyBank, Receipt, ShieldCheck, Sparkles, XCircle } from "lucide-react";
 import { AfterDelivery } from "@/components/AfterDelivery";
 import { ClaimTimeline } from "@/components/resolve/Claims";
 import { warrantyDays, warrantyDaysLeft } from "@/lib/warranty";
@@ -108,6 +108,11 @@ function OrderPageInner({ params }: { params: Promise<{ id: string }> }) {
               <div>
                 <p className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
                   {order.id}
+                  {order.bookedBy === "phone" && (
+                    <Badge>
+                      <PhoneCall /> {t("oBookedByPhone")}
+                    </Badge>
+                  )}
                   {order.bookedBy === "agent" && (
                     <Badge>
                       <Sparkles /> {t("oBookedByAi")}

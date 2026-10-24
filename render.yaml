@@ -29,6 +29,17 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      # Bolna phone line (docs/BOLNA.md). VOICE_API_TOKEN: a long random secret you also give Bolna.
+      - key: APP_URL
+        sync: false
+      - key: VOICE_API_TOKEN
+        sync: false
+      - key: VOICE_PHONE_NUMBER
+        sync: false
+      - key: BOLNA_API_KEY
+        sync: false
+      - key: BOLNA_AGENT_ID
+        sync: false
       # Signs login cookies; generated once by Render so logins survive restarts
       - key: SESSION_SECRET
         generateValue: true

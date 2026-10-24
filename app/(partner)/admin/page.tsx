@@ -9,7 +9,7 @@ import { STATUS_LABEL } from "@/components/StatusPill";
 import { CATEGORY_LABEL } from "@/lib/pricing";
 import type { HealthReport, ServiceStatus } from "@/lib/health";
 import type { Complaint, CompletionCheck, Coupon, Karigar, KarigarApplication, Order, Saathi } from "@/lib/types";
-import { ActivityList, CareAdmin, CouponsAdmin, FleetMap, MoneyOverview, type AccountRow, type FleetRow, type Money, type PayPalEvent } from "@/components/admin/AdminExtras";
+import { ActivityList, CareAdmin, CouponsAdmin, FleetMap, MoneyOverview, PhoneLineAdmin, type AccountRow, type FleetRow, type Money, type PayPalEvent, type VoiceAdmin } from "@/components/admin/AdminExtras";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -38,8 +38,9 @@ type AdminData = {
   fleet: FleetRow[];
   coupons: Coupon[];
   carePlan: { productId?: string; planId?: string; mode?: string } | null;
+  voice: VoiceAdmin;
 };
-type Tab = "overview" | "orders" | "paypal" | "resolve" | "checks" | "applications" | "coupons" | "care" | "fleet" | "customers" | "karigars" | "saathis" | "payouts" | "webhooks";
+type Tab = "overview" | "orders" | "paypal" | "phone" | "resolve" | "checks" | "applications" | "coupons" | "care" | "fleet" | "customers" | "karigars" | "saathis" | "payouts" | "webhooks";
 
 type Row = {
   id: string;
@@ -281,12 +282,14 @@ export default function Admin() {
         ))}
       </div>
       <div className="no-scrollbar flex gap-1 overflow-x-auto">
-        {(["overview", "orders", "paypal", "resolve", "checks", "applications", "coupons", "care", "fleet", "customers", "karigars", "saathis", "payouts", "webhooks"] as const).map((t) => (
+        {(["overview", "orders", "paypal", "phone", "resolve", "checks", "applications", "coupons", "care", "fleet", "customers", "karigars", "saathis", "payouts", "webhooks"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)} className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold capitalize ${tab === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
             {t === "webhooks"
               ? "PayPal webhooks"
               : t === "paypal"
                 ? "PayPal activity"
+                : t === "phone"
+                  ? `Phone line (${data.orders.filter((o) => o.bookedBy === "phone").length})`
                 : t === "resolve"
                   ? `Resolve Hub (${openComplaints.length})`
                   : t === "checks"
@@ -308,6 +311,7 @@ export default function Admin() {
         </div>
       )}
       {tab === "coupons" && <CouponsAdmin coupons={data.coupons} onDone={load} />}
+      {tab === "phone" && <PhoneLineAdmin voice={data.voice} orders={data.orders} />}
       {tab === "care" && <CareAdmin accounts={data.accounts} m={data.money} carePlan={data.carePlan} />}
       {tab === "fleet" && <FleetMap fleet={data.fleet} />}
       {tab === "resolve" && <ResolveQueue items={openComplaints} onDone={load} />}

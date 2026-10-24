@@ -737,6 +737,11 @@ const BASE = {
     pfPayer: "Last paid with PayPal account {email}",
     pfHelp: "Help",
     pfOpenClaims: "{n} open",
+    plTitle: "No smartphone? Call Sudhaar",
+    plSub: "Speak in Hindi to our voice assistant: get a price, book a pickup, check a repair or make a complaint. Your family pays safely with PayPal from a link.",
+    plCallMe: "Ask Sudhaar to call me",
+    plCalling: "Calling you now…",
+    oBookedByPhone: "Booked by phone",
     // -- end added --
   },
   hi: {
@@ -1448,6 +1453,11 @@ const BASE = {
     pfPayer: "आख़िरी भुगतान PayPal खाते {email} से",
     pfHelp: "मदद",
     pfOpenClaims: "{n} खुले",
+    plTitle: "स्मार्टफ़ोन नहीं है? Sudhaar को फ़ोन करें",
+    plSub: "हमारे वॉइस सहायक से हिंदी में बात करें: दाम जानें, पिकअप बुक करें, मरम्मत का हाल पूछें या शिकायत करें। आपका परिवार लिंक से PayPal पर सुरक्षित भुगतान करता है।",
+    plCallMe: "Sudhaar मुझे फ़ोन करे",
+    plCalling: "आपको फ़ोन किया जा रहा है…",
+    oBookedByPhone: "फ़ोन से बुक",
     // -- end added --
   },
 } as const;

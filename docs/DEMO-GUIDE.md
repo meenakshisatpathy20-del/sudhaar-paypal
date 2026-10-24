@@ -147,5 +147,5 @@ Each code works once per customer.
 - PayPal runs in the **sandbox**; no real money moves.
 - Karigars marked **Sample profile** are demo data. People who join through `/join` are real records.
 - In-app voice uses the browser's speech recognition, so support depends on the browser and phone.
-- A **Hindi phone line on Bolna** (for people without smartphones) is planned and is not part of this build.
+- The **Hindi phone line on Bolna** is built (`/api/voice/*`, the agent prompt and functions in `bolna/`, **Admin → Phone line**). It goes live once a Bolna agent and phone number are connected (see `docs/BOLNA.md`). Until then the website hides the phone card.
 - The free host sleeps when idle (the first load can take about a minute), and a restart resets demo data.

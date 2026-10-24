@@ -90,6 +90,11 @@ A monthly plan (₹169, billed $1.99/month by PayPal in the sandbox) for homes t
 ### 🎟️ Coupons
 Codes such as `FIRSTFIX` (₹50 off a first repair), `DIWALI25` (₹25 off above ₹200) and `GHARSAFAI` (15% off baskets). Every code is checked on the server (first order only, baskets only, minimum order, once per customer, usage limit, expiry) when it's applied **and again when booking**. The discount comes out of **Sudhaar's own share** and is capped by it, so **the karigar and Saathi are always paid in full**; it reaches PayPal as `breakdown.discount` on the order and `invoice_discount` on the invoice. The admin console creates codes, switches them off and shows how often each was used.
 
+### 📞 Phone line on Bolna (for people without a smartphone)
+A Hindi voice agent on [Bolna](https://www.bolna.ai) answers a phone number. It recognises returning callers by their number, quotes a repair with Gemini, books a pickup slot, tells callers where their repair is, cancels before pickup (voiding the PayPal hold) and files warranty claims into Resolve Hub. It does all of this through Sudhaar's own `/api/voice/*` functions, which are protected by a shared secret.
+
+Payment never happens on the call. Each phone booking creates a PayPal order and a **Family Pay link** for the caller's son or daughter. A new caller also gets an account with a PIN, read out once, so they can use the website later. The agent never reads OTPs aloud. Customers can also press **"Ask Sudhaar to call me"** on the website, which uses Bolna's outbound call API. Bolna's post-call webhook logs each call (summary and transcript) in **Admin → Phone line**, where the team can send pay links. Setup: **[docs/BOLNA.md](docs/BOLNA.md)**; agent prompt and functions: [`bolna/`](bolna).
+
 ### 🧾 Fair price changes
 A karigar sometimes finds more damage after opening the item. They can't just charge more: they send a new price with a reason, the customer approves or declines it in the app, and an increase is paid as a **second PayPal authorization** for only the difference. The repair can't be marked done while a price change is waiting. On delivery both holds are captured, and a later refund is split across both captures.
 
@@ -212,6 +217,7 @@ The app also runs with an **empty `.env`**: PayPal and AI calls are then simulat
 app/(customer)/     Customer app: home, fix flow, ghar-safai (basket), orders/[id] tracking, repairs, talk (agent), care (subscription), guide (demo guide), profile, karigars/[id], login, join (karigar and Saathi onboarding)
 app/pay/[id]        Family Pay page the family member opens to pay with PayPal
 app/track/[id]      Public, token-protected tracking page (timeline, live Saathi, ETA)
+app/api/voice/      Bolna phone line functions (caller, quote, book, status, cancel, complaint, webhook, callback)
 app/(partner)/      Partner side (phone + PIN login per role): karigar app, saathi app, admin console (AG Grid)
 app/api/            auth, me, quote, baskets, orders (+approve/action/price/price-decision/complaint/resolve/review/rate/tip), partner (me/online/location/profile/payouts), track, care (+return), coupons, applications, agent, karigars, admin, uploads, paypal/webhook
 components/         UI (shadcn/ui components, doodles, three.js hero, PayPal SDK v6 checkout, voice, map, Family Pay, Fix-or-Replace meter…)
@@ -220,6 +226,9 @@ lib/
   care.ts           Sudhaar Care: plan setup, subscribe, confirm with PayPal, cancel, webhook updates
   coupons.ts        Coupon rules, capped at Sudhaar's share
   tracking.ts       Tracking timeline, the Saathi's live location and ETA
+  voice.ts          Bolna phone line: caller lookup, quote, book, status, cancel, claim, call log
+  bolna.ts          Bolna outbound call API ("Call me")
+bolna/              Phone agent prompt and custom function definitions for Bolna
   llm.ts            Gemini client and structured outputs
   ai.ts             Gemini: quote, completion check, complaint review
   agent.ts          Repair Agent (Gemini function calling + PayPal Agent Toolkit)

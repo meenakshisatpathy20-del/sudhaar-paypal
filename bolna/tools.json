@@ -1,0 +1,112 @@
+[
+  {
+    "name": "get_repair_quote",
+    "description": "Get a fair repair price for a broken household item, the price of buying new, the best nearby karigars and the next pickup times. Call this before booking.",
+    "pre_call_message": "एक मिनट, मैं दाम देख रही हूँ।",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "description": { "type": "string", "description": "What is broken, in the caller's words, e.g. 'mixer jar ka blade dheela hai'" },
+        "category": { "type": "string", "description": "One of: shoes, bags, clothes, small-appliance, electronics, furniture, plumbing, electrical. Leave empty if unsure." },
+        "phone": { "type": "string", "description": "The caller's number: always {from_number}" }
+      },
+      "required": ["description", "phone"]
+    },
+    "key": "custom_task",
+    "value": {
+      "method": "POST",
+      "param": { "description": "%(description)s", "category": "%(category)s", "phone": "%(phone)s" },
+      "url": "https://YOUR-SUDHAAR-SITE/api/voice/quote",
+      "api_token": "Bearer YOUR_VOICE_API_TOKEN",
+      "headers": {}
+    }
+  },
+  {
+    "name": "book_repair",
+    "description": "Book the repair after the caller agrees to the price. Needs quote_id and karigar_id from get_repair_quote, the caller's name and address, the chosen pickup slot_index and who pays.",
+    "pre_call_message": "ठीक है, मैं बुकिंग कर रही हूँ।",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "phone": { "type": "string", "description": "The caller's number: always {from_number}" },
+        "name": { "type": "string", "description": "Caller's name" },
+        "address": { "type": "string", "description": "Full pickup address with a landmark" },
+        "quote_id": { "type": "string", "description": "quote_id from get_repair_quote" },
+        "karigar_id": { "type": "string", "description": "karigar_id the caller chose (default: the first one)" },
+        "slot_index": { "type": "integer", "description": "slot_index of the chosen pickup time from get_repair_quote" },
+        "payer_name": { "type": "string", "description": "Who will pay with PayPal (e.g. 'Rahul'). Empty if the caller pays." },
+        "payer_relation": { "type": "string", "description": "Payer's relation, e.g. 'son', 'daughter'. Empty if the caller pays." }
+      },
+      "required": ["phone", "name", "address", "quote_id", "karigar_id", "slot_index"]
+    },
+    "key": "custom_task",
+    "value": {
+      "method": "POST",
+      "param": { "phone": "%(phone)s", "name": "%(name)s", "address": "%(address)s", "quote_id": "%(quote_id)s", "karigar_id": "%(karigar_id)s", "slot_index": "%(slot_index)i", "payer_name": "%(payer_name)s", "payer_relation": "%(payer_relation)s" },
+      "url": "https://YOUR-SUDHAAR-SITE/api/voice/book",
+      "api_token": "Bearer YOUR_VOICE_API_TOKEN",
+      "headers": {}
+    }
+  },
+  {
+    "name": "get_repair_status",
+    "description": "Tell the caller where their repairs are (picked up, with the karigar, out for delivery...).",
+    "pre_call_message": "एक सेकंड, मैं देखती हूँ।",
+    "parameters": {
+      "type": "object",
+      "properties": { "phone": { "type": "string", "description": "The caller's number: always {from_number}" } },
+      "required": ["phone"]
+    },
+    "key": "custom_task",
+    "value": {
+      "method": "POST",
+      "param": { "phone": "%(phone)s" },
+      "url": "https://YOUR-SUDHAAR-SITE/api/voice/status",
+      "api_token": "Bearer YOUR_VOICE_API_TOKEN",
+      "headers": {}
+    }
+  },
+  {
+    "name": "cancel_booking",
+    "description": "Cancel a booking that hasn't been picked up yet. Confirm with the caller first.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "phone": { "type": "string", "description": "The caller's number: always {from_number}" },
+        "order_id": { "type": "string", "description": "Order number if the caller said it, else empty" }
+      },
+      "required": ["phone"]
+    },
+    "key": "custom_task",
+    "value": {
+      "method": "POST",
+      "param": { "phone": "%(phone)s", "order_id": "%(order_id)s" },
+      "url": "https://YOUR-SUDHAAR-SITE/api/voice/cancel",
+      "api_token": "Bearer YOUR_VOICE_API_TOKEN",
+      "headers": {}
+    }
+  },
+  {
+    "name": "raise_warranty_claim",
+    "description": "File a warranty claim in Resolve Hub when a repaired item has a problem again.",
+    "pre_call_message": "मैं आपकी शिकायत दर्ज कर रही हूँ।",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "phone": { "type": "string", "description": "The caller's number: always {from_number}" },
+        "order_id": { "type": "string", "description": "Order number if known, else empty" },
+        "issue": { "type": "string", "description": "One of: repair_failed, damaged, overcharged, delayed, missing" },
+        "details": { "type": "string", "description": "What went wrong, in the caller's words" }
+      },
+      "required": ["phone", "issue", "details"]
+    },
+    "key": "custom_task",
+    "value": {
+      "method": "POST",
+      "param": { "phone": "%(phone)s", "order_id": "%(order_id)s", "issue": "%(issue)s", "details": "%(details)s" },
+      "url": "https://YOUR-SUDHAAR-SITE/api/voice/complaint",
+      "api_token": "Bearer YOUR_VOICE_API_TOKEN",
+      "headers": {}
+    }
+  }
+]

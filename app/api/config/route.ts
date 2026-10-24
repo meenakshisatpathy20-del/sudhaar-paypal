@@ -1,5 +1,6 @@
 import { aiEnabled, config, paypalEnabled, serviceProblems } from "@/lib/config";
 import { ok } from "@/lib/http";
+import { bolnaConfig, callbackEnabled } from "@/lib/bolna";
 
 export const dynamic = "force-dynamic";
 
@@ -15,5 +16,7 @@ export function GET() {
     },
     ai: { mode: aiEnabled() ? "gemini" : "simulated", model: aiEnabled() ? config.ai.model : null, problem: serviceProblems.ai ?? null },
     currency: config.currency,
+    // The Bolna phone line: the number to dial (if set) and whether "Call me" works.
+    voice: { phoneNumber: bolnaConfig().phoneNumber || null, callback: callbackEnabled() },
   });
 }
