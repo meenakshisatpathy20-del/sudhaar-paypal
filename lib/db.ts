@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { config } from "./config";
 import { hashPin } from "./pin";
-import { demoAccountSpecs, demoPinFor, seedDB, seedKarigars, seedSaathis } from "./seed";
+import { demoAccountSpecs, demoPinFor, seedCoupons, seedDB, seedKarigars, seedSaathis } from "./seed";
 import type { DB } from "./types";
 
 // A tiny JSON-file store. It keeps the project dependency-free and easy for judges
@@ -24,6 +24,7 @@ function load(): DB {
     cache.saathis = [...seedSaathis(), ...(cache.saathis ?? []).filter((s) => s.onboarded)];
     cache.applications ??= [];
     cache.accounts ??= [];
+    cache.coupons ??= seedCoupons();
     if (ensureDemoAccounts(cache)) persist(cache);
   } catch {
     cache = seedDB();
@@ -69,13 +70,17 @@ export function updateDB<T>(fn: (db: DB) => T | Promise<T>): Promise<T> {
 
 /** Clears orders and test data. Customer sign-ups and onboarded karigars are kept. */
 export function resetDB() {
-  const keep = cache ? { accounts: cache.accounts, karigars: cache.karigars.filter((k) => k.onboarded), saathis: cache.saathis.filter((x) => x.onboarded), applications: cache.applications } : null;
+  const keep = cache ? { accounts: cache.accounts, karigars: cache.karigars.filter((k) => k.onboarded), saathis: cache.saathis.filter((x) => x.onboarded), applications: cache.applications, care: cache.care } : null;
   cache = seedDB();
   if (keep) {
     cache.accounts = keep.accounts;
     cache.karigars.push(...keep.karigars);
     cache.saathis.push(...keep.saathis);
     cache.applications = keep.applications;
+    // The PayPal billing plan for Sudhaar Care stays valid across a demo reset; the shared demo
+    // customer's own membership is cleared so the next judge starts fresh.
+    cache.care = keep.care;
+    for (const a of cache.accounts) if (a.demo) delete a.care;
   }
   ensureDemoAccounts(cache);
   persist(cache);

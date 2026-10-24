@@ -8,7 +8,8 @@ import { api, money } from "@/components/api";
 import { STATUS_LABEL } from "@/components/StatusPill";
 import { CATEGORY_LABEL } from "@/lib/pricing";
 import type { HealthReport, ServiceStatus } from "@/lib/health";
-import type { Complaint, CompletionCheck, Karigar, KarigarApplication, Order, Saathi } from "@/lib/types";
+import type { Complaint, CompletionCheck, Coupon, Karigar, KarigarApplication, Order, Saathi } from "@/lib/types";
+import { ActivityList, CareAdmin, CouponsAdmin, FleetMap, MoneyOverview, type AccountRow, type FleetRow, type Money, type PayPalEvent } from "@/components/admin/AdminExtras";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -25,7 +26,20 @@ const theme = themeQuartz.withParams({
 });
 
 type Impact = { itemsRepaired: number; kgSaved: number; moneySaved: number; karigarEarnings: number; saathiEarnings: number; refunds: number; toolFund: number; activeOrders: number };
-type AdminData = { orders: Order[]; karigars: Karigar[]; saathis: Saathi[]; webhooks: { at: string; type: string; resource?: string; verified: boolean }[]; impact: Impact };
+type AdminData = {
+  orders: Order[];
+  karigars: Karigar[];
+  saathis: Saathi[];
+  accounts: AccountRow[];
+  webhooks: { at: string; type: string; resource?: string; verified: boolean }[];
+  impact: Impact;
+  money: Money;
+  paypalActivity: PayPalEvent[];
+  fleet: FleetRow[];
+  coupons: Coupon[];
+  carePlan: { productId?: string; planId?: string; mode?: string } | null;
+};
+type Tab = "overview" | "orders" | "paypal" | "resolve" | "checks" | "applications" | "coupons" | "care" | "fleet" | "customers" | "karigars" | "saathis" | "payouts" | "webhooks";
 
 type Row = {
   id: string;
@@ -49,7 +63,7 @@ type Row = {
 
 export default function Admin() {
   const [data, setData] = useState<AdminData | null>(null);
-  const [tab, setTab] = useState<"orders" | "resolve" | "checks" | "applications" | "customers" | "karigars" | "saathis" | "payouts" | "webhooks">("orders");
+  const [tab, setTab] = useState<Tab>("overview");
   const [apps, setApps] = useState<KarigarApplication[]>([]);
   const load = useCallback(() => {
     api<AdminData>("/api/admin").then(setData).catch(() => {});
@@ -267,16 +281,39 @@ export default function Admin() {
         ))}
       </div>
       <div className="no-scrollbar flex gap-1 overflow-x-auto">
-        {(["orders", "resolve", "checks", "applications", "customers", "karigars", "saathis", "payouts", "webhooks"] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-1.5 text-sm font-semibold capitalize ${tab === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-            {t === "webhooks" ? "PayPal webhooks" : t === "resolve" ? `Resolve Hub (${openComplaints.length})` : t === "checks" ? `Photo checks (${photoChecks.length})` : t === "applications" ? `Applications (${apps.filter((a) => a.status === "pending").length})` : t}
+        {(["overview", "orders", "paypal", "resolve", "checks", "applications", "coupons", "care", "fleet", "customers", "karigars", "saathis", "payouts", "webhooks"] as const).map((t) => (
+          <button key={t} onClick={() => setTab(t)} className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold capitalize ${tab === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+            {t === "webhooks"
+              ? "PayPal webhooks"
+              : t === "paypal"
+                ? "PayPal activity"
+                : t === "resolve"
+                  ? `Resolve Hub (${openComplaints.length})`
+                  : t === "checks"
+                    ? `Photo checks (${photoChecks.length})`
+                    : t === "applications"
+                      ? `Applications (${apps.filter((a) => a.status === "pending").length})`
+                      : t === "care"
+                        ? `Sudhaar Care (${data.money.careMembers})`
+                        : t === "fleet"
+                          ? `Live fleet (${data.fleet.filter((f) => f.location).length})`
+                          : t}
           </button>
         ))}
       </div>
+      {tab === "overview" && <MoneyOverview m={data.money} orders={data.orders} activity={data.paypalActivity} webhooks={data.webhooks.length} carePlan={data.carePlan} />}
+      {tab === "paypal" && (
+        <div className="paper rounded-2xl p-4">
+          <ActivityList items={data.paypalActivity} />
+        </div>
+      )}
+      {tab === "coupons" && <CouponsAdmin coupons={data.coupons} onDone={load} />}
+      {tab === "care" && <CareAdmin accounts={data.accounts} m={data.money} carePlan={data.carePlan} />}
+      {tab === "fleet" && <FleetMap fleet={data.fleet} />}
       {tab === "resolve" && <ResolveQueue items={openComplaints} onDone={load} />}
       {tab === "checks" && <PhotoCheckQueue items={photoChecks} onDone={load} />}
       {tab === "applications" && <Applications apps={apps} onDone={load} />}
-      <div className={tab === "resolve" || tab === "checks" || tab === "applications" ? "hidden" : "h-[560px] overflow-hidden rounded-2xl"}>
+      <div className={["orders", "payouts", "karigars", "customers", "saathis", "webhooks"].includes(tab) ? "h-[560px] overflow-hidden rounded-2xl" : "hidden"}>
         {tab === "orders" && <AgGridReact<Row> theme={theme} rowData={rows} columnDefs={orderCols} pagination paginationPageSize={20} defaultColDef={{ sortable: true, resizable: true }} />}
         {tab === "payouts" && <AgGridReact theme={theme} rowData={payoutRows} columnDefs={payoutCols} defaultColDef={{ sortable: true, resizable: true }} />}
         {tab === "karigars" && <AgGridReact theme={theme} rowData={karigarRows} columnDefs={karigarCols} defaultColDef={{ sortable: true, resizable: true, filter: true }} />}

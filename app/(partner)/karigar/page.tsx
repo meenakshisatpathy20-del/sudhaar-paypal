@@ -4,7 +4,7 @@ import { useState } from "react";
 import { api } from "@/components/api";
 import { rupees } from "@/components/Inr";
 import { useLang } from "@/components/LanguageProvider";
-import { EarningsList, PartnerHeader, Tabs2, usePartner } from "@/components/partner/PartnerHome";
+import { EarningsList, PartnerHeader, PayoutCheck, StatStrip, TabsN, usePartner, WeekChart, type PartnerData } from "@/components/partner/PartnerHome";
 import { PhotoPicker } from "@/components/PhotoPicker";
 import { SlotLine } from "@/components/SlotLine";
 import { StatusPill } from "@/components/StatusPill";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useOrders } from "@/components/useOrders";
 import { INR_PER_USD } from "@/lib/pricing";
+import { langMeta } from "@/lib/i18n";
 import type { CompletionCheck, Job, Order } from "@/lib/types";
 
 // The Karigar app: only this karigar's jobs (the API filters them), price changes after
@@ -24,26 +25,186 @@ export default function KarigarApp() {
   const kid = partner.data?.profile.id;
   if (partner.error) return <p className="paper mx-auto max-w-md rounded-2xl p-5 text-sm text-destructive">{partner.error}</p>;
   if (!partner.data || !kid) return <p className="paper mx-auto max-w-md rounded-2xl p-5 text-sm text-muted-foreground">…</p>;
+  const d = partner.data;
 
   const mine = orders.filter((o) => (o.kind === "basket" ? o.jobs?.some((j) => j.karigarId === kid) : o.karigarId === kid));
   const active = mine.filter((o) => ["authorized", "picked_up", "at_karigar", "repairing", "repaired"].includes(o.status));
+  const done = mine.filter((o) => ["out_for_delivery", "delivered", "paid_out"].includes(o.status)).slice(0, 8);
   const refresh = () => {
     reload();
     partner.reload();
   };
+  // The job board: what's coming, what's on the bench, what's ready to go back.
+  const stages: { key: string; title: string; hint: string; list: Order[] }[] = [
+    { key: "coming", title: t("kbComing"), hint: t("kbComingHint"), list: active.filter((o) => ["authorized", "picked_up"].includes(o.status) && !(o.mode === "home-visit" && o.status === "authorized")) },
+    { key: "bench", title: t("kbBench"), hint: t("kbBenchHint"), list: active.filter((o) => ["at_karigar", "repairing"].includes(o.status) || (o.mode === "home-visit" && o.status === "authorized")) },
+    { key: "ready", title: t("kbReady"), hint: t("kbReadyHint"), list: active.filter((o) => o.status === "repaired") },
+  ];
+  const card = (o: Order) => (o.kind === "basket" ? <BasketJobs key={o.id} order={o} karigarId={kid} canPrice={!partner.isAdmin} onDone={refresh} /> : <KarigarJob key={o.id} order={o} canPrice={!partner.isAdmin} onDone={refresh} />);
 
   return (
-    <div className="mx-auto max-w-md space-y-4">
-      <PartnerHeader data={partner.data} isAdmin={partner.isAdmin} viewAs={partner.viewAs} setViewAs={partner.setViewAs} onChange={partner.reload} />
-      <Tabs2 value={tab} onChange={setTab} items={[["jobs", `${t("kaJobs")} (${active.length})`], ["earnings", t("kaHistory")]]} />
-      {tab === "earnings" ? (
-        <EarningsList data={partner.data} />
-      ) : (
-        <>
-          {active.length === 0 && <p className="paper rounded-2xl p-5 text-sm text-muted-foreground">{t("kaNoJobs")}</p>}
-          {active.map((o) => (o.kind === "basket" ? <BasketJobs key={o.id} order={o} karigarId={kid} canPrice={!partner.isAdmin} onDone={refresh} /> : <KarigarJob key={o.id} order={o} canPrice={!partner.isAdmin} onDone={refresh} />))}
-        </>
-      )}
+    <div className="space-y-4">
+      <PartnerHeader data={d} isAdmin={partner.isAdmin} viewAs={partner.viewAs} setViewAs={partner.setViewAs} onChange={partner.reload} />
+      <StatStrip
+        items={[
+          { label: t("kaEarned"), value: rupees(d.totalEarned), sub: `$${d.totalEarned.toFixed(2)} · PayPal`, tone: "text-teal" },
+          { label: t("ptThisWeek"), value: rupees(d.stats.weekTotal) },
+          { label: t("kaJobs"), value: String(active.length) },
+          { label: t("ptDone"), value: String(d.stats.finished), sub: t("kbAllTime", { n: d.profile.jobsDone ?? 0 }) },
+          { label: t("ptRating"), value: d.stats.avgStars ? `★ ${d.stats.avgStars}` : `★ ${d.profile.rating}`, sub: t("kbReviewsN", { n: d.reviews.length }) },
+          { label: t("ptTips"), value: rupees(d.stats.tips) },
+        ]}
+      />
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <section className="min-w-0 space-y-4">
+          <TabsN
+            value={tab}
+            onChange={setTab}
+            items={[
+              ["jobs", `${t("kaJobs")} (${active.length})`],
+              ["earnings", t("kaHistory")],
+              ["reviews", `${t("kbReviews")} (${d.reviews.length})`],
+              ["shop", t("kbShop")],
+            ]}
+          />
+          {tab === "jobs" && (
+            <div className="space-y-5">
+              {active.length === 0 && <p className="paper rounded-2xl p-5 text-sm text-muted-foreground">{t("kaNoJobs")}</p>}
+              {stages
+                .filter((st) => st.list.length > 0)
+                .map((st) => (
+                  <div key={st.key} className="space-y-2">
+                    <p className="flex items-baseline gap-2 text-sm font-semibold">
+                      {st.title} <span className="rounded-full bg-muted px-2 text-xs">{st.list.length}</span>
+                      <span className="text-xs font-normal text-muted-foreground">{st.hint}</span>
+                    </p>
+                    <div className="grid gap-3 xl:grid-cols-2">{st.list.map(card)}</div>
+                  </div>
+                ))}
+              {done.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold">{t("kbDone")}</p>
+                  <div className="paper divide-y divide-border rounded-2xl px-4">
+                    {done.map((o) => {
+                      const r = o.ratings?.find((x) => x.karigarId === kid);
+                      return (
+                        <div key={o.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">{o.kind === "basket" ? t("kaBasket", { n: o.jobs?.filter((j) => j.karigarId === kid).length ?? 0 }) : o.item}</p>
+                            <p className="font-mono text-[11px] text-muted-foreground">{o.id}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {r && <span className="text-xs font-semibold text-gold">★ {r.stars}</span>}
+                            <StatusPill status={o.status} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {tab === "earnings" && (
+            <div className="space-y-3">
+              <PayoutCheck onDone={partner.reload} />
+              <EarningsList data={d} />
+            </div>
+          )}
+          {tab === "reviews" && <Reviews data={d} />}
+          {tab === "shop" && <ShopEditor data={d} disabled={partner.isAdmin} onSaved={partner.reload} />}
+        </section>
+        <aside className="space-y-4">
+          <WeekChart week={d.week} />
+          <div className="paper space-y-2 rounded-2xl p-4 text-xs">
+            <p className="text-sm font-semibold">{t("kbHowPaid")}</p>
+            <ol className="list-decimal space-y-1 pl-4 text-muted-foreground">
+              <li>{t("kbPaid1")}</li>
+              <li>{t("kbPaid2")}</li>
+              <li>{t("kbPaid3")}</li>
+              <li>{t("kbPaid4")}</li>
+            </ol>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function Reviews({ data }: { data: PartnerData }) {
+  const { t, lang } = useLang();
+  if (data.reviews.length === 0) return <p className="paper rounded-2xl p-5 text-sm text-muted-foreground">{t("kbNoReviews")}</p>;
+  return (
+    <div className="grid gap-3 xl:grid-cols-2">
+      {data.reviews.map((r) => (
+        <div key={`${r.orderId}-${r.at}`} className="paper space-y-1.5 rounded-2xl p-4">
+          <p className="flex items-center justify-between text-sm">
+            <span className="font-semibold">{r.by}</span>
+            <span className="text-gold">{"★".repeat(r.stars)}{"☆".repeat(5 - r.stars)}</span>
+          </p>
+          {r.text && <p className="text-sm text-muted-foreground">“{r.text}”</p>}
+          <p className="text-[11px] text-muted-foreground">
+            {r.item} · <span className="font-mono">{r.orderId}</span> · {new Date(r.at).toLocaleDateString(langMeta(lang).locale)} · {t("kbVerified")}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The karigar's own rate card, bio and usual turnaround, shown on their public profile. */
+function ShopEditor({ data, disabled, onSaved }: { data: PartnerData; disabled: boolean; onSaved: () => void }) {
+  const { t } = useLang();
+  const [bio, setBio] = useState(data.profile.bio ?? "");
+  const [days, setDays] = useState(String(data.profile.turnaroundDays ?? 1));
+  const [services, setServices] = useState((data.profile.services ?? []).map((s) => ({ name: s.name, priceInr: String(Math.round(s.price * INR_PER_USD)) })));
+  const [msg, setMsg] = useState<string | null>(null);
+  const set = (i: number, k: "name" | "priceInr", v: string) => setServices((xs) => xs.map((x, j) => (j === i ? { ...x, [k]: k === "priceInr" ? v.replace(/\D/g, "") : v } : x)));
+  return (
+    <div className="paper max-w-2xl space-y-4 rounded-2xl p-5">
+      <div className="space-y-2">
+        <p className="text-sm font-semibold">{t("kbRateCard")}</p>
+        {services.map((s, i) => (
+          <div key={i} className="flex gap-2">
+            <Input value={s.name} onChange={(e) => set(i, "name", e.target.value)} disabled={disabled} aria-label={t("kbService")} />
+            <div className="relative w-32 shrink-0">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">₹</span>
+              <Input className="pl-7" inputMode="numeric" value={s.priceInr} onChange={(e) => set(i, "priceInr", e.target.value)} disabled={disabled} aria-label={t("kbPrice")} />
+            </div>
+            <Button variant="outline" size="sm" disabled={disabled} onClick={() => setServices((xs) => xs.filter((_, j) => j !== i))} aria-label={t("kbRemove")}>
+              ×
+            </Button>
+          </div>
+        ))}
+        {services.length < 8 && (
+          <button disabled={disabled} className="text-xs font-semibold text-primary underline" onClick={() => setServices((xs) => [...xs, { name: "", priceInr: "" }])}>
+            {t("kbAddService")}
+          </button>
+        )}
+      </div>
+      <label className="block space-y-1 text-sm">
+        <span className="font-semibold">{t("kbBio")}</span>
+        <Input value={bio} onChange={(e) => setBio(e.target.value)} disabled={disabled} />
+      </label>
+      <label className="block w-48 space-y-1 text-sm">
+        <span className="font-semibold">{t("kbTurnaround")}</span>
+        <Input inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value.replace(/\D/g, "").slice(0, 2))} disabled={disabled} />
+      </label>
+      <Button
+        disabled={disabled}
+        onClick={() =>
+          api("/api/partner/profile", { bio, turnaroundDays: Number(days), services })
+            .then(() => {
+              setMsg(t("ptSaved"));
+              onSaved();
+            })
+            .catch((e) => setMsg((e as Error).message))
+        }
+      >
+        {t("ptSave")}
+      </Button>
+      {msg && <p className="text-xs text-muted-foreground">{msg}</p>}
+      <p className="text-[11px] text-muted-foreground">{t("kbShopNote")}</p>
     </div>
   );
 }

@@ -84,6 +84,46 @@ export interface Saathi {
   vehicle?: SaathiVehicle;
 }
 
+/** A Saathi's last known position, sent from the Saathi app while they share their location. */
+export interface SaathiLocation {
+  lat: number;
+  lng: number;
+  at: string;
+  /** From the labelled "demo ride" button rather than the phone's GPS. */
+  simulated?: boolean;
+}
+
+/** A discount code. The discount comes out of Sudhaar's own share, never the karigar's or Saathi's. */
+export interface Coupon {
+  code: string;
+  description: string;
+  kind: "flat" | "percent";
+  /** Rupees for "flat", percent of the repair price for "percent". */
+  value: number;
+  /** Upper limit in rupees for percent coupons. */
+  maxInr?: number;
+  minOrderInr?: number;
+  firstOrderOnly?: boolean;
+  basketOnly?: boolean;
+  active: boolean;
+  /** Paid bookings that used it. */
+  uses: number;
+  maxUses?: number;
+  expiresAt?: string;
+  createdAt: string;
+}
+
+/** Sudhaar Care: a monthly PayPal subscription that covers doorstep pickup fees. */
+export interface CareMembership {
+  subscriptionId: string;
+  status: "APPROVAL_PENDING" | "APPROVED" | "ACTIVE" | "SUSPENDED" | "CANCELLED" | "EXPIRED";
+  mode: "sandbox" | "simulated";
+  startedAt: string;
+  updatedAt: string;
+  nextBillingAt?: string;
+  lastPaymentAt?: string;
+}
+
 export type SaathiVehicle = "bicycle" | "scooter" | "motorbike" | "walk";
 
 export interface Quote {
@@ -281,6 +321,10 @@ export interface Order {
     heldAmount?: number;
     capturedAmount?: number;
   };
+  /** Coupon and Sudhaar Care discounts (USD). PayPal shows them as a discount on the order. */
+  discount?: { coupon?: { code: string; amount: number }; care?: number };
+  /** Secret in the public tracking link (/track/ID?t=…), so tracking pages can't be guessed. */
+  trackToken?: string;
   /** The karigar's price change after inspecting the item; the customer must approve it. */
   priceChange?: PriceChange;
   pickupSlot?: PickupSlot;
@@ -305,6 +349,10 @@ export interface DB {
   accounts: Account[];
   /** Karigar and Saathi ids that switched themselves offline (no new jobs). */
   offline?: string[];
+  coupons?: Coupon[];
+  /** The PayPal catalog product and billing plan behind Sudhaar Care, created on first use. */
+  care?: { productId?: string; planId?: string; mode?: "sandbox" | "simulated" };
+  saathiLocations?: Record<string, SaathiLocation>;
 }
 
 export type Role = "customer" | "karigar" | "saathi" | "admin";
@@ -327,4 +375,6 @@ export interface Account {
   saathiId?: string;
   /** Shared demo login listed for judges. */
   demo?: boolean;
+  /** Customers: Sudhaar Care subscription. */
+  care?: CareMembership;
 }

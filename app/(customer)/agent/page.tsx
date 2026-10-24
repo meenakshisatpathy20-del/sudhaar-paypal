@@ -75,7 +75,8 @@ function TalkPageInner() {
   }
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-4">
+    <div className="mx-auto grid max-w-5xl items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+    <div className="flex min-w-0 flex-col gap-4">
       {/* voice orb */}
       <Card className="relative overflow-hidden bg-gradient-to-b from-marigold/20 to-card">
         <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
@@ -165,6 +166,31 @@ function TalkPageInner() {
           <Send />
         </Button>
       </form>
+    </div>
+    <aside className="hidden space-y-3 lg:sticky lg:top-24 lg:block">
+      <Card>
+        <CardContent className="space-y-2.5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("tkCan")}</p>
+          {(
+            [
+              ["get_repair_quote", t("tkQuote")],
+              ["book_repair", t("tkBook")],
+              ["book_ghar_safai_basket", t("tkBasket")],
+              ["get_order_status", t("tkStatus")],
+              ["cancel_booking", t("tkCancel")],
+              ["raise_warranty_claim", t("tkClaim")],
+              ["issue_refund", t("tkRefund")],
+            ] as const
+          ).map(([tool, what]) => (
+            <div key={tool} className="text-xs">
+              <p className="font-mono text-[11px] text-primary">{tool}</p>
+              <p className="text-muted-foreground">{what}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+      <p className="rounded-2xl bg-[#0070e0]/10 p-3 text-xs text-paypal-blue ring-1 ring-[#0070e0]/30">{t("tkSafe")}</p>
+    </aside>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { readDB } from "@/lib/db";
 import { fail, ok } from "@/lib/http";
 import { createOrder, expireUnpaidOrders } from "@/lib/orders";
+import { placeNear } from "@/lib/geo";
 import { orderFor } from "@/lib/privacy";
 import type { PickupSlot } from "@/lib/types";
 
@@ -20,6 +21,20 @@ export async function GET(req: Request) {
       orders: orders.map((o) => orderFor(account, o)),
       quotes: Object.fromEntries(db.quotes.filter((q) => quoteIds.has(q.id)).map((q) => [q.id, { newPrice: q.newPrice, photo: q.photo }])),
       karigars: Object.fromEntries(db.karigars.map((k) => [k.id, { name: k.name, shop: k.shop, avatarColor: k.avatarColor, area: k.area }])),
+      // Saathis (and admins) get each trip's stops on the map: the customer's home and the karigar shops.
+      stops:
+        account.role === "saathi" || account.role === "admin"
+          ? Object.fromEntries(
+              orders
+                .filter((o) => o.mode === "pickup")
+                .map((o) => {
+                  const home = { lat: o.customer.lat, lng: o.customer.lng };
+                  const ids = [...new Set(o.jobs?.length ? o.jobs.map((j) => j.karigarId) : [o.karigarId])];
+                  const shops = ids.map((id) => db.karigars.find((k) => k.id === id)).filter((k) => k !== undefined).map((k) => ({ id: k.id, shop: k.shop, ...placeNear({ lat: k.lat, lng: k.lng }, home) }));
+                  return [o.id, { home, shops }];
+                }),
+            )
+          : undefined,
     });
   } catch (e) {
     return fail(e);
@@ -29,8 +44,8 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const customer = requireRole(req, "customer");
-    const body = (await req.json()) as { quoteId: string; karigarId: string; donation?: number; familyPay?: { name: string; relation: string; email?: string }; pickupSlot?: PickupSlot };
-    const order = await createOrder({ customer, quoteId: body.quoteId, karigarId: body.karigarId, donation: body.donation, familyPay: body.familyPay, pickupSlot: body.pickupSlot });
+    const body = (await req.json()) as { quoteId: string; karigarId: string; donation?: number; familyPay?: { name: string; relation: string; email?: string }; pickupSlot?: PickupSlot; coupon?: string };
+    const order = await createOrder({ customer, quoteId: body.quoteId, karigarId: body.karigarId, donation: body.donation, familyPay: body.familyPay, pickupSlot: body.pickupSlot, coupon: body.coupon });
     return ok({ order: orderFor(customer, order), paypalOrderId: order.paypal.orderId }, 201);
   } catch (e) {
     return fail(e);

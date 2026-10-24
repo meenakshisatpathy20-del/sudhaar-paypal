@@ -4,7 +4,7 @@
 Snap a photo of something broken. AI estimates the repair cost against the price of buying new. A verified local karigar fixes it, a Repair Saathi does the pickup and delivery, and the customer's PayPal payment is **held until the repaired item is back in their hands**. On the delivery OTP, PayPal captures the money and **instantly pays out the karigar and the Saathi**.
 
 > Built by **Meenakshi Satpathy** (solo) for the [PayPal AI Hackathon 2026](https://paypalaihackathon.devpost.com/).
-> 🌐 **Live demo:** the *Website* link in this repository's About section · 🎥 **Demo video:** on the Devpost project page · 📸 **[Screenshots](docs/SCREENSHOTS.md)**
+> 🌐 **Live demo:** the *Website* link in this repository's About section · 🎥 **Demo video:** on the Devpost project page · 📸 **[Screenshots](docs/SCREENSHOTS.md)** · 🧭 **[Demo guide: every page and feature](docs/DEMO-GUIDE.md)** (also in the app at `/guide`)
 
 ---
 
@@ -75,9 +75,19 @@ Many parents live alone while their children work in other cities. A parent book
 - **Karigar profiles** (craft, years of experience, languages, reviews, price list) and a **real OpenStreetMap map** with the customer's home, karigar pins and the Saathi moving along the route. Customers can share their **live location** at sign-up or from Profile, and distances and pickup fees are measured from there.
 - Warm, hand-drawn **doodle illustrations** with a light **three.js** scene, designed for everyday phones.
 - A **customer app** (Home · My Repairs · Talk · Profile) kept separate from the **partner side**. Each partner logs in with their own phone + PIN and sees only their own work:
-  - **Karigar app**: their jobs, inspect and start, **ask the customer to approve a new price** when the damage turns out bigger, after photo and AI check, online/offline switch, earnings.
-  - **Saathi app**: their trips with OTP handovers, online/offline switch, earnings.
-  - **Admin console**: orders, payouts, Resolve Hub refunds, Photo checks, partner applications.
+  - **Karigar app**: a desktop dashboard with earnings, this week, tips and rating; a **job board by stage** (coming to you → on your bench → ready to go back); inspect and start, **ask the customer to approve a new price** when the damage turns out bigger, after photo and AI check; a 7-day payouts chart; **verified reviews**; **My shop** to edit the rate card, bio and turnaround; earnings with a **"Check payout status with PayPal"** button (Payouts API); online/offline switch.
+  - **Saathi app**: trips with OTP handovers, a **numbered route map** with directions, **live location sharing** (GPS or a labelled demo ride), earnings with the PayPal payout check, km ridden, a handover checklist, and a profile (area, vehicle used for ETAs).
+  - **Admin console**: an **overview of where the money is** (held, captured, paid out, refunded, tips, discounts, Care billing) with every PayPal API in use and the latest PayPal calls; a **PayPal activity** log; orders, payouts, customers, karigars and Saathis (AG Grid); Resolve Hub refunds; Photo checks; partner applications; **coupons**; **Sudhaar Care members**; the **live Saathi fleet** map; webhooks; and the system check.
+- **A demo guide inside the app** (`/guide`, linked from the bar at the top and the footer): one-tap logins for all four roles, the whole journey step by step, and every page with what to try and the APIs behind it.
+
+### 📦 Shiprocket-style live tracking
+Every booking gets a tracking number and a **shareable tracking link** (`/track/<order>?t=…`) that a son or daughter can open without logging in. It shows a step-by-step timeline with times, the karigar shop, the Saathi and **the Saathi's live position with an ETA**. The Saathi app shares the phone's GPS while riding (or a clearly labelled **demo ride** so judges can watch it from a desk), and the ETA uses the Saathi's vehicle (walk, bicycle, scooter, motorbike). The page never shows OTPs, prices or the exact home address. The Saathi app plans the day as a **numbered route** (nearest stop first) on the map, with directions for each stop, and the admin console shows the **live fleet**.
+
+### 💳 Sudhaar Care (PayPal Subscriptions)
+A monthly plan (₹169, billed $1.99/month by PayPal in the sandbox) for homes that repair often: **free doorstep pickup on every repair** and a **30-day warranty** instead of 15 days. It uses the PayPal **Catalog Products → Billing Plans → Subscriptions** APIs: the customer approves on PayPal, comes back to Sudhaar, and the server **asks PayPal for the subscription status** before switching Care on (it never trusts the return link alone). Cancelling calls the Subscriptions cancel API, and **webhooks** (`BILLING.SUBSCRIPTION.*`, `PAYMENT.SALE.COMPLETED`) keep the membership in step. Members' bookings show the pickup fee as a PayPal **discount line**; Sudhaar still pays the Saathi their full share.
+
+### 🎟️ Coupons
+Codes such as `FIRSTFIX` (₹50 off a first repair), `DIWALI25` (₹25 off above ₹200) and `GHARSAFAI` (15% off baskets). Every code is checked on the server (first order only, baskets only, minimum order, once per customer, usage limit, expiry) when it's applied **and again when booking**. The discount comes out of **Sudhaar's own share** and is capped by it, so **the karigar and Saathi are always paid in full**; it reaches PayPal as `breakdown.discount` on the order and `invoice_discount` on the invoice. The admin console creates codes, switches them off and shows how often each was used.
 
 ### 🧾 Fair price changes
 A karigar sometimes finds more damage after opening the item. They can't just charge more: they send a new price with a reason, the customer approves or declines it in the app, and an increase is paid as a **second PayPal authorization** for only the difference. The repair can't be marked done while a price change is waiting. On delivery both holds are captured, and a later refund is split across both captures.
@@ -89,14 +99,16 @@ All calls go to the PayPal **sandbox**. Every PayPal id appears on the order pag
 | PayPal capability | Where | What Sudhaar does with it |
 |---|---|---|
 | **JavaScript SDK v6** (`paypal-payments`, `<paypal-button>`) | [`components/PayPalCheckout.tsx`](components/PayPalCheckout.tsx) | Checkout popup on the order page and inside the agent chat |
-| **Orders v2, intent `AUTHORIZE`** | [`lib/paypal.ts`](lib/paypal.ts) `createAuthorizeOrder`, `authorizeOrder` | Holds the customer's money at booking, works like escrow |
+| **Orders v2, intent `AUTHORIZE`** | [`lib/paypal.ts`](lib/paypal.ts) `createAuthorizeOrder`, `authorizeOrder` | Holds the customer's money at booking, works like escrow. Coupons and Sudhaar Care are sent as `amount.breakdown.discount` against itemised lines |
 | **Second authorization for a price increase** | `createTopUpOrder` | If the customer approves a karigar's higher price, only the difference is authorized as its own PayPal order and captured with the first |
 | **Payments v2 capture / void** | `captureAuthorization`, `voidAuthorization` | Captures only after the delivery OTP; voids if the customer cancels before pickup |
 | **Orders v2, intent `CAPTURE`** | `createTipOrder`, `captureOrder` | Thank-you tips are paid immediately (no hold), then paid out in full to the karigar in their own Payouts batch |
-| **Payouts v1** | `sendPayouts` | Instant split to the karigar(s) and the Saathi the moment the job is confirmed. A Ghar Safai basket pays several karigars from one payment |
-| **Invoicing v2** | `createPaidInvoice` | Generates, sends and marks paid a PayPal invoice: the "digital bill" used by Resolve Hub |
+| **Payouts v1** | `sendPayouts`, `getPayoutBatch` | Instant split to the karigar(s) and the Saathi the moment the job is confirmed. A Ghar Safai basket pays several karigars from one payment. Partners press *Check payout status with PayPal* to refresh each batch's status |
+| **Invoicing v2** | `createPaidInvoice` | Generates, sends and marks paid a PayPal invoice (with `invoice_discount` for coupons / Care): the "digital bill" used by Resolve Hub |
+| **Catalog Products + Billing Plans v1** | `createCareProduct`, `createCarePlan` | Creates the Sudhaar Care product and monthly plan the first time anyone subscribes |
+| **Subscriptions v1** | `createSubscription`, `getSubscription`, `cancelSubscription` ([`lib/care.ts`](lib/care.ts)) | Customer approves on PayPal; Sudhaar confirms the status with PayPal before activating; cancel from the app |
 | **Refunds (Payments v2)** | `refundCapture` | Partial or full refunds from Resolve Hub (support desk or agent within limit), split across both captures when there was a price increase |
-| **Webhooks** | [`app/api/paypal/webhook/route.ts`](app/api/paypal/webhook/route.ts) | Verifies signatures (`verify-webhook-signature`) and logs events on the order |
+| **Webhooks** | [`app/api/paypal/webhook/route.ts`](app/api/paypal/webhook/route.ts) | Verifies signatures (`verify-webhook-signature`), logs events on the order, and (only when verified) updates Sudhaar Care from `BILLING.SUBSCRIPTION.*` and `PAYMENT.SALE.COMPLETED` |
 | **PayPal Agent Toolkit** | [`lib/agent.ts`](lib/agent.ts) | `get_order`, `get_invoice`, `list_invoices`, `get_refund`, `list_transactions`, `list_disputes` as agent tools |
 
 ## How AI is used in the product
@@ -128,6 +140,8 @@ I'm a solo participant, a 3rd-year Computer Science student.
 
 **Hosted demo:** open the *Website* link in this repository's About section. It runs against the PayPal sandbox. Log in to PayPal with the sandbox buyer account shown **right under the PayPal button** (also in the testing instructions on the Devpost page). It's a PayPal sandbox account with test money only. On the free hosting plan, the first load can take about a minute while the server wakes up.
 
+**Fastest way in:** open **`/guide`** in the app (the green bar at the top links to it). It has one-tap logins for the customer, Saathi, karigar and admin, the whole journey step by step, and a table of every page. The full written version is **[docs/DEMO-GUIDE.md](docs/DEMO-GUIDE.md)**.
+
 **Demo logins** (each role sees only its own app and data; real users sign up with their own phone + PIN):
 
 | Role | Where | Phone | PIN | One tap |
@@ -152,7 +166,10 @@ The demo buttons open the karigar and Saathi of the most recent booking that's w
 10. **Join as a karigar** (banner at the bottom of the home page, or `/join`) → apply → in **Admin console → Applications** tick the three KYC checks → **Approve and list karigar**, which shows the new karigar's login PIN → the new karigar appears in quotes with a **"New"** badge instead of a made-up rating and can log in at `/partner`. **Become a Repair Saathi** (`/join?as=saathi`) works the same way, with ID, training and trial-trip checks.
 11. **After delivery** (order page): rate the karigar and leave a review, which appears on their profile as *Verified repair*. Tip ₹50 and pay it in the PayPal popup: the karigar's Earnings tab shows it, marked *Tip*. Tap **Book again** to start a new quote with the same karigar.
 12. **Pickup time**: on the last booking step, choose when the Saathi comes; the Saathi app shows it on the trip.
-13. **Your location**: sign up with **Use my current location** (or set it later in **Profile**). The map, distances and pickup fees then start from your home. The sample karigars are placed around you, keeping their real distances, so the demo works wherever you are.
+13. **Live tracking**: on an order that's been paid, copy the **tracking link** and open it in another window. In the **Saathi app** press **Demo ride** (or **Share GPS** on a phone): the customer's order page and the tracking link show the Saathi moving with an ETA, and **Admin → Live fleet** shows them on the map. The Saathi's **Route map** tab numbers the day's stops.
+14. **Coupons**: on the last booking step tap `FIRSTFIX` (or type a code). The bill and the PayPal order show the discount; try it again on a second booking to see it refused. In **Admin → Coupons**, create a new code or switch one off.
+15. **Sudhaar Care**: open **Care** in the top menu → **Subscribe with PayPal** → approve with the sandbox buyer → you return to Sudhaar as a member. Your next booking shows *Sudhaar Care: free pickup* as a discount; **Admin → Sudhaar Care** lists members. Cancel from the Care page.
+16. **Your location**: sign up with **Use my current location** (or set it later in **Profile**). The map, distances and pickup fees then start from your home. The sample karigars are placed around you, keeping their real distances, so the demo works wherever you are.
 
 ## Run it locally
 
@@ -191,13 +208,17 @@ The app also runs with an **empty `.env`**: PayPal and AI calls are then simulat
 ## Project structure
 
 ```
-app/(customer)/     Customer app: home, fix flow, ghar-safai (basket), orders/[id] tracking, repairs, talk (agent), profile, karigars/[id], login, join (karigar and Saathi onboarding)
+app/(customer)/     Customer app: home, fix flow, ghar-safai (basket), orders/[id] tracking, repairs, talk (agent), care (subscription), guide (demo guide), profile, karigars/[id], login, join (karigar and Saathi onboarding)
 app/pay/[id]        Family Pay page the family member opens to pay with PayPal
+app/track/[id]      Public, token-protected tracking page (timeline, live Saathi, ETA)
 app/(partner)/      Partner side (phone + PIN login per role): karigar app, saathi app, admin console (AG Grid)
-app/api/            auth, me, quote, baskets, orders (+approve/action/price/price-decision/complaint/resolve/review), partner, applications, agent, karigars, admin, uploads, paypal/webhook
+app/api/            auth, me, quote, baskets, orders (+approve/action/price/price-decision/complaint/resolve/review/rate/tip), partner (me/online/location/profile/payouts), track, care (+return), coupons, applications, agent, karigars, admin, uploads, paypal/webhook
 components/         UI (shadcn/ui components, doodles, three.js hero, PayPal SDK v6 checkout, voice, map, Family Pay, Fix-or-Replace meter…)
 lib/
-  paypal.ts         PayPal REST client (Orders, Payments, Payouts, Invoicing, Webhooks)
+  paypal.ts         PayPal REST client (Orders, Payments, Payouts, Invoicing, Catalog Products, Billing Plans, Subscriptions, Webhooks)
+  care.ts           Sudhaar Care: plan setup, subscribe, confirm with PayPal, cancel, webhook updates
+  coupons.ts        Coupon rules, capped at Sudhaar's share
+  tracking.ts       Tracking timeline, the Saathi's live location and ETA
   llm.ts            Gemini client and structured outputs
   ai.ts             Gemini: quote, completion check, complaint review
   agent.ts          Repair Agent (Gemini function calling + PayPal Agent Toolkit)

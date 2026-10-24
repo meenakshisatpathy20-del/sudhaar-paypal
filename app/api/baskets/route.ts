@@ -13,8 +13,9 @@ export async function POST(req: Request) {
       donation?: number;
       familyPay?: { name: string; relation: string; email?: string };
       pickupSlot?: PickupSlot;
+      coupon?: string;
     };
-    const order = await createBasketOrder({ customer, items: body.items, donation: body.donation, familyPay: body.familyPay, pickupSlot: body.pickupSlot });
+    const order = await createBasketOrder({ customer, items: body.items, donation: body.donation, familyPay: body.familyPay, pickupSlot: body.pickupSlot, coupon: body.coupon });
     return ok({ order: orderFor(customer, order), paypalOrderId: order.paypal.orderId }, 201);
   } catch (e) {
     return fail(e);

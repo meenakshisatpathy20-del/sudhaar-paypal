@@ -75,6 +75,12 @@ export function LoginForm({ onDone }: { onDone?: () => void }) {
         <p className="text-center text-[11px] text-muted-foreground">{t("demoNote")}</p>
       </div>
       <p className="text-center text-[11px] text-muted-foreground">{t("pinNote")}</p>
+      <p className="text-center text-xs">
+        {t("lfPartnerQ")}{" "}
+        <a href="/partner" className="font-semibold text-primary underline">
+          {t("lfPartnerLink")}
+        </a>
+      </p>
     </div>
   );
 }

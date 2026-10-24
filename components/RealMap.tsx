@@ -34,6 +34,14 @@ const saathiIcon = L.divIcon({
   html: `<svg width="24" height="24" viewBox="-12 -12 24 24"><circle r="11" fill="#1f8a7a" opacity=".25"/><circle r="6.5" fill="#1f8a7a" stroke="#fff" stroke-width="2"/></svg>`,
 });
 
+/** The Saathi's live GPS position: a pulsing dot. */
+const liveIcon = L.divIcon({
+  className: "",
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
+  html: `<svg width="34" height="34" viewBox="-17 -17 34 34"><circle r="15" fill="#1f8a7a" opacity=".22"><animate attributeName="r" values="9;16;9" dur="1.8s" repeatCount="indefinite"/></circle><circle r="8" fill="#1f8a7a" stroke="#fff" stroke-width="2.5"/><path d="M-3 2 L0 -4 L3 2 Z" fill="#fff"/></svg>`,
+});
+
 /** The point at fraction f (0..1) along a path, by distance. */
 function along(points: LatLng[], f: number): LatLng {
   const legs = points.slice(1).map((b, i) => Math.hypot(b.lat - points[i].lat, b.lng - points[i].lng));
@@ -51,7 +59,7 @@ function along(points: LatLng[], f: number): LatLng {
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const safeColor = (c?: string) => (c && /^#[0-9a-f]{3,8}$/i.test(c) ? c : "#d9572b");
 
-export default function RealMap({ center, pins, selected, route, onSelect, saathiProgress }: MapProps) {
+export default function RealMap({ center, pins, selected, route, onSelect, saathiProgress, saathiAt, path: customPath, hideHome }: MapProps) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const layer = useRef<L.LayerGroup | null>(null);
@@ -96,7 +104,7 @@ export default function RealMap({ center, pins, selected, route, onSelect, saath
     g.clearLayers();
 
     const stops = (route ?? (selected ? [selected] : [])).map((id) => pins.find((p) => p.id === id)).filter((p): p is Pin => Boolean(p));
-    const path = stops.length ? [center, ...stops, center] : [];
+    const path = customPath ?? (stops.length ? [center, ...stops, center] : []);
     const onRoute = new Set(stops.map((p) => p.id));
     if (path.length) L.polyline(path, { color: "#d9572b", weight: 3, dashArray: "6 8", opacity: 0.85, interactive: false }).addTo(g);
 
@@ -107,21 +115,25 @@ export default function RealMap({ center, pins, selected, route, onSelect, saath
       if (clickable) marker.on("click", () => select.current?.(p.id));
       if (active || p.label) marker.bindTooltip(escapeHtml(p.label ?? p.name), { direction: "bottom", permanent: active, className: "sudhaar-map-tip" });
     }
-    L.marker(center, { icon: homeIcon, zIndexOffset: 500, interactive: false }).addTo(g);
+    if (!hideHome) L.marker(center, { icon: homeIcon, zIndexOffset: 500, interactive: false }).addTo(g);
 
-    // Progress 0..0.5 runs from home through every karigar stop; 0.5..1 is the ride back home.
-    if (path.length && saathiProgress !== undefined) {
+    if (saathiAt) {
+      const live = L.marker(saathiAt, { icon: liveIcon, zIndexOffset: 1000, interactive: Boolean(saathiAt.label) }).addTo(g);
+      if (saathiAt.label) live.bindTooltip(escapeHtml(saathiAt.label), { direction: "top", permanent: true, className: "sudhaar-map-tip" });
+    } else if (path.length && saathiProgress !== undefined) {
+      // Progress 0..0.5 runs from home through every karigar stop; 0.5..1 is the ride back home.
       const f = Math.min(1, Math.max(0, saathiProgress));
       const at = f <= 0.5 ? along(path.slice(0, -1), f * 2) : along(path.slice(-2), f * 2 - 1);
       L.marker(at, { icon: saathiIcon, zIndexOffset: 1000, interactive: false }).addTo(g);
     }
 
     // Refit only when the set of points changes, so selecting a pin doesn't jump the map.
-    const points = [center, ...pins];
+    const points = [...(hideHome ? [] : [center]), ...pins, ...(saathiAt ? [saathiAt] : [])];
+    if (!points.length) points.push(center);
     const key = points.map((p) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join("|");
     // Pins are drawn above their point and the zoom buttons sit top-left, so leave more room there.
     fit.current = () => {
-      if (points.length === 1) m.setView(center, 15);
+      if (points.length === 1) m.setView(points[0], 15);
       else m.fitBounds(L.latLngBounds(points.map((p) => [p.lat, p.lng])), { paddingTopLeft: [52, 44], paddingBottomRight: [24, 20], maxZoom: 16 });
     };
     if (key !== fitted.current) {
@@ -129,7 +141,7 @@ export default function RealMap({ center, pins, selected, route, onSelect, saath
       m.invalidateSize();
       fit.current();
     }
-  }, [center, pins, selected, route, saathiProgress, onSelect]);
+  }, [center, pins, selected, route, saathiProgress, onSelect, saathiAt, customPath, hideHome]);
 
   return <div ref={el} className="h-full w-full" style={{ background: "#f6ead6" }} />;
 }

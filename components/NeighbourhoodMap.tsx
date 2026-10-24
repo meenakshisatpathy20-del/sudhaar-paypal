@@ -14,6 +14,12 @@ export type MapProps = {
   onSelect?: (id: string) => void;
   /** 0..1 along home -> karigar -> home, or undefined to hide the Saathi. */
   saathiProgress?: number;
+  /** The Saathi's real (live) position from the Saathi app; shown instead of saathiProgress. */
+  saathiAt?: { lat: number; lng: number; label?: string } | null;
+  /** Draw this path instead of home -> route -> home (the Saathi's planned route). */
+  path?: { lat: number; lng: number }[];
+  /** Hide the customer's home marker (e.g. the admin fleet map). */
+  hideHome?: boolean;
   className?: string;
 };
 

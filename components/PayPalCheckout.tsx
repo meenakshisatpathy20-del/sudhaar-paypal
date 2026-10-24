@@ -17,6 +17,7 @@ export function PayPalCheckout({
   orderId,
   paypalOrderId,
   total,
+  inrLabel,
   onApproved,
   token,
   topUp,
@@ -25,6 +26,8 @@ export function PayPalCheckout({
   orderId: string;
   paypalOrderId: string;
   total: number;
+  /** The bill total as the page shows it in rupees (so the button matches the bill exactly). */
+  inrLabel?: string;
   onApproved: () => void;
   token?: string;
   topUp?: boolean;
@@ -109,7 +112,7 @@ export function PayPalCheckout({
             }
           }}
         >
-          {status === "working" ? (tipId ? t("ppPaying", { amount: money(total) }) : t("ppAuthorizing")) : t("ppPaySim", { inr: rupees(total), usd: money(total) })}
+          {status === "working" ? (tipId ? t("ppPaying", { amount: money(total) }) : t("ppAuthorizing")) : t("ppPaySim", { inr: inrLabel ?? rupees(total), usd: money(total) })}
         </button>
         <p className="text-xs text-gold">{t("ppSimNote")}</p>
         {error && <p className="text-xs text-destructive">{error}</p>}
