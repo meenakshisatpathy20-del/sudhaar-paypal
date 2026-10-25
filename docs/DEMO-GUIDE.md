@@ -150,4 +150,6 @@ Each code works once per customer.
 - Karigars marked **Sample profile** are demo data. People who join through `/join` are real records.
 - In-app voice uses the browser's speech recognition, so support depends on the browser and phone.
 - The **Hindi phone line on Bolna** is built (`/api/voice/*`, the agent prompt and functions in `bolna/`, **Admin → Phone line**). It goes live once a Bolna agent and phone number are connected (see `docs/BOLNA.md`). Until then the website hides the phone card.
+- **SMS** (pay links, OTPs, price changes, claim updates) goes out through Twilio when its keys are set. Without them, each text is shown in **Admin → Phone line → SMS log** as *simulated*, so you can still see exactly what a phone customer would receive.
+- Phone bookings have no "before" photo, so their repair photo check always goes to a person in **Admin → Photo checks**.
 - The free host sleeps when idle (the first load can take about a minute), and a restart resets demo data.

@@ -31,6 +31,7 @@ Website "Call me" ──► POST https://api.bolna.ai/call  (Bolna places an out
 | `VOICE_PHONE_NUMBER` | Optional. The number customers dial, shown on the home page and in Talk (e.g. `+91 80 1234 5678`). |
 | `BOLNA_API_KEY`, `BOLNA_AGENT_ID` | Optional. These turn on **"Ask Sudhaar to call me"** on the website (Bolna's outbound call API). |
 | `BOLNA_FROM_NUMBER` | Optional. The Bolna number used for outbound calls, if you have more than one. |
+| `SMS_PROVIDER`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` | Optional. `SMS_PROVIDER=twilio` plus your Twilio keys and sending number turn on real SMS (pay links, OTPs, price changes, claim updates). Without them every text is still written to **Admin console → Phone line → SMS log**, marked *simulated*. |
 
 Never put these values in the code or in chat. Set them only in Render (and in your local `.env`).
 
@@ -43,12 +44,13 @@ Never put these values in the code or in chat. Set them only in Render (and in y
    - Speech-to-text: a provider with Hindi support. Deepgram (multilingual or Hindi) or Sarvam are good for Hinglish.
    - Text-to-speech: a natural Hindi voice (ElevenLabs, Sarvam or Azure `hi-IN`).
    - Keep the LLM response short (max tokens about 150).
-4. **Tools → Add custom function**: add each of the five functions in [`bolna/tools.json`](../bolna/tools.json):
+4. **Tools → Add custom function**: add each of the six functions in [`bolna/tools.json`](../bolna/tools.json):
    - `get_repair_quote`
-   - `book_repair`
-   - `get_repair_status`
+   - `book_repair` (asks for the payer's mobile number; the PayPal link is texted to it)
+   - `get_repair_status` (also reads open claims and the team's question)
    - `cancel_booking`
-   - `raise_warranty_claim`
+   - `raise_warranty_claim` (adds to an open claim if there is one)
+   - `send_otp_sms` (texts a forgotten OTP to the registered number)
 
    In each one, replace `https://YOUR-SUDHAAR-SITE` with your Render URL and `YOUR_VOICE_API_TOKEN` with your `VOICE_API_TOKEN`.
    - If Bolna's API token field doesn't add the `Bearer ` prefix for you, keep it in the value as shown.
@@ -77,15 +79,21 @@ curl -s -X POST "$SITE/api/voice/status" -H "Authorization: Bearer $TOKEN" -H "C
 
 ## How a phone booking is paid
 
-1. `book_repair` creates the order and a PayPal order (intent AUTHORIZE). The answer includes `pay_link`, which is the order's Family Pay link.
-2. The link reaches the payer. In this prototype the Sudhaar team copies it from **Admin console → Phone line → Copy PayPal pay link** and sends it on WhatsApp. At launch this would go out automatically by SMS or WhatsApp.
-3. The payer approves in PayPal. The money is **held**. From there the normal flow takes over: Saathi pickup with OTP, karigar repair, delivery OTP, PayPal capture and payouts.
+1. The agent asks who pays. If a family member pays (e.g. *बेटा राहुल*), it asks for **their mobile number** and repeats it back.
+2. `book_repair` creates the order and a PayPal order (intent AUTHORIZE), and **texts the Family Pay link to the payer** (or to the caller, if they pay themselves). The caller gets a confirmation SMS. The team can also copy the link again from **Admin console → Phone line**.
+3. The payer opens the link and approves in PayPal. The money is **held**.
+4. The caller then gets the **pickup OTP by SMS** on their registered number. No login is needed.
+5. If the karigar changes the price after inspection, the caller and payer get an SMS with the same link, where they approve or decline (a higher price is a second PayPal hold).
+6. When the item is on its way back, the **delivery OTP** is texted. After delivery PayPal captures the payment and pays out, and the customer gets a text with the warranty.
+7. Forgot the OTP? Ask the agent ("OTP नहीं मिल रहा"), or the Saathi presses **"Text it to them again"**. Either way it goes only to the registered number, at most 3 times in 30 minutes.
 4. A new caller also gets a Sudhaar account on their number, with a PIN the agent reads out once. They can then log in on the website with that number and PIN.
 
 ## Safety
 
 - Every `/api/voice/*` call needs `VOICE_API_TOKEN`, and the endpoints are rate-limited.
-- Caller ID can be faked, so the phone line **never reveals OTPs, addresses or payment details**. The caller lookup returns only a first name and repair statuses.
+- Caller ID can be faked, so the phone line **never reveals OTPs, addresses or payment details** on the call. OTPs are only texted to the number registered on the order, which a faker doesn't receive.
+- The SMS log in the admin console masks every OTP and phone number. Demo accounts are never texted.
+- SMS to Indian numbers is subject to TRAI DLT rules, and a Twilio trial account can only text numbers you verify in Twilio. For the demo, verify your own number and use it as the caller or payer.
 - Cancelling only works before pickup, and it voids the PayPal hold, so nothing is charged.
 - Claims go to Resolve Hub. Gemini reviews them and **a person** approves any refund.
 - "Call me" works only for a logged-in customer, only to **their own** number, and at most once every 10 minutes. The shared demo account can't use it.

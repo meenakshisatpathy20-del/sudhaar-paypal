@@ -25,6 +25,7 @@ import { acceptSlot, pickupSlots } from "./slots";
 import { warrantyDays, warrantyDaysLeft } from "./warranty";
 import { activity, DEFAULT_PRIORITY, isOpenClaim, slaDue } from "./claims-shared";
 import { announceClaim, announceDecision } from "./claims";
+import { notifyOrder } from "./sms";
 import type { Account, Category, Complaint, DB, FamilyPay, Job, Karigar, Order, OrderEvent, OrderStatus, PickupSlot, Quote, Saathi } from "./types";
 
 export class FlowError extends Error {
@@ -151,7 +152,7 @@ export async function createOrder(input: {
   karigarId: string;
   donation?: number;
   bookedBy?: "customer" | "agent" | "phone";
-  familyPay?: { name: string; relation: string; email?: string };
+  familyPay?: { name: string; relation: string; email?: string; phone?: string };
   pickupSlot?: PickupSlot;
   coupon?: string;
 }): Promise<Order> {
@@ -218,13 +219,14 @@ function chooseSlot(slot?: PickupSlot): PickupSlot {
   return ok;
 }
 
-function cleanFamilyPay(fp?: { name: string; relation: string; email?: string }): FamilyPay | undefined {
+function cleanFamilyPay(fp?: { name: string; relation: string; email?: string; phone?: string }): FamilyPay | undefined {
   if (!fp?.name?.trim()) return undefined;
   return {
     token: crypto.randomBytes(16).toString("hex"),
     name: fp.name.trim().slice(0, 60),
     relation: (fp.relation || "family").trim().slice(0, 30),
     email: fp.email?.trim().slice(0, 120) || undefined,
+    phone: fp.phone && /^[6-9]\d{9}$/.test(fp.phone) ? fp.phone : undefined,
   };
 }
 
@@ -264,7 +266,7 @@ export async function createBasketOrder(input: {
   items: { quoteId: string; karigarId: string }[];
   donation?: number;
   bookedBy?: "customer" | "agent" | "phone";
-  familyPay?: { name: string; relation: string; email?: string };
+  familyPay?: { name: string; relation: string; email?: string; phone?: string };
   pickupSlot?: PickupSlot;
   coupon?: string;
 }): Promise<Order> {
@@ -375,7 +377,8 @@ export async function expireUnpaidOrders(): Promise<void> {
 }
 
 export async function approveOrder(orderId: string, paypalOrderId: string): Promise<Order> {
-  return mutate(orderId, async (o) => {
+  const was = getOrder(orderId)?.status;
+  const order = await mutate(orderId, async (o) => {
     if (o.status === "cancelled") throw new FlowError("This booking has expired or was cancelled. Please book again; nothing was charged.", 409);
     if (o.status !== "awaiting_payment") return; // idempotent
     if (o.paypal.orderId !== paypalOrderId) throw new FlowError("PayPal order id does not match this booking");
@@ -413,6 +416,9 @@ export async function approveOrder(orderId: string, paypalOrderId: string): Prom
       throw new FlowError(`PayPal authorization failed: ${d.message}`, 502);
     }
   });
+  // The pickup (or arrival) OTP goes to the customer's registered number, so nobody has to log in.
+  if (was === "awaiting_payment" && order.status === "authorized") await notifyOrder(orderId, "paid");
+  return order;
 }
 
 // ---------- Job progress (OTP-gated) ----------
@@ -430,6 +436,7 @@ const NEXT: Record<Action, { from: OrderStatus[]; to: OrderStatus; actor: OrderE
 };
 
 export async function advance(orderId: string, action: Action, opts: { otp?: string; afterPhoto?: string; jobId?: string } = {}): Promise<Order> {
+  const was = getOrder(orderId)?.status;
   const order = await mutate(orderId, async (o) => {
     if (o.kind === "basket" && (action === "start_repair" || action === "mark_repaired")) {
       await advanceJob(o, action, opts);
@@ -488,6 +495,9 @@ export async function advance(orderId: string, action: Action, opts: { otp?: str
   });
 
   if (action === "deliver") return settle(orderId);
+  // The delivery OTP is texted when it's needed: the item is on its way back, or a home visit is done.
+  const needsDeliveryOtp = order.status === "out_for_delivery" || (order.mode === "home-visit" && order.status === "repaired");
+  if (needsDeliveryOtp && was !== order.status) await notifyOrder(orderId, "delivery_otp");
   return order;
 }
 
@@ -533,7 +543,7 @@ function finishJob(o: Order, job: Job) {
  * delivery (the money is still only captured after the delivery OTP); "redo" sends it back.
  */
 export async function reviewCompletion(orderId: string, input: { jobId?: string; approve: boolean }): Promise<Order> {
-  return mutate(orderId, (o) => {
+  const order = await mutate(orderId, (o) => {
     const job = input.jobId ? o.jobs?.find((j) => j.id === input.jobId) : undefined;
     if (input.jobId && !job) throw new FlowError("Item not found in this basket", 404);
     const target = job ?? o;
@@ -550,11 +560,21 @@ export async function reviewCompletion(orderId: string, input: { jobId?: string;
       log(o, { actor: "admin", message: `Sudhaar reviewer sent ${item} back to the karigar. Payment stays on hold.` });
     }
   });
+  // A home visit approved by a reviewer is done: the customer needs the delivery OTP now.
+  if (input.approve && order.mode === "home-visit" && order.status === "repaired") await notifyOrder(orderId, "delivery_otp");
+  return order;
 }
 
 // ---------- Settlement: capture -> payouts -> invoice ----------
 
 export async function settle(orderId: string): Promise<Order> {
+  const capturedBefore = Boolean(getOrder(orderId)?.paypal.captureId);
+  const settled = await settleInner(orderId);
+  if (!capturedBefore && settled.paypal.captureId) await notifyOrder(orderId, "delivered");
+  return settled;
+}
+
+async function settleInner(orderId: string): Promise<Order> {
   return mutate(orderId, async (o) => {
     if (o.status !== "delivered" || !o.paypal.authorizationId) return;
     // The main hold covers the original price; an approved increase sits in a second (top-up) hold.
@@ -764,7 +784,7 @@ function reprice(o: Order) {
 }
 
 export async function requestPriceChange(karigarId: string, orderId: string, input: { jobId?: string; newPrice: number; reason: string }): Promise<Order> {
-  return mutate(orderId, (o) => {
+  const order = await mutate(orderId, (o) => {
     if (o.priceChange && ["pending", "awaiting_payment"].includes(o.priceChange.status)) throw new FlowError("There is already a price change waiting for the customer");
     const job = input.jobId ? o.jobs?.find((j) => j.id === input.jobId) : undefined;
     if (input.jobId && (!job || job.karigarId !== karigarId)) throw new FlowError("Item not found", 404);
@@ -780,6 +800,9 @@ export async function requestPriceChange(karigarId: string, orderId: string, inp
     o.priceChange = { jobId: job?.id, item: job?.item ?? o.item, from, to, reason, status: "pending", requestedAt: now() };
     log(o, { actor: "karigar", message: `After inspection, the karigar asked to change the price of ${o.priceChange.item} from $${from.toFixed(2)} to $${to.toFixed(2)}: "${reason}". Waiting for the customer.` });
   });
+  // The customer (and a family payer) get a link to answer without logging in.
+  await notifyOrder(orderId, "price_change");
+  return order;
 }
 
 export async function decidePriceChange(orderId: string, approve: boolean): Promise<Order> {

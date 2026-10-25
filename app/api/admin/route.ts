@@ -1,3 +1,4 @@
+import { smsProvider } from "@/lib/sms";
 import { requireRole } from "@/lib/auth";
 import { readDB } from "@/lib/db";
 import { fail, ok } from "@/lib/http";
@@ -66,6 +67,7 @@ export async function GET(req: Request) {
         callback: callbackEnabled(),
         phoneNumber: bolnaConfig().phoneNumber || null,
         calls: db.voiceCalls ?? [],
+        sms: { provider: smsProvider(), log: (db.smsLog ?? []).slice(0, 60) },
       },
     });
   } catch (e) {

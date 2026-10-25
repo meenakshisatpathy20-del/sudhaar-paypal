@@ -111,6 +111,7 @@ export default function FamilyPayPage({ params, searchParams }: { params: Promis
             </p>
           )}
           {!paid && !expired && order.paypal.orderId && <PayPalCheckout orderId={order.id} paypalOrderId={order.paypal.orderId} total={order.total} inrLabel={orderRupees(order)} onApproved={load} token={token} />}
+          {paid && order.priceChange && ["pending", "awaiting_payment"].includes(order.priceChange.status) && <PriceChangeCard order={order} token={token} onDone={load} />}
           {paid && (
             <div className="space-y-2 rounded-2xl bg-teal/10 p-4 text-center">
               <HeartHandshake className="mx-auto size-7 text-teal" />
@@ -128,6 +129,54 @@ export default function FamilyPayPage({ params, searchParams }: { params: Promis
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+/** The karigar's price change after inspection, answered from the SMS link. A higher price is a second PayPal hold. */
+function PriceChangeCard({ order, token, onDone }: { order: Order; token: string; onDone: () => void }) {
+  const { t } = useLang();
+  const pc = order.priceChange!;
+  const vars = { from: rupees(pc.from), to: rupees(pc.to), extra: rupees(pc.topUp?.amount ?? pc.to - pc.from), reason: pc.reason };
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function decide(approve: boolean) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/pay/${order.id}`, { t: token, approve });
+      onDone();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="space-y-2 rounded-2xl bg-marigold/15 p-4 ring-1 ring-marigold/40">
+      <p className="font-semibold">{t("pcTitle")}</p>
+      <p className="text-sm">
+        {pc.item}: <s>{rupees(pc.from)}</s> → <b>{rupees(pc.to)}</b>
+      </p>
+      <p className="text-xs text-muted-foreground">{t("pcWhy", vars)}</p>
+      {pc.status === "pending" && <p className="text-xs text-muted-foreground">{pc.to > pc.from ? t("pcHigher", vars) : t("pcLower")}</p>}
+      {pc.status === "pending" && (
+        <div className="flex gap-2">
+          <button disabled={busy} onClick={() => decide(true)} className="flex-1 rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+            {t("pcApprove", vars)}
+          </button>
+          <button disabled={busy} onClick={() => decide(false)} className="flex-1 rounded-xl px-3 py-2 text-sm font-semibold ring-1 ring-border disabled:opacity-50">
+            {t("pcDecline", vars)}
+          </button>
+        </div>
+      )}
+      {pc.status === "awaiting_payment" && pc.topUp?.paypalOrderId && (
+        <>
+          <p className="text-xs font-semibold">{t("pcPayExtra", vars)}</p>
+          <PayPalCheckout orderId={order.id} paypalOrderId={pc.topUp.paypalOrderId} total={pc.topUp.amount} inrLabel={rupees(pc.topUp.amount)} onApproved={onDone} token={token} topUp />
+        </>
+      )}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }

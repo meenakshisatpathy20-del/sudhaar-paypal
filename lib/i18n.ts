@@ -828,6 +828,8 @@ const BASE = {
     nClaimEvidence: "{name} added a photo to claim {claim}",
     nClaimStatus: "Claim {claim}: {status}",
     nClaimAssigned: "Claim {claim} on {item} was assigned to you",
+    otpResend: "Customer can't find the OTP? Text it to them again",
+    otpSent: "OTP texted to the customer's number {to}",
     // -- end added --
   },
   hi: {
@@ -1630,6 +1632,8 @@ const BASE = {
     nClaimEvidence: "{name} ने दावा {claim} में फ़ोटो जोड़ी",
     nClaimStatus: "दावा {claim}: {status}",
     nClaimAssigned: "{item} का दावा {claim} आपको सौंपा गया",
+    otpResend: "ग्राहक को OTP नहीं मिल रहा? फिर से SMS भेजें",
+    otpSent: "OTP ग्राहक के नंबर {to} पर भेज दिया",
     // -- end added --
   },
 } as const;

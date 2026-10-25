@@ -7,6 +7,7 @@ import { useLang } from "@/components/LanguageProvider";
 import { EarningsList, PartnerHeader, PayoutCheck, StatStrip, TabsN, usePartner, WeekChart, type PartnerData } from "@/components/partner/PartnerHome";
 import { PhotoPicker } from "@/components/PhotoPicker";
 import { SlotLine } from "@/components/SlotLine";
+import { ResendOtp } from "@/components/partner/ResendOtp";
 import { ClaimCard } from "@/components/resolve/Claims";
 import { StatusPill } from "@/components/StatusPill";
 import { Button } from "@/components/ui/button";
@@ -276,6 +277,7 @@ function KarigarJob({ order, canPrice, onDone }: { order: Order; canPrice: boole
       {(order.status === "at_karigar" || (visit && order.status === "authorized")) && (
         <>
           {visit && <OtpInput placeholder={t("kaArrivalOtp")} value={otp} onChange={setOtp} />}
+          {visit && <ResendOtp orderId={order.id} />}
           <Button className="w-full" disabled={busy || (visit && otp.length !== 4)} onClick={() => run("start_repair", { otp })}>
             {visit ? t("kaStartVisit") : t("kaStart")}
           </Button>
@@ -294,6 +296,7 @@ function KarigarJob({ order, canPrice, onDone }: { order: Order; canPrice: boole
       {order.status === "repaired" && visit && (
         <>
           <OtpInput placeholder={t("kaJobDoneOtp")} value={otp} onChange={setOtp} />
+          <ResendOtp orderId={order.id} />
           <Button className="w-full" disabled={busy || otp.length !== 4} onClick={() => run("deliver", { otp })}>
             {busy ? t("kaCapturing") : t("kaGetPaid")}
           </Button>

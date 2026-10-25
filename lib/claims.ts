@@ -4,6 +4,7 @@ import { activity, CLAIM_PRIORITIES, claimStatusOf, isOpenClaim, MAX_EVIDENCE, p
 import { readDB, updateDB } from "./db";
 import { FlowError, resolveComplaint } from "./orders";
 import { orderFor } from "./privacy";
+import { notifyOrder } from "./sms";
 import { warrantyDaysLeft } from "./warranty";
 import type { Account, ClaimPriority, ClaimStatus, Complaint, DB, Notification, Order } from "./types";
 
@@ -57,6 +58,8 @@ export async function announceDecision(orderId: string, claimIdValue: string, by
     if (!o || !c) return;
     notify(db, audience(db, o, { customer: true, karigar: true, admin: true }, byId), "nClaimStatus", { claim: c.id, status: claimStatusOf(c) }, claimHref(c));
   });
+  // Phone customers can't see the bell: the decision goes to them by SMS too.
+  await notifyOrder(orderId, "claim_decided", { claimId: claimIdValue });
 }
 
 // ---------- Reading ----------
@@ -142,6 +145,7 @@ export async function actOnClaim(a: Account, id: string, input: ClaimAction) {
     return getClaim(a, id);
   }
 
+  let textCustomer: string | null = null;
   await updateDB((db) => {
     const hit = locate(db, id);
     if (!hit || !canSeeClaim(a, hit.o)) throw new FlowError("Claim not found", 404);
@@ -208,6 +212,7 @@ export async function actOnClaim(a: Account, id: string, input: ClaimAction) {
         activity(c, a.role, a.name, `Status changed to ${next.replaceAll("_", " ")}`, remarks || undefined);
         if (remarks) (c.thread ??= []).push({ id: rid(), at: now(), by: "admin", name: roleName(a), text: remarks });
         toOthers("nClaimStatus", { status: next }, { customer: true, karigar: next === "awaiting_karigar", admin: true });
+        if (next === "awaiting_customer") textCustomer = o.id;
         break;
       }
       case "assign": {
@@ -255,6 +260,7 @@ export async function actOnClaim(a: Account, id: string, input: ClaimAction) {
         throw new FlowError("Unknown action");
     }
   });
+  if (textCustomer) await notifyOrder(textCustomer, "claim_waiting", { claimId: id });
   return getClaim(a, id);
 }
 
@@ -290,4 +296,12 @@ export function claimReport(rows: ClaimRow[]) {
     refunded: Math.round(claims.reduce((s, c) => s + (c.resolution?.action === "refund" ? (c.resolution.amount ?? 0) : 0), 0) * 100) / 100,
     byIssue,
   };
+}
+
+/** A phone caller talking about an open claim: their words go into the claim's conversation. */
+export async function actOnSystemClaim(claimIdValue: string, phone: string, text: string) {
+  const account = readDB().accounts.find((x) => x.role === "customer" && x.phone === phone);
+  if (!account) throw new FlowError("Claim not found", 404);
+  const msg = text.trim().length >= 2 ? `(phone call) ${text.trim()}` : "(phone call) The customer called about this claim.";
+  return actOnClaim(account, claimIdValue, { action: "comment", text: msg });
 }

@@ -17,7 +17,7 @@ export function publicOrder(o: Order): Order {
   return {
     ...o,
     customer: { ...o.customer, email: maskEmail(o.customer.email) },
-    familyPay: fp && { ...fp, email: fp.email && maskEmail(fp.email), paidBy: fp.paidBy && maskEmail(fp.paidBy) },
+    familyPay: fp && { ...fp, email: fp.email && maskEmail(fp.email), paidBy: fp.paidBy && maskEmail(fp.paidBy), phone: fp.phone && `••••••${fp.phone.slice(-4)}` },
     payouts: o.payouts.map((p) => ({ ...p, receiver: maskEmail(p.receiver) })),
   };
 }

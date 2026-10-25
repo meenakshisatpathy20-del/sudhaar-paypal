@@ -2,7 +2,10 @@ import crypto from "node:crypto";
 import { normalisePhone } from "./auth";
 import { config } from "./config";
 import { readDB, updateDB } from "./db";
-import { advance, createOrder, createQuote, familyPayPath, FlowError, offersFor, raiseComplaint } from "./orders";
+import { actOnSystemClaim } from "./claims";
+import { isOpenClaim } from "./claims-shared";
+import { advance, createOrder, createQuote, FlowError, offersFor, raiseComplaint } from "./orders";
+import { maskPhone, notifyOrder, payLink, resendOtp } from "./sms";
 import { hashPin } from "./pin";
 import { INR_PER_USD, serviceModeFor } from "./pricing";
 import { pickupSlots, slotLabel } from "./slots";
@@ -150,7 +153,7 @@ export async function voiceQuote(input: { description?: unknown; category?: unkn
  * Books by voice. The order is paid with PayPal through a Family Pay link: the caller's son or
  * daughter (or the caller on any browser) opens it and approves. Until then nothing is charged.
  */
-export async function voiceBook(input: { phone?: unknown; name?: unknown; address?: unknown; quote_id?: unknown; karigar_id?: unknown; slot_index?: unknown; payer_name?: unknown; payer_relation?: unknown }) {
+export async function voiceBook(input: { phone?: unknown; name?: unknown; address?: unknown; quote_id?: unknown; karigar_id?: unknown; slot_index?: unknown; payer_name?: unknown; payer_relation?: unknown; payer_phone?: unknown }) {
   const phone = callerPhone(input.phone);
   const quoteId = String(input.quote_id ?? "");
   if (!readDB().quotes.some((q) => q.id === quoteId)) throw new FlowError("Get a quote first (quote_id is missing).");
@@ -160,26 +163,33 @@ export async function voiceBook(input: { phone?: unknown; name?: unknown; addres
   if (!address && !findCustomer(phone)?.address) throw new FlowError("Ask the caller for their address for the pickup.");
   if (!findCustomer(phone) && name.length < 2) throw new FlowError("Ask the caller for their name.");
   if (!offersForCheck(phone, quoteId, String(input.karigar_id ?? ""))) throw new FlowError("That karigar can't take this job. Use a karigar_id from the quote.");
+  const payer = String(input.payer_name ?? "").trim();
+  // The PayPal link is texted to whoever pays: the family member's number, or the caller's own.
+  const rawPayerPhone = String(input.payer_phone ?? "").trim();
+  const payerPhone = rawPayerPhone ? normalisePhone(rawPayerPhone) : "";
+  if (payer && !rawPayerPhone) throw new FlowError(`Ask for ${payer}'s mobile number, so the payment link can be sent by SMS.`);
+  if (rawPayerPhone && !/^[6-9]\d{9}$/.test(payerPhone)) throw new FlowError("That mobile number doesn't look right. Ask for the 10-digit number again.");
   const { account, newPin } = await customerForCall(phone, name, address);
   const slots = pickupSlots();
   const idx = Math.min(Math.max(0, Number(input.slot_index) || 0), slots.length - 1);
-  const payer = String(input.payer_name ?? "").trim();
   const order = await createOrder({
     customer: findCustomer(phone) ?? account,
     quoteId,
     karigarId: String(input.karigar_id ?? ""),
     bookedBy: "phone",
     pickupSlot: slots[idx],
-    familyPay: { name: payer || firstName(account.name), relation: String(input.payer_relation ?? "").trim() || (payer ? "family" : "self") },
+    familyPay: { name: payer || firstName(account.name), relation: String(input.payer_relation ?? "").trim() || (payer ? "family" : "self"), phone: payerPhone || phone },
   });
-  const site = (process.env.APP_URL ?? "").replace(/\/$/, "");
+  const texts = await notifyOrder(order.id, "booked_phone");
+  const linkTo = maskPhone(payerPhone || phone);
   return {
     order_id: order.id,
     total_inr: Math.round(order.total * INR_PER_USD),
     pickup: order.pickupSlot ? slotHi(order.pickupSlot) : "",
-    pay_link: `${site}${familyPayPath(order)}`,
+    pay_link: payLink(order),
+    pay_link_sms: { to: linkTo, status: texts[0]?.status ?? "not_sent" },
     new_account_pin: newPin ?? null,
-    say: `आपकी बुकिंग हो गई है, नंबर ${order.id.split("").join(" ")}. कुल ${Math.round(order.total * INR_PER_USD)} रुपये। भुगतान PayPal से होगा और पैसा तभी कटेगा जब सामान ठीक होकर आपके पास वापस आएगा। भुगतान का लिंक ${payer || "आपके परिवार"} को भेजा जाएगा।${newPin ? ` आपका Sudhaar PIN ${newPin.split("").join(" ")} है, इसे अपने नंबर के साथ वेबसाइट पर इस्तेमाल कर सकते हैं।` : ""}`,
+    say: `आपकी बुकिंग हो गई है, नंबर ${order.id.split("").join(" ")}. कुल ${Math.round(order.total * INR_PER_USD)} रुपये। भुगतान PayPal से होगा और पैसा तभी कटेगा जब सामान ठीक होकर आपके पास वापस आएगा। भुगतान का लिंक ${payer ? `${payer} के नंबर` : "आपके नंबर"} पर SMS से भेज दिया है, जो ${linkTo.slice(-4).split("").join(" ")} पर ख़त्म होता है। पैसा जमा होते ही पिकअप का OTP आपको SMS से मिलेगा।${newPin ? ` आपका Sudhaar PIN ${newPin.split("").join(" ")} है, इसे अपने नंबर के साथ वेबसाइट पर इस्तेमाल कर सकते हैं।` : ""}`,
   };
 }
 
@@ -202,9 +212,20 @@ export function voiceStatus(input: { phone?: unknown }) {
   const phone = callerPhone(input.phone);
   const orders = callerOrders(phone).slice(0, 3);
   if (!orders.length) return { orders: [], say: "इस नंबर पर कोई मरम्मत नहीं मिली।" };
+  // Open Resolve Hub claims, with the team's latest question, so a phone customer can follow them too.
+  const claims = orders.flatMap((o) =>
+    o.complaints.filter(isOpenClaim).map((c) => {
+      const lastTeam = [...(c.thread ?? [])].reverse().find((m) => m.by === "admin" && !m.internal);
+      return { order_id: o.id, claim_id: c.id, status: c.status ?? "open", waiting_for_you: c.status === "awaiting_customer", team_question: lastTeam?.text ?? null };
+    }),
+  );
+  const claimSay = claims
+    .map((c) => (c.waiting_for_you ? `आपकी शिकायत ${c.claim_id} पर टीम का सवाल है: ${c.team_question ?? ""}` : `आपकी शिकायत ${c.claim_id} की जाँच चल रही है`))
+    .join("। ");
   return {
-    orders: orders.map((o) => ({ order_id: o.id, item: o.item, status: o.status, status_hi: STATUS_HI[o.status] ?? o.status, pickup: o.pickupSlot ? slotHi(o.pickupSlot) : "", total_inr: Math.round(o.total * INR_PER_USD) })),
-    say: orders.map((o) => `${o.item}: ${STATUS_HI[o.status] ?? o.status}${o.status === "authorized" && o.pickupSlot ? `, पिकअप ${slotHi(o.pickupSlot)}` : ""}`).join("। "),
+    orders: orders.map((o) => ({ order_id: o.id, item: o.item, status: o.status, status_hi: STATUS_HI[o.status] ?? o.status, pickup: o.pickupSlot ? slotHi(o.pickupSlot) : "", total_inr: Math.round(o.total * INR_PER_USD), payment_pending: o.status === "awaiting_payment" })),
+    claims,
+    say: [orders.map((o) => `${o.item}: ${STATUS_HI[o.status] ?? o.status}${o.status === "authorized" && o.pickupSlot ? `, पिकअप ${slotHi(o.pickupSlot)}` : ""}`).join("। "), claimSay].filter(Boolean).join("। "),
   };
 }
 
@@ -226,8 +247,15 @@ export async function voiceComplaint(input: { phone?: unknown; order_id?: unknow
   const all = callerOrders(phone).filter((o) => o.paypal.captureId && warrantyDaysLeft(o) >= 0);
   const o = all.find((x) => x.id === String(input.order_id ?? "").trim().toUpperCase()) ?? all[0];
   if (!o) throw new FlowError("No delivered repair under warranty on this number.");
+  const details = String(input.details ?? "").slice(0, 900);
+  // Calling again about the same repair adds to the open claim instead of failing.
+  const open = o.complaints.find(isOpenClaim);
+  if (open) {
+    await actOnSystemClaim(open.id, phone, details);
+    return { order_id: o.id, claim_id: open.id, added_to_existing: true, say: `आपकी बात शिकायत ${open.id.split("").join(" ")} में जोड़ दी है। टीम जल्दी जवाब देगी।` };
+  }
   const issue = ISSUES.includes(input.issue as Complaint["issue"]) ? (input.issue as Complaint["issue"]) : "repair_failed";
-  const updated = await raiseComplaint(o.id, { issue, details: String(input.details ?? "").slice(0, 900), channel: "phone" });
+  const updated = await raiseComplaint(o.id, { issue, details, channel: "phone" });
   const ai = updated.complaints[0]?.ai;
   return {
     order_id: o.id,
@@ -235,6 +263,23 @@ export async function voiceComplaint(input: { phone?: unknown; order_id?: unknow
     ai_recommendation: ai?.recommendation ?? null,
     say: `आपकी शिकायत Resolve Hub में दर्ज हो गई है। हमारी टीम जाँच करके जल्दी फ़ैसला करेगी${ai?.recommendation === "re_repair" ? ", शायद कारीगर मुफ़्त में दोबारा ठीक करेंगे" : ai?.refundAmount ? ", और रिफ़ंड PayPal से वापस जाएगा" : ""}।`,
   };
+}
+
+/**
+ * "I forgot my OTP": the OTP is never read out on the call (caller ID can be faked), but it can be
+ * texted to the number registered on the order, which only the real customer receives.
+ */
+export async function voiceSendOtp(input: { phone?: unknown; order_id?: unknown }) {
+  const phone = callerPhone(input.phone);
+  const orders = callerOrders(phone);
+  const o = orders.find((x) => x.id === String(input.order_id ?? "").trim().toUpperCase()) ?? orders.find((x) => ["authorized", "out_for_delivery", "repaired", "repairing"].includes(x.status));
+  if (!o) throw new FlowError("No repair on this number needs an OTP right now.");
+  const r = await resendOtp(o.id);
+  if (!r.ok) {
+    if (r.reason === "too_many") throw new FlowError("The OTP was already sent 3 times in the last 30 minutes. Ask them to check their messages.");
+    throw new FlowError("This repair doesn't need an OTP right now.");
+  }
+  return { order_id: o.id, sent_to: r.to, say: `OTP आपके रजिस्टर्ड नंबर पर SMS से भेज दिया है। इसे सिर्फ़ साथी या कारीगर को सामने बताइए।` };
 }
 
 /** Bolna's post-call webhook: keep a short log for the admin console. */
