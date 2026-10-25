@@ -122,6 +122,11 @@ function OrderPageInner({ params }: { params: Promise<{ id: string }> }) {
                 </p>
                 <h1 className="mt-1 text-2xl font-bold">{order.kind === "basket" && order.jobs ? t("oBasketTitle", { n: order.jobs.length }) : order.item}</h1>
                 <p className="text-sm text-muted-foreground">{order.issue}</p>
+                {order.warrantyFor && (
+                  <p className="mt-1 inline-block rounded-full bg-teal/15 px-2.5 py-0.5 text-xs font-semibold text-teal">
+                    {t("oWarrantyFor", { id: order.warrantyFor })}
+                  </p>
+                )}
                 {!["delivered", "paid_out", "cancelled"].includes(order.status) && <SlotLine order={order} className="mt-1" />}
               </div>
               <StatusPill status={order.status} />

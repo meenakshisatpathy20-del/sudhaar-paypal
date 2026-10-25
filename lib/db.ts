@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { config } from "./config";
+import { scheduleSnapshot } from "./snapshot";
 import { hashPin } from "./pin";
 import { demoAccountSpecs, demoPinFor, seedCoupons, seedDB, seedKarigars, seedSaathis } from "./seed";
 import type { DB } from "./types";
@@ -10,28 +11,31 @@ import type { DB } from "./types";
 
 const file = () => path.join(config.dataDir, "db.json");
 
-let cache: DB | null = null;
-let queue: Promise<unknown> = Promise.resolve();
+// One cache and one write queue per server process, shared through globalThis: Next.js loads
+// instrumentation (the conductor) and the route handlers as separate bundles, and two copies of
+// the database would overwrite each other's writes.
+type Store = { cache: DB | null; queue: Promise<unknown> };
+const store: Store = ((globalThis as { __sudhaarDB?: Store }).__sudhaarDB ??= { cache: null, queue: Promise.resolve() });
 
 function load(): DB {
-  if (cache) return cache;
+  if (store.cache) return store.cache;
   try {
-    cache = JSON.parse(fs.readFileSync(file(), "utf8")) as DB;
+    store.cache = JSON.parse(fs.readFileSync(file(), "utf8")) as DB;
     // Seeded karigars and Saathis are demo data: always refresh them from the seed so profile
     // updates and the payout emails from .env apply to an existing database too. Karigars who
     // joined through onboarding are real records and are kept.
-    cache.karigars = [...seedKarigars(), ...(cache.karigars ?? []).filter((k) => k.onboarded)];
-    cache.saathis = [...seedSaathis(), ...(cache.saathis ?? []).filter((s) => s.onboarded)];
-    cache.applications ??= [];
-    cache.accounts ??= [];
-    cache.coupons ??= seedCoupons();
-    if (ensureDemoAccounts(cache)) persist(cache);
+    store.cache.karigars = [...seedKarigars(), ...(store.cache.karigars ?? []).filter((k) => k.onboarded)];
+    store.cache.saathis = [...seedSaathis(), ...(store.cache.saathis ?? []).filter((s) => s.onboarded)];
+    store.cache.applications ??= [];
+    store.cache.accounts ??= [];
+    store.cache.coupons ??= seedCoupons();
+    if (ensureDemoAccounts(store.cache)) persist(store.cache);
   } catch {
-    cache = seedDB();
-    ensureDemoAccounts(cache);
-    persist(cache);
+    store.cache = seedDB();
+    ensureDemoAccounts(store.cache);
+    persist(store.cache);
   }
-  return cache;
+  return store.cache;
 }
 
 /** Adds any missing demo logins (hashing their PINs once). Returns true if something was added. */
@@ -50,6 +54,7 @@ function persist(db: DB) {
   const tmp = file() + ".tmp";
   fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
   fs.renameSync(tmp, file());
+  scheduleSnapshot(() => JSON.stringify(db));
 }
 
 export function readDB(): DB {
@@ -58,32 +63,32 @@ export function readDB(): DB {
 
 /** Serialises writes so concurrent requests cannot clobber each other. */
 export function updateDB<T>(fn: (db: DB) => T | Promise<T>): Promise<T> {
-  const run = queue.then(async () => {
+  const run = store.queue.then(async () => {
     const db = load();
     const result = await fn(db);
     persist(db);
     return result;
   });
-  queue = run.catch(() => undefined);
+  store.queue = run.catch(() => undefined);
   return run;
 }
 
 /** Clears orders and test data. Customer sign-ups and onboarded karigars are kept. */
 export function resetDB() {
-  const keep = cache ? { accounts: cache.accounts, karigars: cache.karigars.filter((k) => k.onboarded), saathis: cache.saathis.filter((x) => x.onboarded), applications: cache.applications, care: cache.care } : null;
-  cache = seedDB();
+  const keep = store.cache ? { accounts: store.cache.accounts, karigars: store.cache.karigars.filter((k) => k.onboarded), saathis: store.cache.saathis.filter((x) => x.onboarded), applications: store.cache.applications, care: store.cache.care } : null;
+  store.cache = seedDB();
   if (keep) {
-    cache.accounts = keep.accounts;
-    cache.karigars.push(...keep.karigars);
-    cache.saathis.push(...keep.saathis);
-    cache.applications = keep.applications;
+    store.cache.accounts = keep.accounts;
+    store.cache.karigars.push(...keep.karigars);
+    store.cache.saathis.push(...keep.saathis);
+    store.cache.applications = keep.applications;
     // The PayPal billing plan for Sudhaar Care stays valid across a demo reset; the shared demo
     // customer's own membership is cleared so the next judge starts fresh.
-    cache.care = keep.care;
-    for (const a of cache.accounts) if (a.demo) delete a.care;
+    store.cache.care = keep.care;
+    for (const a of store.cache.accounts) if (a.demo) delete a.care;
   }
-  ensureDemoAccounts(cache);
-  persist(cache);
+  ensureDemoAccounts(store.cache);
+  persist(store.cache);
 }
 
 export function uploadsDir() {

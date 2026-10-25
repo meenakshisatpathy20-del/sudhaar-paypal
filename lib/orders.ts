@@ -364,15 +364,25 @@ async function mutate(orderId: string, fn: (o: Order) => Promise<void> | void): 
 // longer because a relative in another city may only open the link later in the day.
 const UNPAID_TTL_MS = 2 * 60 * 60 * 1000;
 const FAMILY_PAY_TTL_MS = 24 * 60 * 60 * 1000;
+// Overridable so the expiry flow can be tested without waiting a day.
+const familyPayTtlMs = () => (Number(process.env.FAMILY_PAY_TTL_MIN) > 0 ? Number(process.env.FAMILY_PAY_TTL_MIN) * 60_000 : FAMILY_PAY_TTL_MS);
 
-export async function expireUnpaidOrders(): Promise<void> {
-  const cutoff = (o: Order) => Date.parse(o.createdAt) + (o.familyPay ? FAMILY_PAY_TTL_MS : UNPAID_TTL_MS);
-  if (!readDB().orders.some((o) => o.status === "awaiting_payment" && cutoff(o) < Date.now())) return;
-  await updateDB((db) => {
+export async function expireUnpaidOrders(): Promise<string[]> {
+  const cutoff = (o: Order) => Date.parse(o.createdAt) + (o.familyPay ? familyPayTtlMs() : UNPAID_TTL_MS);
+  if (!readDB().orders.some((o) => o.status === "awaiting_payment" && cutoff(o) < Date.now())) return [];
+  return updateDB((db) => {
+    const ids: string[] = [];
     for (const o of db.orders) {
       if (o.status !== "awaiting_payment" || cutoff(o) >= Date.now()) continue;
       log(o, { status: "cancelled", actor: "system", message: "Payment was not completed in time, so the booking was released. Nothing was charged." });
+      o.nudges = { ...o.nudges, expiredNotice: true };
+      ids.push(o.id);
     }
+    return ids;
+  }).then(async (ids) => {
+    // Nobody should find out by silence: the customer and the payer are told it was released.
+    for (const id of ids) await notifyOrder(id, "expired");
+    return ids;
   });
 }
 
@@ -386,6 +396,13 @@ export async function approveOrder(orderId: string, paypalOrderId: string): Prom
       const auth = await authorizeOrder(paypalOrderId);
       o.paypal.authorizationId = auth.authorizationId;
       o.paypal.heldAmount = o.total;
+      // Paid after the chosen pickup window had already started (e.g. the family paid the next day):
+      // move to the next free window instead of sending a Saathi to a time that has passed.
+      if (o.pickupSlot && !acceptSlot(o.pickupSlot)) {
+        const next = pickupSlots()[0];
+        log(o, { actor: "system", message: `The chosen pickup time had passed when the payment came in, so pickup moved to the next free window.` });
+        o.pickupSlot = next;
+      }
       const code = o.discount?.coupon?.code;
       if (code) {
         const c = readDB().coupons?.find((x) => x.code === code);
@@ -435,7 +452,7 @@ const NEXT: Record<Action, { from: OrderStatus[]; to: OrderStatus; actor: OrderE
   cancel: { from: ["awaiting_payment", "authorized"], to: "cancelled", actor: "customer" },
 };
 
-export async function advance(orderId: string, action: Action, opts: { otp?: string; afterPhoto?: string; jobId?: string } = {}): Promise<Order> {
+export async function advance(orderId: string, action: Action, opts: { otp?: string; afterPhoto?: string; beforePhoto?: string; jobId?: string } = {}): Promise<Order> {
   const was = getOrder(orderId)?.status;
   const order = await mutate(orderId, async (o) => {
     if (o.kind === "basket" && (action === "start_repair" || action === "mark_repaired")) {
@@ -452,6 +469,14 @@ export async function advance(orderId: string, action: Action, opts: { otp?: str
     const needsPickupOtp = action === "pickup" || (action === "start_repair" && o.mode === "home-visit");
     if (needsPickupOtp && opts.otp?.trim() !== o.pickupOtp) throw new FlowError("Wrong OTP. Ask the customer for the pickup/arrival OTP shown in their app.");
     if (action === "deliver" && opts.otp?.trim() !== o.deliveryOtp) throw new FlowError("Wrong OTP. Ask the customer for the delivery OTP shown in their app.");
+
+    // Phone bookings have no photo of the item, so whoever first handles it takes the "before" photo.
+    // The AI repair check compares it with the karigar's after photo.
+    if (needsPickupOtp && o.kind !== "basket") {
+      const photo = typeof opts.beforePhoto === "string" && /^[\w-]+\.(jpg|jpeg|png|webp)$/i.test(opts.beforePhoto) ? opts.beforePhoto : undefined;
+      if (!o.beforePhoto && !photo && o.bookedBy === "phone") throw new FlowError("Take a photo of the item first: this booking was made by phone, so there is no before photo yet.");
+      if (photo && !o.beforePhoto) o.beforePhoto = photo;
+    }
 
     const k = readDB().karigars.find((x) => x.id === o.karigarId);
     const messages: Record<Action, string> = {
@@ -767,8 +792,62 @@ export async function resolveComplaint(orderId: string, complaintId: string, dec
     }
   });
   const c = o.complaints.find((x) => x.id === complaintId);
+  // A free re-repair is booked for real: a ₹0 pickup to the same karigar, no PayPal involved.
+  if (c && decided && decision.action === "re_repair") {
+    const rr = await createWarrantyOrder(o.id, c.id);
+    await notifyOrder(rr.id, "re_repair");
+  }
   if (c && decided) await announceDecision(o.id, c.id, decision.by?.id);
-  return o;
+  return getOrder(o.id) ?? o;
+}
+
+/** The free warranty re-repair: same item, same karigar, a new pickup with new OTPs, nothing to pay. */
+async function createWarrantyOrder(originalId: string, claimId: string): Promise<Order> {
+  const rr = await updateDB((db) => {
+    const o = db.orders.find((x) => x.id === originalId)!;
+    const c = o.complaints.find((x) => x.id === claimId)!;
+    const saathi = pickSaathi(db.saathis, db.offline);
+    const order: Order = {
+      id: id("SD"),
+      kind: "single",
+      createdAt: now(),
+      status: "authorized",
+      quoteId: o.quoteId,
+      item: o.item,
+      category: o.category,
+      size: o.size,
+      issue: `Warranty re-repair (claim ${c.id}): ${c.details.slice(0, 120)}`,
+      mode: o.mode,
+      karigarId: o.jobs?.[0]?.karigarId ?? o.karigarId,
+      saathiId: saathi.id,
+      customerId: o.customerId,
+      customer: o.customer,
+      distanceKm: o.distanceKm,
+      repairCharge: 0,
+      pickupFee: 0,
+      donation: 0,
+      total: 0,
+      currency: "USD",
+      split: { karigar: 0, saathi: 0, platform: 0, donation: 0 },
+      pickupOtp: otp(),
+      deliveryOtp: otp(),
+      paypal: { mode: o.paypal.mode, refunds: [] },
+      trackToken: crypto.randomBytes(8).toString("hex"),
+      beforePhoto: o.afterPhoto ?? o.beforePhoto,
+      payouts: [],
+      complaints: [],
+      events: [],
+      bookedBy: o.bookedBy,
+      pickupSlot: pickupSlots()[0],
+      warrantyFor: o.id,
+    };
+    log(order, { status: "authorized", actor: "admin", message: `Free warranty re-repair for order ${o.id} (claim ${c.id}). Nothing to pay.` });
+    db.orders.unshift(order);
+    if (c.resolution) c.resolution.reRepairOrderId = order.id;
+    log(o, { actor: "admin", message: `Re-repair booked as order ${order.id} (free).` });
+    return order;
+  });
+  return rr;
 }
 
 // ---------- Price change after inspection (karigar asks, customer decides) ----------

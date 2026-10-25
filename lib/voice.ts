@@ -2,10 +2,11 @@ import crypto from "node:crypto";
 import { normalisePhone } from "./auth";
 import { config } from "./config";
 import { readDB, updateDB } from "./db";
-import { actOnSystemClaim } from "./claims";
+import { actOnSystemClaim, notify } from "./claims";
 import { isOpenClaim } from "./claims-shared";
 import { advance, createOrder, createQuote, FlowError, offersFor, raiseComplaint } from "./orders";
-import { maskPhone, notifyOrder, payLink, resendOtp } from "./sms";
+import { maskPhone, notifyOrder, payLink, resendOtp, sendSms } from "./sms";
+import { geocodeAddress } from "./geocode";
 import { hashPin } from "./pin";
 import { INR_PER_USD, serviceModeFor } from "./pricing";
 import { pickupSlots, slotLabel } from "./slots";
@@ -54,9 +55,17 @@ export function findCustomer(phone: string): Account | undefined {
 /** The caller's account, created on first booking. A new PIN is returned once so they can use the website too. */
 async function customerForCall(phone: string, name: string, address: string): Promise<{ account: Account; newPin?: string }> {
   const existing = findCustomer(phone);
+  // A spoken address becomes a real map point, so distances, pickup fees and the Saathi's map are right.
+  const spot = address ? await geocodeAddress(address) : null;
   if (existing) {
-    if (address && !existing.address) await updateDB((db) => void (db.accounts.find((a) => a.id === existing.id)!.address = address));
-    return { account: existing };
+    // Phone customers move with the address they give; a website customer's saved address is kept.
+    if (address && (existing.viaPhone ? address !== existing.address : !existing.address))
+      await updateDB((db) => {
+        const a = db.accounts.find((x) => x.id === existing.id)!;
+        a.address = address;
+        if (spot && existing.viaPhone) Object.assign(a, { lat: spot.lat, lng: spot.lng });
+      });
+    return { account: findCustomer(phone) ?? existing };
   }
   if (readDB().accounts.some((a) => a.phone === phone)) throw new FlowError("This number belongs to a partner account. Please call from your own number.");
   const pin = String(crypto.randomInt(1000, 10000));
@@ -68,8 +77,8 @@ async function customerForCall(phone: string, name: string, address: string): Pr
     pinHash: hashPin(pin),
     createdAt: new Date().toISOString(),
     address: address.trim().slice(0, 120) || undefined,
-    lat: config.demoCenter.lat,
-    lng: config.demoCenter.lng,
+    lat: spot?.lat ?? config.demoCenter.lat,
+    lng: spot?.lng ?? config.demoCenter.lng,
     viaPhone: true,
   };
   await updateDB((db) => void db.accounts.push(account));
@@ -93,16 +102,19 @@ const slotHi = (slot: { start: string; end: string }) => slotLabel(slot, "hi-IN"
 
 /** Inbound caller lookup: Bolna adds this to the agent's prompt before it says hello. */
 export function callerContext(rawPhone: unknown) {
+  // Outbound-call variables are blank on an incoming call, so the prompt can tell the two apart.
+  const blank = { call_reason: "incoming", order_id: "", item: "", customer_name: "", payer_name: "", total_inr: "", pickup_time: "", care_member: false };
   let phone: string;
   try {
     phone = callerPhone(rawPhone);
   } catch {
-    return { known_customer: false, caller_name: "", active_repairs: 0, summary: "Unknown number." };
+    return { ...blank, known_customer: false, caller_name: "", active_repairs: 0, summary: "Unknown number." };
   }
   const a = findCustomer(phone);
-  if (!a) return { known_customer: false, caller_name: "", active_repairs: 0, summary: "New caller: no Sudhaar account yet." };
+  if (!a) return { ...blank, known_customer: false, caller_name: "", active_repairs: 0, summary: "New caller: no Sudhaar account yet." };
   const active = readDB().orders.filter((o) => o.customerId === a.id && !["paid_out", "cancelled"].includes(o.status));
   return {
+    ...blank,
     known_customer: true,
     caller_name: firstName(a.name),
     care_member: a.care?.status === "ACTIVE",
@@ -282,6 +294,29 @@ export async function voiceSendOtp(input: { phone?: unknown; order_id?: unknown 
   return { order_id: o.id, sent_to: r.to, say: `OTP आपके रजिस्टर्ड नंबर पर SMS से भेज दिया है। इसे सिर्फ़ साथी या कारीगर को सामने बताइए।` };
 }
 
+/**
+ * "I want to talk to a person": the agent can't solve everything. The request goes to the admin
+ * console (and the team's notification bell), and the caller gets an SMS that someone will call.
+ * With a team phone number set up in Bolna's Transfer Call tool, urgent calls can also be transferred live.
+ */
+export async function voiceCallback(input: { phone?: unknown; reason?: unknown; order_id?: unknown }) {
+  const phone = callerPhone(input.phone);
+  const reason = String(input.reason ?? "").trim().slice(0, 300) || "Caller asked to speak to a person.";
+  const a = findCustomer(phone);
+  const orderId = String(input.order_id ?? "").trim().toUpperCase() || callerOrders(phone)[0]?.id;
+  const open = (readDB().callbacks ?? []).find((c) => c.phone === phone && c.status === "open");
+  if (open) return { callback_id: open.id, already_requested: true, say: "आपका अनुरोध पहले से दर्ज है, Sudhaar टीम जल्द ही आपको फ़ोन करेगी।" };
+  const id = `CB${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+  await updateDB((db) => {
+    db.callbacks ??= [];
+    db.callbacks.unshift({ id, at: new Date().toISOString(), phone, name: a?.name, reason, orderId: orderId || undefined, customerId: a?.id, status: "open" });
+    if (db.callbacks.length > 200) db.callbacks.length = 200;
+    notify(db, db.accounts.filter((x) => x.role === "admin").map((x) => x.id), "nCallback", { name: a ? firstName(a.name) : maskPhone(phone) }, "/admin?tab=phone");
+  });
+  await sendSms(phone, "callback", `Sudhaar: ${a ? `${firstName(a.name)} जी, ` : ""}आपकी बात दर्ज हो गई है। Sudhaar टीम का एक व्यक्ति जल्द ही आपको फ़ोन करेगा।`, { accountId: a?.id });
+  return { callback_id: id, say: "ठीक है, मैंने आपकी बात टीम को दे दी है। Sudhaar टीम का एक व्यक्ति जल्द ही आपको इसी नंबर पर फ़ोन करेगा।" };
+}
+
 /** Bolna's post-call webhook: keep a short log for the admin console. */
 export async function logCall(body: Record<string, unknown>) {
   const pick = (...keys: string[]) => keys.map((k) => body[k]).find((v) => v !== undefined && v !== null && v !== "");
@@ -301,6 +336,11 @@ export async function logCall(body: Record<string, unknown>) {
     if (summary) call.summary = String(summary).slice(0, 600);
     if (transcript) call.transcript = transcript;
     if (orderIds.length) call.orderIds = orderIds;
+    call.direction ??= "inbound";
+    if (!call.customerId && call.from) {
+      const digits = normalisePhone(call.from);
+      call.customerId = db.accounts.find((a) => a.role === "customer" && a.phone === digits)?.id;
+    }
     if (!existing) db.voiceCalls.unshift(call);
     if (db.voiceCalls.length > 100) db.voiceCalls.length = 100;
     return call;

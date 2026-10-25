@@ -155,6 +155,11 @@ function Decision({ c }: { c: Complaint }) {
         </p>
       )}
       {r.action === "re_repair" && <p className="text-xs text-muted-foreground">{t("rhReRepairNote")}</p>}
+      {r.reRepairOrderId && (
+        <Link href={`/orders/${r.reRepairOrderId}`} className="text-xs font-semibold text-primary underline">
+          {t("rhReRepairOrder", { id: r.reRepairOrderId })}
+        </Link>
+      )}
       <p className="text-[11px] text-muted-foreground">{when(r.at)}</p>
     </div>
   );

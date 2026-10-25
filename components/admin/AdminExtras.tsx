@@ -7,7 +7,7 @@ import { NeighbourhoodMap } from "../NeighbourhoodMap";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { cn } from "@/lib/utils";
-import type { SmsMessage, Coupon, Order, VoiceCall } from "@/lib/types";
+import type { CallbackRequest, SmsMessage, Coupon, Order, VoiceCall } from "@/lib/types";
 
 export type Money = { held: number; captured: number; tipsIn: number; paidOut: number; refunded: number; discounts: number; careMembers: number; careMonthly: number };
 export type PayPalEvent = { at: string; orderId: string; message: string; ref: string; error: boolean };
@@ -247,10 +247,10 @@ export function FleetMap({ fleet }: { fleet: FleetRow[] }) {
   );
 }
 
-export type VoiceAdmin = { functions: boolean; callback: boolean; phoneNumber: string | null; calls: VoiceCall[]; sms?: { provider: string; log: SmsMessage[] } };
+export type VoiceAdmin = { functions: boolean; callback: boolean; phoneNumber: string | null; calls: VoiceCall[]; sms?: { provider: string; log: SmsMessage[] }; callbacks?: CallbackRequest[]; timings?: { firstReminderMin: number; secondReminderMin: number; pickupLeadMin: number } };
 
 /** The Bolna phone line: setup status, recent calls and bookings made by phone (with their pay links). */
-export function PhoneLineAdmin({ voice, orders }: { voice: VoiceAdmin; orders: Order[] }) {
+export function PhoneLineAdmin({ voice, orders, onChange }: { voice: VoiceAdmin; orders: Order[]; onChange?: () => void }) {
   const booked = orders.filter((o) => o.bookedBy === "phone");
   const [copied, setCopied] = useState<string | null>(null);
   const item = (ok: boolean, label: string, hint: string) => (
@@ -269,6 +269,11 @@ export function PhoneLineAdmin({ voice, orders }: { voice: VoiceAdmin; orders: O
         {item(voice.callback, "Call me (outbound)", voice.callback ? "BOLNA_API_KEY and BOLNA_AGENT_ID are set." : "Set BOLNA_API_KEY and BOLNA_AGENT_ID to let customers ask for a call.")}
         {item(voice.sms?.provider === "twilio", "SMS", voice.sms?.provider === "twilio" ? "Twilio is set: pay links, OTPs and updates are texted." : "No SMS provider: texts are only logged below (simulated). Set SMS_PROVIDER=twilio and the TWILIO_* keys.")}
       </div>
+      <CustomerLookup />
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <Callbacks items={voice.callbacks ?? []} onChange={onChange} />
+        <Conductor voice={voice} onChange={onChange} />
+      </div>
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <div className="paper space-y-2 rounded-2xl p-4">
           <p className="font-semibold">Bookings made by phone ({booked.length})</p>
@@ -283,6 +288,7 @@ export function PhoneLineAdmin({ voice, orders }: { voice: VoiceAdmin; orders: O
                   </Link>{" "}
                   {o.item} · {o.customer.name} · <span className="text-muted-foreground">{o.status.replaceAll("_", " ")}</span>
                 </span>
+                {voice.callback && <CallButton orderId={o.id} who={o.status === "awaiting_payment" && o.familyPay?.phone ? "payer" : "customer"} onDone={onChange} />}
                 {o.status === "awaiting_payment" && link && (
                   <Button
                     size="sm"
@@ -328,7 +334,8 @@ export function PhoneLineAdmin({ voice, orders }: { voice: VoiceAdmin; orders: O
           {voice.calls.slice(0, 20).map((c) => (
             <details key={c.id} className="border-t border-border pt-2 text-sm">
               <summary className="cursor-pointer">
-                {new Date(c.at).toLocaleString()} · {c.from || "unknown"} · {c.status || "—"}
+                {c.direction === "outbound" ? "↗ to" : "↙ from"} {c.direction === "outbound" ? `••••••${(c.to ?? "").slice(-4)}` : c.from || "unknown"} · {new Date(c.at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+                {c.reason ? ` · ${c.reason.replaceAll("_", " ")}` : ""} · {c.status || "—"}
                 {c.durationSec ? ` · ${c.durationSec}s` : ""}
                 {c.orderIds?.length ? ` · ${c.orderIds.join(", ")}` : ""}
               </summary>
@@ -338,6 +345,152 @@ export function PhoneLineAdmin({ voice, orders }: { voice: VoiceAdmin; orders: O
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+function CallButton({ orderId, who, onDone }: { orderId: string; who: "payer" | "customer"; onDone?: () => void }) {
+  const [state, setState] = useState<string | null>(null);
+  async function call() {
+    setState("calling…");
+    try {
+      const r = await api<{ call: VoiceCall | null }>("/api/admin/call", { orderId, who });
+      setState(r.call?.status ?? "queued");
+      onDone?.();
+    } catch (e) {
+      setState((e as Error).message);
+    }
+  }
+  return (
+    <Button size="sm" variant="outline" onClick={call} disabled={state === "calling…"} title="The Sudhaar agent places an outbound call with Bolna">
+      {state ?? (who === "payer" ? "📞 Call payer" : "📞 Call customer")}
+    </Button>
+  );
+}
+
+/** People who asked the phone agent for a human. The team calls back and marks it done. */
+function Callbacks({ items, onChange }: { items: CallbackRequest[]; onChange?: () => void }) {
+  const open = items.filter((c) => c.status === "open");
+  async function done(id: string) {
+    await api("/api/admin/callbacks", { id }).catch(() => {});
+    onChange?.();
+  }
+  return (
+    <div className="paper space-y-2 rounded-2xl p-4">
+      <p className="font-semibold">
+        Asked for a person{" "}
+        <span className={cn("rounded-full px-2 text-xs", open.length ? "bg-destructive/15 text-destructive" : "bg-muted text-muted-foreground")}>{open.length} open</span>
+      </p>
+      {items.length === 0 && <p className="text-sm text-muted-foreground">No requests. When a caller wants a human, the agent files one here (tool: request_callback) and texts them that we&apos;ll call.</p>}
+      {items.slice(0, 12).map((c) => (
+        <div key={c.id} className={cn("flex flex-wrap items-start justify-between gap-2 border-t border-border pt-2 text-sm", c.status === "done" && "opacity-60")}>
+          <div className="min-w-0">
+            <p className="font-medium">
+              {c.name ?? "New caller"} · <span className="font-mono text-xs">{c.phone}</span>
+              {c.orderId && <span className="font-mono text-xs text-muted-foreground"> · {c.orderId}</span>}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {new Date(c.at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} · {c.reason}
+            </p>
+          </div>
+          {c.status === "open" ? (
+            <Button size="sm" variant="outline" onClick={() => done(c.id)}>
+              Called back ✓
+            </Button>
+          ) : (
+            <span className="text-xs text-muted-foreground">done by {c.doneBy}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The conductor: reminders, expiry notices and reminder calls, run every minute or on demand. */
+function Conductor({ voice, onChange }: { voice: VoiceAdmin; onChange?: () => void }) {
+  const [out, setOut] = useState<string[] | null>(null);
+  const t = voice.timings;
+  async function run() {
+    const r = await api<{ done: string[] }>("/api/admin/conductor", {}).catch((e) => ({ done: [(e as Error).message] }));
+    setOut(r.done ?? []);
+    onChange?.();
+  }
+  return (
+    <div className="paper space-y-2 rounded-2xl p-4">
+      <p className="font-semibold">Conductor (automatic follow-ups)</p>
+      <ul className="list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
+        <li>Payer hasn&apos;t paid after {t ? Math.round(t.firstReminderMin / 60) : 2} h: reminder SMS{voice.callback ? " + a call from the agent (phone bookings)" : ""}; again at {t ? Math.round(t.secondReminderMin / 60) : 20} h.</li>
+        <li>Not paid in 24 h: booking released, customer and payer told by SMS.</li>
+        <li>Paid after the pickup time passed: pickup moves to the next free window.</li>
+        <li>{t?.pickupLeadMin ?? 60} min before pickup: SMS{voice.callback ? " + a reminder call for phone customers" : ""}.</li>
+        <li>New paid job: the karigar and the Saathi get it by SMS.</li>
+      </ul>
+      <Button size="sm" variant="outline" onClick={run}>
+        Run now
+      </Button>
+      {out && <p className="text-xs">{out.length ? out.join(" · ") : "Nothing due right now."}</p>}
+    </div>
+  );
+}
+
+type Timeline = { at: string; kind: string; text: string; ref: string }[];
+type Lookup = { customer: { name: string; phone: string; address: string; viaPhone: boolean; care: boolean }; more: number; stats: Record<string, number>; calls: VoiceCall[]; timeline: Timeline };
+
+/** One customer on one screen: calls (with transcripts), SMS, orders, claims and callback requests. */
+function CustomerLookup() {
+  const [q, setQ] = useState("");
+  const [data, setData] = useState<Lookup | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  async function find() {
+    setError(null);
+    try {
+      setData(await api<Lookup>(`/api/admin/customer?q=${encodeURIComponent(q)}`));
+    } catch (e) {
+      setData(null);
+      setError((e as Error).message);
+    }
+  }
+  const icon: Record<string, string> = { order: "🧾", claim: "🛟", call: "📞", sms: "💬", callback: "🙋" };
+  return (
+    <div className="paper space-y-3 rounded-2xl p-4">
+      <p className="font-semibold">Customer timeline</p>
+      <div className="flex gap-2">
+        <Input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && find()} placeholder="Phone number, name or order number (e.g. 98765 or SD1A2B3C)" />
+        <Button onClick={find} disabled={q.trim().length < 3}>
+          Look up
+        </Button>
+      </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {data && (
+        <div className="space-y-2">
+          <p className="text-sm">
+            <b>{data.customer.name}</b> · <span className="font-mono">{data.customer.phone}</span>
+            {data.customer.viaPhone && <span className="ml-1 rounded-full bg-primary/10 px-2 text-xs text-primary">joined by phone</span>}
+            {data.customer.care && <span className="ml-1 rounded-full bg-teal/15 px-2 text-xs text-teal">Care</span>}
+            {data.more > 0 && <span className="text-xs text-muted-foreground"> · {data.more} more match</span>}
+            <span className="block text-xs text-muted-foreground">{data.customer.address}</span>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {data.stats.orders} orders · {data.stats.openClaims} open claims · {data.stats.calls} calls · {data.stats.sms} SMS · {data.stats.openCallbacks} waiting for a callback
+          </p>
+          <ol className="max-h-96 space-y-1 overflow-y-auto">
+            {data.timeline.map((e) => {
+              const call = e.kind === "call" ? data.calls.find((c) => c.id === e.ref) : undefined;
+              return (
+                <li key={`${e.kind}-${e.ref}-${e.at}`} className="border-t border-border pt-1 text-xs">
+                  <span className="text-muted-foreground">{new Date(e.at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</span> {icon[e.kind]} {e.text}
+                  {call?.transcript && (
+                    <details>
+                      <summary className="cursor-pointer text-primary">Transcript</summary>
+                      <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-muted p-2 text-[11px]">{call.transcript}</pre>
+                    </details>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,13 +1,14 @@
 import { aiConfigured, config, paypalConfigured, serviceProblems } from "./config";
 import { gemini } from "./llm";
 import { verifyPayPalKeys } from "./paypal";
+import { snapshotState, snapshotsEnabled } from "./snapshot";
 
 // Checks that PayPal and Gemini accept our keys: at server start (instrumentation.ts) and from the
 // admin System check. A rejected key switches that service to labelled simulation, with the reason
 // and the fix shown to the admin, so a wrong dashboard setting can't break every booking.
 
 export type ServiceStatus = { state: "live" | "simulated" | "problem"; detail: string; fix?: string };
-export type HealthReport = { paypal: ServiceStatus; gemini: ServiceStatus; checkedAt: string };
+export type HealthReport = { paypal: ServiceStatus; gemini: ServiceStatus; storage?: ServiceStatus; checkedAt: string };
 
 let last: HealthReport | null = null;
 
@@ -61,3 +62,15 @@ export async function checkServices(): Promise<HealthReport> {
 }
 
 export const lastHealth = () => last;
+
+/** Is data saved somewhere that survives a restart (lib/snapshot.ts)? */
+export function storageStatus(): ServiceStatus {
+  if (!snapshotsEnabled())
+    return {
+      state: "simulated",
+      detail: "Data lives on this server's disk only. On Render's free plan a restart or sleep wipes bookings and photos.",
+      fix: "Create a free Upstash Redis database and set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN on the server.",
+    };
+  if (snapshotState.lastError) return { state: "problem", detail: `Saving to Upstash failed: ${snapshotState.lastError}`, fix: "Check the Upstash URL and token on the server." };
+  return { state: "live", detail: `Saved to Upstash Redis${snapshotState.lastSavedAt ? `, last at ${new Date(snapshotState.lastSavedAt).toLocaleTimeString("en-IN")}` : ""}${snapshotState.restoredAt ? "; restored after the last restart" : ""}. Bookings and photos survive restarts.` };
+}

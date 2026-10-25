@@ -242,5 +242,43 @@
       "api_token": "Bearer YOUR_VOICE_API_TOKEN",
       "headers": {}
     }
+  },
+  {
+    "name": "request_callback",
+    "description": "The caller wants to talk to a person, is upset, or needs something you can't do (change a pickup time, resend a pay link). Files a callback request for the Sudhaar team and texts the caller that someone will call.",
+    "pre_call_message": "ठीक है, मैं टीम को बता रही हूँ।",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "phone": {
+          "type": "string",
+          "description": "The caller's phone number"
+        },
+        "reason": {
+          "type": "string",
+          "description": "One line: what they need, in English"
+        },
+        "order_id": {
+          "type": "string",
+          "description": "Order number if known, else empty"
+        }
+      },
+      "required": [
+        "phone",
+        "reason"
+      ]
+    },
+    "key": "custom_task",
+    "value": {
+      "method": "POST",
+      "param": {
+        "phone": "%(phone)s",
+        "reason": "%(reason)s",
+        "order_id": "%(order_id)s"
+      },
+      "url": "https://YOUR-SUDHAAR-SITE/api/voice/handoff",
+      "api_token": "Bearer YOUR_VOICE_API_TOKEN",
+      "headers": {}
+    }
   }
 ]

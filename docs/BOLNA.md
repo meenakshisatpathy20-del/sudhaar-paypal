@@ -1,12 +1,22 @@
 # Sudhaar phone line on Bolna
 
-A Hindi voice agent on [Bolna](https://www.bolna.ai) lets people **without a smartphone** use Sudhaar by phone. A caller can:
+A Hindi voice agent on [Bolna](https://www.bolna.ai) lets people **without a smartphone** use Sudhaar by phone. It is a **voice layer on the whole repair**, not just a chatbot: one booking can involve the caller, the family member who pays, the Saathi and the karigar, and the agent keeps all of them in step.
+
+**When someone calls** (inbound), the agent can:
 
 - get a repair price;
-- book a doorstep pickup;
-- ask where their repair is;
+- book a doorstep pickup and text the PayPal link to whoever pays;
+- say where a repair is, and read out the team's question on an open claim;
 - cancel before pickup;
-- file a warranty claim.
+- file a warranty claim, or add to an open one;
+- text a forgotten OTP to the registered number;
+- hand the caller to a person (a callback request, or a live transfer).
+
+**When Sudhaar calls** (outbound, placed by the conductor or the admin):
+
+- the family payer, if they haven't paid after 2 hours ("your mother booked a repair, the link is in your SMS");
+- the phone customer, an hour before the pickup ("the Saathi comes at 10, your OTP is in your SMS");
+- any customer, from **Admin → Phone line → Call customer**, or when they press "Call me" on the website.
 
 The agent works through Sudhaar's own APIs, and the caller's number identifies them.
 
@@ -15,11 +25,12 @@ Money still moves only through PayPal. A phone booking creates a PayPal order an
 ```
 Caller ──phone──► Bolna agent (Hindi speech-to-text → LLM → Hindi text-to-speech)
                     │  1. inbound lookup     GET  /api/voice/caller?contact_number=+91…
-                    │  2. custom functions   POST /api/voice/quote | book | status | cancel | complaint
+                    │  2. custom functions   POST /api/voice/quote | book | status | cancel | complaint | otp | handoff
                     │  3. post-call webhook  POST /api/voice/webhook
                     ▼
                  Sudhaar (Next.js) ──► Gemini quote · PayPal Orders v2 (AUTHORIZE) · Resolve Hub
-Website "Call me" ──► POST https://api.bolna.ai/call  (Bolna places an outbound call to the customer)
+Conductor (every minute) ─┬─► SMS (Twilio): pay link, reminders, OTPs, expiry, price change, claims, partner jobs
+Admin "Call" / "Call me" ─┴─► POST https://api.bolna.ai/call  (outbound: payment nudge, pickup reminder, callback)
 ```
 
 ## 1. Sudhaar side (Render → Environment)
@@ -44,13 +55,16 @@ Never put these values in the code or in chat. Set them only in Render (and in y
    - Speech-to-text: a provider with Hindi support. Deepgram (multilingual or Hindi) or Sarvam are good for Hinglish.
    - Text-to-speech: a natural Hindi voice (ElevenLabs, Sarvam or Azure `hi-IN`).
    - Keep the LLM response short (max tokens about 150).
-4. **Tools → Add custom function**: add each of the six functions in [`bolna/tools.json`](../bolna/tools.json):
+4. **Tools → Add custom function**: add each of the seven functions in [`bolna/tools.json`](../bolna/tools.json):
    - `get_repair_quote`
    - `book_repair` (asks for the payer's mobile number; the PayPal link is texted to it)
    - `get_repair_status` (also reads open claims and the team's question)
    - `cancel_booking`
    - `raise_warranty_claim` (adds to an open claim if there is one)
    - `send_otp_sms` (texts a forgotten OTP to the registered number)
+   - `request_callback` (the caller wants a person: the team gets it in the admin console and the bell)
+
+   Optional: add Bolna's built-in **Transfer Call** tool with a Sudhaar team number, so an upset caller can be transferred live.
 
    In each one, replace `https://YOUR-SUDHAAR-SITE` with your Render URL and `YOUR_VOICE_API_TOKEN` with your `VOICE_API_TOKEN`.
    - If Bolna's API token field doesn't add the `Bearer ` prefix for you, keep it in the value as shown.
@@ -61,6 +75,12 @@ Never put these values in the code or in chat. Set them only in Render (and in y
    - Bolna adds `contact_number`. Sudhaar returns `known_customer`, `caller_name`, `care_member`, `active_repairs` and `summary`, which the prompt uses.
 6. **Post-call webhook (Analytics / Webhook)**: set it to `https://YOUR-SUDHAAR-SITE/api/voice/webhook?token=YOUR_VOICE_API_TOKEN`. Calls then appear in **Admin console → Phone line** with their status, duration, summary and transcript.
 7. **Test** with Bolna's "Talk to agent" in the browser, then call the number.
+
+## Outbound calls: one prompt, both directions
+
+Outbound calls use the same agent. Sudhaar sends Bolna `user_data` with the same variables an incoming call gets, plus `call_reason` (`payment_reminder`, `pickup_reminder`, `status_update` or `callback_from_website`), `order_id`, `item`, `customer_name`, `payer_name`, `total_inr` and `pickup_time`. For an incoming call, `call_reason` is `incoming`. The prompt tells the agent what to say first for each reason. OTPs are never in `user_data`.
+
+On Bolna's trial plan, outbound calls only reach **verified numbers**: verify your own number in Bolna and use it as the customer or payer in a demo.
 
 ## 3. Try the APIs without Bolna
 

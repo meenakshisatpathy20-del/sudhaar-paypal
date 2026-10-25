@@ -1,4 +1,5 @@
-import { smsProvider } from "@/lib/sms";
+import { maskPhone, smsProvider } from "@/lib/sms";
+import { timings } from "@/lib/symphony";
 import { requireRole } from "@/lib/auth";
 import { readDB } from "@/lib/db";
 import { fail, ok } from "@/lib/http";
@@ -66,8 +67,10 @@ export async function GET(req: Request) {
         functions: Boolean((process.env.VOICE_API_TOKEN ?? "").trim()),
         callback: callbackEnabled(),
         phoneNumber: bolnaConfig().phoneNumber || null,
-        calls: db.voiceCalls ?? [],
+        calls: (db.voiceCalls ?? []).map((c) => ({ ...c, from: c.from ? maskPhone(c.from.replace(/\D/g, "")) : c.from })),
         sms: { provider: smsProvider(), log: (db.smsLog ?? []).slice(0, 60) },
+        callbacks: (db.callbacks ?? []).slice(0, 50).map((c) => ({ ...c, phone: maskPhone(c.phone) })),
+        timings: timings(),
       },
     });
   } catch (e) {
