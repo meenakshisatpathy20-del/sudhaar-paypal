@@ -151,6 +151,7 @@ Each code works once per customer.
 - In-app voice uses the browser's speech recognition, so support depends on the browser and phone.
 - The **Hindi phone line on Bolna** is built (`/api/voice/*`, the agent prompt and functions in `bolna/`, **Admin → Phone line**). It goes live once a Bolna agent and phone number are connected (see `docs/BOLNA.md`). Until then the website hides the phone card.
 - The **conductor** runs every minute: payment reminders (SMS, plus a Bolna call to the payer for phone bookings), expiry notices, a pickup reminder (SMS, plus a call for phone customers), and job texts to the karigar and Saathi. **Admin → Phone line → Run now** runs it immediately.
+- **Admin → Phone line** opens with **voice impact** numbers: calls in and out, phone bookings (and Ghar Safai baskets), the share paid (and paid after a reminder), phone revenue, claims by phone, texts, and callers waiting for a person.
 - **Admin → Phone line → Customer timeline**: type a phone number, name or order number to see that customer's orders, claims, calls (with transcripts), texts and callback requests on one screen.
 - With **Upstash Redis** set (`UPSTASH_REDIS_REST_URL` / `_TOKEN`), bookings, claims and photos survive a restart of the free host. **Admin → System check → Data storage** shows whether this is on.
 - **SMS** (pay links, OTPs, price changes, claim updates) goes out through Twilio when its keys are set. Without them, each text is shown in **Admin → Phone line → SMS log** as *simulated*, so you can still see exactly what a phone customer would receive.

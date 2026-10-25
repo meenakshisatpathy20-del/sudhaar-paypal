@@ -4,7 +4,7 @@ import { expireUnpaidOrders } from "./orders";
 import { INR_PER_USD } from "./pricing";
 import { notifyOrder } from "./sms";
 import { slotLabel } from "./slots";
-import type { Order, VoiceCall } from "./types";
+import type { DB, Order, VoiceCall } from "./types";
 
 // The conductor: a background loop that keeps every person on a repair in step, by SMS and by
 // outbound calls from the Bolna agent:
@@ -140,4 +140,28 @@ export function startConductor() {
     tick().catch((e) => console.error("[conductor]", (e as Error).message));
   }, every);
   g.__sudhaarConductor.unref?.();
+}
+
+/** What the voice line achieved: for the admin console (and the pitch). */
+export function voiceStats(db: DB) {
+  const calls = db.voiceCalls ?? [];
+  const inbound = calls.filter((c) => c.direction !== "outbound");
+  const outbound = calls.filter((c) => c.direction === "outbound");
+  const phoneOrders = db.orders.filter((o) => o.bookedBy === "phone" && !o.warrantyFor);
+  const paid = phoneOrders.filter((o) => o.paypal.authorizationId);
+  const remindedThenPaid = paid.filter((o) => (o.nudges?.payReminders ?? 0) > 0);
+  const durations = inbound.map((c) => c.durationSec ?? 0).filter((d) => d > 0);
+  return {
+    inbound: inbound.length,
+    outbound: outbound.length,
+    avgCallSec: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null,
+    phoneBookings: phoneOrders.length,
+    phoneBaskets: phoneOrders.filter((o) => o.kind === "basket").length,
+    paidRate: phoneOrders.length ? Math.round((paid.length / phoneOrders.length) * 100) : null,
+    paidAfterReminder: remindedThenPaid.length,
+    phoneRevenueInr: Math.round(paid.reduce((s, o) => s + o.total, 0) * INR_PER_USD),
+    phoneClaims: db.orders.reduce((n, o) => n + o.complaints.filter((c) => c.channel === "phone").length, 0),
+    sms: (db.smsLog ?? []).length,
+    openCallbacks: (db.callbacks ?? []).filter((c) => c.status === "open").length,
+  };
 }

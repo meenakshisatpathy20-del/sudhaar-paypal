@@ -247,7 +247,7 @@ export function FleetMap({ fleet }: { fleet: FleetRow[] }) {
   );
 }
 
-export type VoiceAdmin = { functions: boolean; callback: boolean; phoneNumber: string | null; calls: VoiceCall[]; sms?: { provider: string; log: SmsMessage[] }; callbacks?: CallbackRequest[]; timings?: { firstReminderMin: number; secondReminderMin: number; pickupLeadMin: number } };
+export type VoiceAdmin = { functions: boolean; callback: boolean; phoneNumber: string | null; calls: VoiceCall[]; sms?: { provider: string; log: SmsMessage[] }; callbacks?: CallbackRequest[]; stats?: Record<string, number | null>; timings?: { firstReminderMin: number; secondReminderMin: number; pickupLeadMin: number } };
 
 /** The Bolna phone line: setup status, recent calls and bookings made by phone (with their pay links). */
 export function PhoneLineAdmin({ voice, orders, onChange }: { voice: VoiceAdmin; orders: Order[]; onChange?: () => void }) {
@@ -269,6 +269,7 @@ export function PhoneLineAdmin({ voice, orders, onChange }: { voice: VoiceAdmin;
         {item(voice.callback, "Call me (outbound)", voice.callback ? "BOLNA_API_KEY and BOLNA_AGENT_ID are set." : "Set BOLNA_API_KEY and BOLNA_AGENT_ID to let customers ask for a call.")}
         {item(voice.sms?.provider === "twilio", "SMS", voice.sms?.provider === "twilio" ? "Twilio is set: pay links, OTPs and updates are texted." : "No SMS provider: texts are only logged below (simulated). Set SMS_PROVIDER=twilio and the TWILIO_* keys.")}
       </div>
+      {voice.stats && <VoiceStats s={voice.stats} />}
       <CustomerLookup />
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <Callbacks items={voice.callbacks ?? []} onChange={onChange} />
@@ -491,6 +492,31 @@ function CustomerLookup() {
           </ol>
         </div>
       )}
+    </div>
+  );
+}
+
+/** What the phone line did: calls both ways, bookings, payments after reminders, claims, texts. */
+function VoiceStats({ s }: { s: Record<string, number | null> }) {
+  const tiles: [string, string, string?][] = [
+    ["Calls in", String(s.inbound ?? 0), s.avgCallSec ? `avg ${s.avgCallSec}s` : undefined],
+    ["Calls out", String(s.outbound ?? 0), "nudges, reminders, call-me"],
+    ["Phone bookings", String(s.phoneBookings ?? 0), s.phoneBaskets ? `${s.phoneBaskets} Ghar Safai baskets` : undefined],
+    ["Paid", s.paidRate === null ? "—" : `${s.paidRate}%`, s.paidAfterReminder ? `${s.paidAfterReminder} after a reminder` : undefined],
+    ["Phone revenue", `₹${s.phoneRevenueInr ?? 0}`, "held or captured via PayPal"],
+    ["Claims by phone", String(s.phoneClaims ?? 0)],
+    ["SMS", String(s.sms ?? 0)],
+    ["Waiting for a person", String(s.openCallbacks ?? 0)],
+  ];
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+      {tiles.map(([k, v, sub]) => (
+        <div key={k} className="paper rounded-2xl p-3">
+          <p className="text-[11px] text-muted-foreground">{k}</p>
+          <p className="text-lg font-bold">{v}</p>
+          {sub && <p className="text-[10px] text-muted-foreground">{sub}</p>}
+        </div>
+      ))}
     </div>
   );
 }

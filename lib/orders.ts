@@ -472,10 +472,15 @@ export async function advance(orderId: string, action: Action, opts: { otp?: str
 
     // Phone bookings have no photo of the item, so whoever first handles it takes the "before" photo.
     // The AI repair check compares it with the karigar's after photo.
-    if (needsPickupOtp && o.kind !== "basket") {
+    if (needsPickupOtp) {
       const photo = typeof opts.beforePhoto === "string" && /^[\w-]+\.(jpg|jpeg|png|webp)$/i.test(opts.beforePhoto) ? opts.beforePhoto : undefined;
-      if (!o.beforePhoto && !photo && o.bookedBy === "phone") throw new FlowError("Take a photo of the item first: this booking was made by phone, so there is no before photo yet.");
-      if (photo && !o.beforePhoto) o.beforePhoto = photo;
+      // A basket: one photo of all the items covers every item that has none.
+      const missing = o.kind === "basket" ? (o.jobs ?? []).some((j) => !j.beforePhoto) : !o.beforePhoto;
+      if (missing && !photo && o.bookedBy === "phone") throw new FlowError("Take a photo of the item first: this booking was made by phone, so there is no before photo yet.");
+      if (photo && missing) {
+        if (o.kind === "basket") for (const j of o.jobs ?? []) j.beforePhoto ??= photo;
+        else o.beforePhoto = photo;
+      }
     }
 
     const k = readDB().karigars.find((x) => x.id === o.karigarId);

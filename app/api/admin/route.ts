@@ -1,5 +1,5 @@
 import { maskPhone, smsProvider } from "@/lib/sms";
-import { timings } from "@/lib/symphony";
+import { timings, voiceStats } from "@/lib/symphony";
 import { requireRole } from "@/lib/auth";
 import { readDB } from "@/lib/db";
 import { fail, ok } from "@/lib/http";
@@ -70,6 +70,7 @@ export async function GET(req: Request) {
         calls: (db.voiceCalls ?? []).map((c) => ({ ...c, from: c.from ? maskPhone(c.from.replace(/\D/g, "")) : c.from })),
         sms: { provider: smsProvider(), log: (db.smsLog ?? []).slice(0, 60) },
         callbacks: (db.callbacks ?? []).slice(0, 50).map((c) => ({ ...c, phone: maskPhone(c.phone) })),
+        stats: voiceStats(db),
         timings: timings(),
       },
     });

@@ -340,7 +340,7 @@ function Trip({ order, karigars, onDone }: { order: Order; karigars: Record<stri
             : null;
 
   // No photo of the item yet (phone bookings): the Saathi takes it at pickup for the AI repair check.
-  const needsPhoto = step?.action === "pickup" && !order.beforePhoto && !basket;
+  const needsPhoto = step?.action === "pickup" && (basket ? (order.jobs ?? []).some((j) => !j.beforePhoto) : !order.beforePhoto);
   async function run() {
     if (!step) return;
     setBusy(true);

@@ -6,10 +6,11 @@ A Hindi voice agent on [Bolna](https://www.bolna.ai) lets people **without a sma
 
 - get a repair price;
 - book a doorstep pickup and text the PayPal link to whoever pays;
+- book **Ghar Safai** by phone: several broken things (chappal, bag, kurta…) quoted one by one, then picked up together for one lower fee and one PayPal payment;
 - say where a repair is, and read out the team's question on an open claim;
 - cancel before pickup;
 - file a warranty claim, or add to an open one;
-- text a forgotten OTP to the registered number;
+- text a forgotten OTP to the registered number, or the PayPal link again if the payer didn't get it;
 - hand the caller to a person (a callback request, or a live transfer).
 
 **When Sudhaar calls** (outbound, placed by the conductor or the admin):
