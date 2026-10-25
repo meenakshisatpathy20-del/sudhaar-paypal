@@ -7,7 +7,7 @@ import { NeighbourhoodMap } from "../NeighbourhoodMap";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { cn } from "@/lib/utils";
-import type { Coupon, Order, VoiceCall } from "@/lib/types";
+import type { SmsMessage, Coupon, Order, VoiceCall } from "@/lib/types";
 
 export type Money = { held: number; captured: number; tipsIn: number; paidOut: number; refunded: number; discounts: number; careMembers: number; careMonthly: number };
 export type PayPalEvent = { at: string; orderId: string; message: string; ref: string; error: boolean };
@@ -247,7 +247,7 @@ export function FleetMap({ fleet }: { fleet: FleetRow[] }) {
   );
 }
 
-export type VoiceAdmin = { functions: boolean; callback: boolean; phoneNumber: string | null; calls: VoiceCall[] };
+export type VoiceAdmin = { functions: boolean; callback: boolean; phoneNumber: string | null; calls: VoiceCall[]; sms?: { provider: string; log: SmsMessage[] } };
 
 /** The Bolna phone line: setup status, recent calls and bookings made by phone (with their pay links). */
 export function PhoneLineAdmin({ voice, orders }: { voice: VoiceAdmin; orders: Order[] }) {
@@ -263,10 +263,11 @@ export function PhoneLineAdmin({ voice, orders }: { voice: VoiceAdmin; orders: O
   );
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-4">
         {item(voice.functions, "Voice functions", voice.functions ? "VOICE_API_TOKEN is set: Bolna can quote, book, track, cancel and file claims." : "Set VOICE_API_TOKEN and add the functions in Bolna (docs/BOLNA.md).")}
         {item(Boolean(voice.phoneNumber), "Phone number", voice.phoneNumber ? `Shown on the website: ${voice.phoneNumber}` : "Set VOICE_PHONE_NUMBER to show the number customers dial.")}
         {item(voice.callback, "Call me (outbound)", voice.callback ? "BOLNA_API_KEY and BOLNA_AGENT_ID are set." : "Set BOLNA_API_KEY and BOLNA_AGENT_ID to let customers ask for a call.")}
+        {item(voice.sms?.provider === "twilio", "SMS", voice.sms?.provider === "twilio" ? "Twilio is set: pay links, OTPs and updates are texted." : "No SMS provider: texts are only logged below (simulated). Set SMS_PROVIDER=twilio and the TWILIO_* keys.")}
       </div>
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <div className="paper space-y-2 rounded-2xl p-4">
@@ -296,7 +297,30 @@ export function PhoneLineAdmin({ voice, orders }: { voice: VoiceAdmin; orders: O
               </div>
             );
           })}
-          <p className="text-[11px] text-muted-foreground">A phone booking is paid through its Family Pay link (PayPal). Send it to the caller&apos;s family on WhatsApp or SMS; nothing is charged until it&apos;s approved, and money is only captured after delivery.</p>
+          <p className="text-[11px] text-muted-foreground">A phone booking is paid through its Family Pay link (PayPal), texted to the payer&apos;s mobile when the call books it. Copy it here to send it again on WhatsApp. Nothing is charged until it&apos;s approved, and money is only captured after delivery.</p>
+        </div>
+        <div className="paper space-y-2 rounded-2xl p-4 lg:col-span-2">
+          <p className="font-semibold">
+            SMS log ({voice.sms?.log.length ?? 0}){" "}
+            <span className="text-xs font-normal text-muted-foreground">{voice.sms?.provider === "twilio" ? "· sent with Twilio" : "· simulated: no SMS provider set"} · OTPs are masked</span>
+          </p>
+          {!voice.sms?.log.length && <p className="text-sm text-muted-foreground">No texts yet. They are sent when a phone booking is made, a payment is held, an item is out for delivery, a price changes or a claim needs the customer.</p>}
+          <div className="max-h-80 space-y-1 overflow-y-auto">
+            {voice.sms?.log.map((m) => (
+              <div key={m.id} className="grid grid-cols-[110px_90px_120px_1fr_auto] items-start gap-2 border-t border-border pt-1.5 text-xs">
+                <span className="text-muted-foreground">{new Date(m.at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</span>
+                <span className="font-mono">{m.to}</span>
+                <span>
+                  {m.kind.replaceAll("_", " ")}
+                  {m.orderId && <span className="block font-mono text-[10px] text-muted-foreground">{m.orderId}</span>}
+                </span>
+                <span className="break-words">{m.text}</span>
+                <span className={cn("rounded-full px-2 py-0.5 font-semibold", m.status === "sent" ? "bg-teal/15 text-teal" : m.status === "failed" ? "bg-destructive/15 text-destructive" : "bg-muted text-muted-foreground")} title={m.error}>
+                  {m.status}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
         <div className="paper space-y-2 rounded-2xl p-4">
           <p className="font-semibold">Recent calls ({voice.calls.length})</p>

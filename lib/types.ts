@@ -341,6 +341,8 @@ export interface FamilyPay {
   token?: string;
   name: string;
   relation: string;
+  /** Payer's 10-digit mobile (phone bookings): the PayPal link is sent here by SMS. */
+  phone?: string;
   email?: string;
   paidBy?: string;
   paidAt?: string;
@@ -423,6 +425,24 @@ export interface DB {
   care?: { productId?: string; planId?: string; mode?: "sandbox" | "simulated"; /** Start of the PayPal Client ID the plan was made with. */ owner?: string };
   saathiLocations?: Record<string, SaathiLocation>;
   notifications?: Notification[];
+  /** Every SMS Sudhaar sent or would have sent (OTPs masked), newest first. */
+  smsLog?: SmsMessage[];
+}
+
+/** One SMS. Without an SMS provider configured, messages are only logged ("simulated"). */
+export interface SmsMessage {
+  id: string;
+  at: string;
+  /** Masked, e.g. ••••••3210 */
+  to: string;
+  kind: string;
+  orderId?: string;
+  /** The text with any OTP replaced by ••••. */
+  text: string;
+  status: "sent" | "simulated" | "failed";
+  provider: string;
+  ref?: string;
+  error?: string;
 }
 
 export type Role = "customer" | "karigar" | "saathi" | "admin";

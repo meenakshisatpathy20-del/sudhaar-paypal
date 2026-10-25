@@ -1,5 +1,6 @@
 "use client";
 
+import { ResendOtp } from "@/components/partner/ResendOtp";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Home, LocateFixed, MapPin, Navigation, Play, Square, Store } from "lucide-react";
 import { api } from "@/components/api";
@@ -382,6 +383,7 @@ function Trip({ order, karigars, onDone }: { order: Order; karigars: Record<stri
             <>
               <p className="text-xs text-muted-foreground">{t("saAskOtp")}</p>
               <Input className="text-center font-mono text-xl tracking-[0.5em]" inputMode="numeric" maxLength={4} placeholder="OTP" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} />
+              <ResendOtp orderId={order.id} />
             </>
           )}
           <Button className="w-full" disabled={busy || (step.otp && otp.length !== 4)} onClick={run}>

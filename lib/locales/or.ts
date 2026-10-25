@@ -792,6 +792,8 @@ const dict: Dict = {
   nClaimEvidence: "{name} ଦାବି {claim}ରେ ଫଟୋ ଯୋଡ଼ିଲେ",
   nClaimStatus: "ଦାବି {claim}: {status}",
   nClaimAssigned: "{item}ର ଦାବି {claim} ଆପଣଙ୍କୁ ଦିଆଗଲା",
+  otpResend: "ଗ୍ରାହକ OTP ପାଉନାହାନ୍ତି? ପୁଣି SMS ପଠାନ୍ତୁ",
+  otpSent: "OTP ଗ୍ରାହକଙ୍କ ନମ୍ବର {to}କୁ ପଠାଗଲା",
   // -- end added --
 };
 
