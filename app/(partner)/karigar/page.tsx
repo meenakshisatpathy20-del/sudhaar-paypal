@@ -245,6 +245,7 @@ function KarigarJob({ order, canPrice, onDone }: { order: Order; canPrice: boole
   const { t } = useLang();
   const [otp, setOtp] = useState("");
   const [photo, setPhoto] = useState<string>();
+  const [before, setBefore] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const run = (action: string, extra: object = {}) => post(`/api/orders/${order.id}/action`, { action, ...extra }, setBusy, setError, onDone);
@@ -278,7 +279,13 @@ function KarigarJob({ order, canPrice, onDone }: { order: Order; canPrice: boole
         <>
           {visit && <OtpInput placeholder={t("kaArrivalOtp")} value={otp} onChange={setOtp} />}
           {visit && <ResendOtp orderId={order.id} />}
-          <Button className="w-full" disabled={busy || (visit && otp.length !== 4)} onClick={() => run("start_repair", { otp })}>
+          {visit && !order.beforePhoto && (
+            <div className="space-y-1">
+              <p className="text-xs font-semibold">{t("saBeforePhoto")}</p>
+              <PhotoPicker compact label={t("saBeforePhotoBtn")} onUploaded={(f) => setBefore(f)} />
+            </div>
+          )}
+          <Button className="w-full" disabled={busy || (visit && otp.length !== 4) || (visit && !order.beforePhoto && order.bookedBy === "phone" && !before)} onClick={() => run("start_repair", { otp, beforePhoto: before })}>
             {visit ? t("kaStartVisit") : t("kaStart")}
           </Button>
         </>

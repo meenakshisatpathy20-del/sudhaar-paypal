@@ -1,5 +1,6 @@
 "use client";
 
+import { PhotoPicker } from "@/components/PhotoPicker";
 import { ResendOtp } from "@/components/partner/ResendOtp";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Home, LocateFixed, MapPin, Navigation, Play, Square, Store } from "lucide-react";
@@ -322,6 +323,7 @@ function SaathiProfile({ data, onSaved, disabled }: { data: PartnerData; onSaved
 function Trip({ order, karigars, onDone }: { order: Order; karigars: Record<string, KarigarBrief>; onDone: () => void }) {
   const { t } = useLang();
   const [otp, setOtp] = useState("");
+  const [photo, setPhoto] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const basket = order.kind === "basket";
@@ -337,12 +339,14 @@ function Trip({ order, karigars, onDone }: { order: Order; karigars: Record<stri
             ? { action: "deliver", label: t("saDeliver"), otp: true }
             : null;
 
+  // No photo of the item yet (phone bookings): the Saathi takes it at pickup for the AI repair check.
+  const needsPhoto = step?.action === "pickup" && (basket ? (order.jobs ?? []).some((j) => !j.beforePhoto) : !order.beforePhoto);
   async function run() {
     if (!step) return;
     setBusy(true);
     setError(null);
     try {
-      await api(`/api/orders/${order.id}/action`, { action: step.action, otp });
+      await api(`/api/orders/${order.id}/action`, { action: step.action, otp, beforePhoto: photo });
       setOtp("");
       onDone();
     } catch (e) {
@@ -386,7 +390,13 @@ function Trip({ order, karigars, onDone }: { order: Order; karigars: Record<stri
               <ResendOtp orderId={order.id} />
             </>
           )}
-          <Button className="w-full" disabled={busy || (step.otp && otp.length !== 4)} onClick={run}>
+          {needsPhoto && (
+            <div className="space-y-1">
+              <p className="text-xs font-semibold">{t("saBeforePhoto")}</p>
+              <PhotoPicker compact label={t("saBeforePhotoBtn")} onUploaded={(f) => setPhoto(f)} />
+            </div>
+          )}
+          <Button className="w-full" disabled={busy || (step.otp && otp.length !== 4) || (needsPhoto && order.bookedBy === "phone" && !photo)} onClick={run}>
             {busy ? "…" : step.label}
           </Button>
         </>

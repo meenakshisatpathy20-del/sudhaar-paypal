@@ -830,6 +830,11 @@ const BASE = {
     nClaimAssigned: "Claim {claim} on {item} was assigned to you",
     otpResend: "Customer can't find the OTP? Text it to them again",
     otpSent: "OTP texted to the customer's number {to}",
+    saBeforePhoto: "No photo of this item yet: take one before you take it (the AI repair check needs it).",
+    saBeforePhotoBtn: "Photo of the item",
+    oWarrantyFor: "Free warranty re-repair of order {id}: nothing to pay",
+    rhReRepairOrder: "Track the free re-repair: {id} →",
+    nCallback: "{name} asked to talk to a person",
     // -- end added --
   },
   hi: {
@@ -1634,6 +1639,11 @@ const BASE = {
     nClaimAssigned: "{item} का दावा {claim} आपको सौंपा गया",
     otpResend: "ग्राहक को OTP नहीं मिल रहा? फिर से SMS भेजें",
     otpSent: "OTP ग्राहक के नंबर {to} पर भेज दिया",
+    saBeforePhoto: "इस सामान की फ़ोटो अभी नहीं है: लेने से पहले एक फ़ोटो लें (AI जाँच के लिए ज़रूरी)।",
+    saBeforePhotoBtn: "सामान की फ़ोटो",
+    oWarrantyFor: "ऑर्डर {id} की मुफ़्त वारंटी मरम्मत: कुछ नहीं देना",
+    rhReRepairOrder: "मुफ़्त दोबारा मरम्मत ट्रैक करें: {id} →",
+    nCallback: "{name} किसी व्यक्ति से बात करना चाहते हैं",
     // -- end added --
   },
 } as const;

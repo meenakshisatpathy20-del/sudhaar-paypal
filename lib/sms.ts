@@ -50,7 +50,7 @@ async function twilioSend(phone: string, text: string) {
  * Send one SMS and log it. Never throws: a failed text must not break a booking or a payment.
  * `secret` (an OTP) is masked in the log so the admin console never stores it in plain text.
  */
-export async function sendSms(phone: string | undefined, kind: string, text: string, opts: { orderId?: string; secret?: string } = {}): Promise<SmsMessage | null> {
+export async function sendSms(phone: string | undefined, kind: string, text: string, opts: { orderId?: string; secret?: string; accountId?: string } = {}): Promise<SmsMessage | null> {
   if (!phone || !/^[6-9]\d{9}$/.test(phone)) return null;
   const msg: SmsMessage = {
     id: rid(),
@@ -58,6 +58,7 @@ export async function sendSms(phone: string | undefined, kind: string, text: str
     to: maskPhone(phone),
     kind,
     orderId: opts.orderId,
+    accountId: opts.accountId ?? readDB().accounts.find((a) => a.phone === phone)?.id,
     text: opts.secret ? text.replaceAll(opts.secret, "••••") : text,
     status: "simulated",
     provider: smsProvider(),
@@ -81,7 +82,7 @@ export async function sendSms(phone: string | undefined, kind: string, text: str
 
 // ---------- What each event texts ----------
 
-export type SmsEvent = "booked_phone" | "paid" | "delivery_otp" | "delivered" | "price_change" | "claim_waiting" | "claim_decided" | "otp_resend";
+export type SmsEvent = "booked_phone" | "paid" | "delivery_otp" | "delivered" | "price_change" | "claim_waiting" | "claim_decided" | "otp_resend" | "pay_reminder" | "expired" | "pickup_soon" | "re_repair";
 
 function customerPhone(o: Order) {
   return readDB().accounts.find((a) => a.id === o.customerId && a.role === "customer")?.phone;
@@ -112,6 +113,7 @@ export async function notifyOrder(orderId: string, event: SmsEvent, extra: { cla
     const item = o.kind === "basket" && o.jobs ? `${o.jobs.length} items` : o.item;
     const out: Promise<SmsMessage | null>[] = [];
     const send = (to: string | undefined, text: string, secret?: string) => out.push(sendSms(to, event, `Sudhaar: ${text}`, { orderId, secret }));
+    const partner = (to: string, accountId: string, text: string) => out.push(sendSms(to, "partner_job", `Sudhaar: ${text}`, { orderId, accountId }));
 
     switch (event) {
       case "booked_phone": {
@@ -133,6 +135,12 @@ export async function notifyOrder(orderId: string, event: SmsEvent, extra: { cla
           send(cust, hi ? `भुगतान होल्ड हुआ। साथी ${slot} आएगा। पिकअप OTP ${otp} सिर्फ़ साथी को सामान देते समय बताएं। ट्रैक: ${trackLink(o)}` : `Payment held. Your Repair Saathi comes ${slot}. Pickup OTP ${otp}: tell it only at handover. Track: ${trackLink(o)}`, otp);
         else send(cust, hi ? `भुगतान होल्ड हुआ। कारीगर ${slot} आएंगे। आने पर OTP ${otp} बताएं।` : `Payment held. The karigar visits ${slot}. Arrival OTP ${otp}: tell it when they arrive.`, otp);
         if (payer && payer !== cust) send(payer, hi ? `धन्यवाद! ${who} की ${item} मरम्मत का भुगतान PayPal में होल्ड है। ट्रैक: ${trackLink(o)}` : `Thank you! Payment for ${who}'s ${item} repair is held by PayPal. Track: ${trackLink(o)}`);
+        // The karigar and the Saathi often don't watch an app either: they get the job by SMS.
+        const db = readDB();
+        const k = db.accounts.find((a) => a.role === "karigar" && a.karigarId === o.karigarId);
+        const sa = o.mode === "pickup" ? db.accounts.find((a) => a.role === "saathi" && a.saathiId === o.saathiId) : undefined;
+        if (k) partner(k.phone, k.id, `नया काम ${o.id}: ${item} (${o.issue.slice(0, 60)}), आपको ${rupees(o.split.karigar)} मिलेंगे। ${o.mode === "pickup" ? `साथी ${slot} पिकअप करके लाएगा।` : `ग्राहक के घर ${slot} जाना है।`}`);
+        if (sa) partner(sa.phone, sa.id, `नई पिकअप ${o.id}: ${item}, ${o.customer.address || who}, ${slot}। OTP ग्राहक से लें। कमाई ${rupees(o.split.saathi)}।`);
         break;
       }
       case "delivery_otp": {
@@ -169,6 +177,31 @@ export async function notifyOrder(orderId: string, event: SmsEvent, extra: { cla
               ? hi ? "मुफ़्त दोबारा मरम्मत; साथी सामान फिर लेने आएगा" : "free re-repair; a Saathi will collect the item again"
               : hi ? "रिफ़ंड नहीं" : "no refund";
         send(cust, hi ? `दावा ${extra.claimId} का फ़ैसला: ${what}। ${r?.remarks ?? ""}`.trim() : `Claim ${extra.claimId} decided: ${what}. ${r?.remarks ?? ""}`.trim());
+        break;
+      }
+      case "pay_reminder": {
+        if (!payer) break;
+        send(payer, hi ? `याद दिलाना: ${who} की ${item} मरम्मत (${rupees(o.total)}) का भुगतान बाकी है। PayPal से होल्ड करें: ${payLink(o)}` : `Reminder: ${who}'s ${item} repair (${rupees(o.total)}) is waiting for payment. Hold it with PayPal: ${payLink(o)}`);
+        break;
+      }
+      case "expired": {
+        const text = hi ? `${item} की बुकिंग ${o.id} समय पर भुगतान न होने से रद्द हो गई। कोई पैसा नहीं कटा। दोबारा बुक करने के लिए Sudhaar को फ़ोन करें।` : `Booking ${o.id} for ${item} was released because it wasn't paid in time. Nothing was charged. Call Sudhaar to book again.`;
+        send(cust, text);
+        if (payer && payer !== cust) send(payer, text);
+        break;
+      }
+      case "pickup_soon": {
+        const slot = o.pickupSlot ? slotLabel(o.pickupSlot, hi ? "hi-IN" : "en-IN", hi ? { today: "आज", tomorrow: "कल" } : { today: "today", tomorrow: "tomorrow" }) : "";
+        send(cust, hi ? `${o.mode === "pickup" ? "Repair Saathi" : "कारीगर"} ${slot} आ रहे हैं (${item})। OTP पिछले SMS में है; न मिले तो Sudhaar को फ़ोन करें।` : `Your ${o.mode === "pickup" ? "Repair Saathi" : "karigar"} comes ${slot} for the ${item}. Your OTP is in the earlier SMS.`);
+        break;
+      }
+      case "re_repair": {
+        const slot = o.pickupSlot ? slotLabel(o.pickupSlot, hi ? "hi-IN" : "en-IN", hi ? { today: "आज", tomorrow: "कल" } : { today: "today", tomorrow: "tomorrow" }) : "";
+        const otp = o.pickupOtp;
+        send(cust, hi ? `मुफ़्त दोबारा मरम्मत बुक हुई (${o.id}), कोई पैसा नहीं लगेगा। साथी ${slot} आएगा। पिकअप OTP ${otp}।` : `Free re-repair booked (${o.id}), nothing to pay. A Saathi comes ${slot}. Pickup OTP ${otp}.`, otp);
+        const db = readDB();
+        const k = db.accounts.find((a) => a.role === "karigar" && a.karigarId === o.karigarId);
+        if (k) partner(k.phone, k.id, `वारंटी काम ${o.id}: ${item} फिर से ठीक करना है (${o.issue.slice(0, 60)})। साथी ${slot} लाएगा।`);
         break;
       }
       case "otp_resend": {

@@ -103,6 +103,27 @@ export interface VoiceCall {
   summary?: string;
   transcript?: string;
   orderIds?: string[];
+  /** Calls Sudhaar placed itself (payment nudges, pickup reminders, call-me) are "outbound". */
+  direction?: "inbound" | "outbound";
+  /** Outbound: who was called (10 digits) and why. */
+  to?: string;
+  reason?: string;
+  /** The customer account this call belongs to, when known. */
+  customerId?: string;
+}
+
+/** A caller asked for a person. The Sudhaar team calls them back and marks it done. */
+export interface CallbackRequest {
+  id: string;
+  at: string;
+  phone: string;
+  name?: string;
+  reason: string;
+  orderId?: string;
+  customerId?: string;
+  status: "open" | "done";
+  doneAt?: string;
+  doneBy?: string;
 }
 
 /** A discount code. The discount comes out of Sudhaar's own share, never the karigar's or Saathi's. */
@@ -257,6 +278,8 @@ export interface Complaint {
     refundId?: string;
     at: string;
     remarks?: string;
+    /** Free re-repair: the ₹0 pickup order created for it. */
+    reRepairOrderId?: string;
   };
   status?: ClaimStatus;
   priority?: ClaimPriority;
@@ -406,6 +429,10 @@ export interface Order {
   events: OrderEvent[];
   /** "phone": booked on the Bolna phone line. */
   bookedBy: "customer" | "agent" | "phone";
+  /** A free warranty re-repair of this earlier order (₹0, no PayPal). */
+  warrantyFor?: string;
+  /** What the background conductor already did for this order (reminders, calls), so nothing repeats. */
+  nudges?: { payReminders?: number; payCall?: boolean; expiredNotice?: boolean; pickupSoon?: boolean };
 }
 
 export interface DB {
@@ -427,6 +454,7 @@ export interface DB {
   notifications?: Notification[];
   /** Every SMS Sudhaar sent or would have sent (OTPs masked), newest first. */
   smsLog?: SmsMessage[];
+  callbacks?: CallbackRequest[];
 }
 
 /** One SMS. Without an SMS provider configured, messages are only logged ("simulated"). */
@@ -439,6 +467,8 @@ export interface SmsMessage {
   orderId?: string;
   /** The text with any OTP replaced by ••••. */
   text: string;
+  /** The account texted, when it is a Sudhaar account (for the customer timeline). */
+  accountId?: string;
   status: "sent" | "simulated" | "failed";
   provider: string;
   ref?: string;

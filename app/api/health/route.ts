@@ -1,5 +1,5 @@
 import { requireRole } from "@/lib/auth";
-import { checkServices, lastHealth } from "@/lib/health";
+import { checkServices, lastHealth, storageStatus } from "@/lib/health";
 import { fail, ok } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   try {
     requireRole(req, "admin");
-    return ok({ health: lastHealth() ?? (await checkServices()) });
+    return ok({ health: { ...(lastHealth() ?? (await checkServices())), storage: storageStatus() } });
   } catch (e) {
     return fail(e);
   }
@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     requireRole(req, "admin");
-    return ok({ health: await checkServices() });
+    return ok({ health: { ...(await checkServices()), storage: storageStatus() } });
   } catch (e) {
     return fail(e);
   }

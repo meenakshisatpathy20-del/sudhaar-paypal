@@ -318,7 +318,7 @@ export default function Admin() {
         </div>
       )}
       {tab === "coupons" && <CouponsAdmin coupons={data.coupons} onDone={load} />}
-      {tab === "phone" && <PhoneLineAdmin voice={data.voice} orders={data.orders} />}
+      {tab === "phone" && <PhoneLineAdmin voice={data.voice} orders={data.orders} onChange={load} />}
       {tab === "care" && <CareAdmin accounts={data.accounts} m={data.money} carePlan={data.carePlan} />}
       {tab === "fleet" && <FleetMap fleet={data.fleet} />}
       {tab === "resolve" && <ClaimsDesk onChange={load} />}
@@ -535,8 +535,8 @@ function SystemCheck() {
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
       {health && (
-        <div className="grid gap-2 md:grid-cols-2">
-          {([["PayPal", health.paypal], ["Gemini AI", health.gemini]] as const).map(([name, st]) => (
+        <div className="grid gap-2 md:grid-cols-3">
+          {([["PayPal", health.paypal], ["Gemini AI", health.gemini], ...(health.storage ? [["Data storage", health.storage] as const] : [])] as const).map(([name, st]) => (
             <div key={name} className={`space-y-1 rounded-xl p-3 text-sm ring-1 ${tone(st)}`}>
               <p className="font-semibold">
                 {name}: {label(st)}

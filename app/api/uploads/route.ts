@@ -5,6 +5,7 @@ import { uploadsDir } from "@/lib/db";
 import { fail, ok } from "@/lib/http";
 import { FlowError } from "@/lib/orders";
 import { rateLimit } from "@/lib/ratelimit";
+import { saveUpload } from "@/lib/snapshot";
 
 const TYPES: Record<string, string> = { "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp" };
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -19,7 +20,9 @@ export async function POST(req: Request) {
     if (!ext) throw new FlowError("Only JPEG, PNG or WebP images are accepted");
     if (file.size > MAX_BYTES) throw new FlowError("Image is larger than 4 MB");
     const name = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}${ext}`;
-    fs.writeFileSync(path.join(uploadsDir(), name), Buffer.from(await file.arrayBuffer()));
+    const bytes = Buffer.from(await file.arrayBuffer());
+    fs.writeFileSync(path.join(uploadsDir(), name), bytes);
+    await saveUpload(name, bytes);
     return ok({ file: name, url: `/api/uploads/${name}` });
   } catch (e) {
     return fail(e);

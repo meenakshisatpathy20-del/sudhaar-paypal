@@ -10,9 +10,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     rateLimit(req, "action", 120);
     const account = requireRole(req, "customer", "karigar", "saathi", "admin");
     const { id } = await params;
-    const body = (await req.json()) as { action: Action; otp?: string; afterPhoto?: string; jobId?: string };
+    const body = (await req.json()) as { action: Action; otp?: string; afterPhoto?: string; beforePhoto?: string; jobId?: string };
     assertCanAct(account, getOrder(id)!, body.action, body.jobId);
-    const order = await advance(id, body.action, { otp: body.otp, afterPhoto: body.afterPhoto, jobId: body.jobId });
+    const order = await advance(id, body.action, { otp: body.otp, afterPhoto: body.afterPhoto, beforePhoto: body.beforePhoto, jobId: body.jobId });
     return ok({ order: orderFor(account, order) });
   } catch (e) {
     return fail(e);

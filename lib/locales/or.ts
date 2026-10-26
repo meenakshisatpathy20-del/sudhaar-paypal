@@ -794,6 +794,11 @@ const dict: Dict = {
   nClaimAssigned: "{item}ର ଦାବି {claim} ଆପଣଙ୍କୁ ଦିଆଗଲା",
   otpResend: "ଗ୍ରାହକ OTP ପାଉନାହାନ୍ତି? ପୁଣି SMS ପଠାନ୍ତୁ",
   otpSent: "OTP ଗ୍ରାହକଙ୍କ ନମ୍ବର {to}କୁ ପଠାଗଲା",
+  saBeforePhoto: "ଏହି ଜିନିଷର ଫଟୋ ଏପର୍ଯ୍ୟନ୍ତ ନାହିଁ: ନେବା ପୂର୍ବରୁ ଗୋଟିଏ ଫଟୋ ନିଅନ୍ତୁ (AI ଯାଞ୍ଚ ପାଇଁ ଦରକାର)।",
+  saBeforePhotoBtn: "ଜିନିଷର ଫଟୋ",
+  oWarrantyFor: "ଅର୍ଡର {id}ର ମାଗଣା ୱାରେଣ୍ଟି ମରାମତି: କିଛି ଦେବାକୁ ନାହିଁ",
+  rhReRepairOrder: "ମାଗଣା ପୁନଃ ମରାମତି ଟ୍ରାକ କରନ୍ତୁ: {id} →",
+  nCallback: "{name} ଜଣେ ବ୍ୟକ୍ତିଙ୍କ ସହ କଥା ହେବାକୁ ଚାହାଁନ୍ତି",
   // -- end added --
 };
 

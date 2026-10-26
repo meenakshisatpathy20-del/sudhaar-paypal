@@ -2,10 +2,11 @@ import crypto from "node:crypto";
 import { normalisePhone } from "./auth";
 import { config } from "./config";
 import { readDB, updateDB } from "./db";
-import { actOnSystemClaim } from "./claims";
+import { actOnSystemClaim, notify } from "./claims";
 import { isOpenClaim } from "./claims-shared";
-import { advance, createOrder, createQuote, FlowError, offersFor, raiseComplaint } from "./orders";
-import { maskPhone, notifyOrder, payLink, resendOtp } from "./sms";
+import { advance, createBasketOrder, createOrder, createQuote, FlowError, offersFor, raiseComplaint } from "./orders";
+import { maskPhone, notifyOrder, payLink, resendOtp, sendSms } from "./sms";
+import { geocodeAddress } from "./geocode";
 import { hashPin } from "./pin";
 import { INR_PER_USD, serviceModeFor } from "./pricing";
 import { pickupSlots, slotLabel } from "./slots";
@@ -54,9 +55,17 @@ export function findCustomer(phone: string): Account | undefined {
 /** The caller's account, created on first booking. A new PIN is returned once so they can use the website too. */
 async function customerForCall(phone: string, name: string, address: string): Promise<{ account: Account; newPin?: string }> {
   const existing = findCustomer(phone);
+  // A spoken address becomes a real map point, so distances, pickup fees and the Saathi's map are right.
+  const spot = address ? await geocodeAddress(address) : null;
   if (existing) {
-    if (address && !existing.address) await updateDB((db) => void (db.accounts.find((a) => a.id === existing.id)!.address = address));
-    return { account: existing };
+    // Phone customers move with the address they give; a website customer's saved address is kept.
+    if (address && (existing.viaPhone ? address !== existing.address : !existing.address))
+      await updateDB((db) => {
+        const a = db.accounts.find((x) => x.id === existing.id)!;
+        a.address = address;
+        if (spot && existing.viaPhone) Object.assign(a, { lat: spot.lat, lng: spot.lng });
+      });
+    return { account: findCustomer(phone) ?? existing };
   }
   if (readDB().accounts.some((a) => a.phone === phone)) throw new FlowError("This number belongs to a partner account. Please call from your own number.");
   const pin = String(crypto.randomInt(1000, 10000));
@@ -68,8 +77,8 @@ async function customerForCall(phone: string, name: string, address: string): Pr
     pinHash: hashPin(pin),
     createdAt: new Date().toISOString(),
     address: address.trim().slice(0, 120) || undefined,
-    lat: config.demoCenter.lat,
-    lng: config.demoCenter.lng,
+    lat: spot?.lat ?? config.demoCenter.lat,
+    lng: spot?.lng ?? config.demoCenter.lng,
     viaPhone: true,
   };
   await updateDB((db) => void db.accounts.push(account));
@@ -93,16 +102,19 @@ const slotHi = (slot: { start: string; end: string }) => slotLabel(slot, "hi-IN"
 
 /** Inbound caller lookup: Bolna adds this to the agent's prompt before it says hello. */
 export function callerContext(rawPhone: unknown) {
+  // Outbound-call variables are blank on an incoming call, so the prompt can tell the two apart.
+  const blank = { call_reason: "incoming", order_id: "", item: "", customer_name: "", payer_name: "", total_inr: "", pickup_time: "", care_member: false };
   let phone: string;
   try {
     phone = callerPhone(rawPhone);
   } catch {
-    return { known_customer: false, caller_name: "", active_repairs: 0, summary: "Unknown number." };
+    return { ...blank, known_customer: false, caller_name: "", active_repairs: 0, summary: "Unknown number." };
   }
   const a = findCustomer(phone);
-  if (!a) return { known_customer: false, caller_name: "", active_repairs: 0, summary: "New caller: no Sudhaar account yet." };
+  if (!a) return { ...blank, known_customer: false, caller_name: "", active_repairs: 0, summary: "New caller: no Sudhaar account yet." };
   const active = readDB().orders.filter((o) => o.customerId === a.id && !["paid_out", "cancelled"].includes(o.status));
   return {
+    ...blank,
     known_customer: true,
     caller_name: firstName(a.name),
     care_member: a.care?.status === "ACTIVE",
@@ -132,6 +144,7 @@ export async function voiceQuote(input: { description?: unknown; category?: unkn
     repair_range_inr: `${inr(quote.repairLow)} to ${inr(quote.repairHigh)}`,
     new_price_inr: inr(quote.newPrice),
     home_visit: serviceModeFor(quote.category) === "home-visit",
+    can_add_to_basket: serviceModeFor(quote.category) === "pickup",
     karigars: offers.map((o) => ({
       karigar_id: o.karigar.id,
       shop: o.karigar.shop,
@@ -153,16 +166,25 @@ export async function voiceQuote(input: { description?: unknown; category?: unkn
  * Books by voice. The order is paid with PayPal through a Family Pay link: the caller's son or
  * daughter (or the caller on any browser) opens it and approves. Until then nothing is charged.
  */
-export async function voiceBook(input: { phone?: unknown; name?: unknown; address?: unknown; quote_id?: unknown; karigar_id?: unknown; slot_index?: unknown; payer_name?: unknown; payer_relation?: unknown; payer_phone?: unknown }) {
+export async function voiceBook(input: { phone?: unknown; name?: unknown; address?: unknown; quote_id?: unknown; quote_ids?: unknown; karigar_id?: unknown; slot_index?: unknown; payer_name?: unknown; payer_relation?: unknown; payer_phone?: unknown }) {
   const phone = callerPhone(input.phone);
-  const quoteId = String(input.quote_id ?? "");
-  if (!readDB().quotes.some((q) => q.id === quoteId)) throw new FlowError("Get a quote first (quote_id is missing).");
+  // Ghar Safai by phone: several quoted items picked up together, one fee, one PayPal payment.
+  const many = [...new Set((Array.isArray(input.quote_ids) ? input.quote_ids : String(input.quote_ids ?? "").split(/[\s,]+/)).map((x) => String(x).trim()).filter(Boolean))];
+  const quoteIds = many.length > 1 ? many : [String(input.quote_id ?? many[0] ?? "")];
+  const basket = quoteIds.length > 1;
+  const quotes = quoteIds.map((id) => readDB().quotes.find((q) => q.id === id));
+  if (quotes.some((q) => !q)) throw new FlowError("Get a quote first (a quote_id is missing or wrong).");
+  if (basket && quoteIds.length > 6) throw new FlowError("Book at most 6 items in one phone basket.");
+  if (basket) {
+    const visit = quotes.find((q) => serviceModeFor(q!.category) !== "pickup");
+    if (visit) throw new FlowError(`"${visit.item}" needs a karigar to come home, so book it separately from the basket.`);
+  }
   const name = String(input.name ?? "").trim();
   const address = String(input.address ?? "").trim();
   // Check everything before creating an account, so a failed attempt never leaves an account whose PIN nobody heard.
   if (!address && !findCustomer(phone)?.address) throw new FlowError("Ask the caller for their address for the pickup.");
   if (!findCustomer(phone) && name.length < 2) throw new FlowError("Ask the caller for their name.");
-  if (!offersForCheck(phone, quoteId, String(input.karigar_id ?? ""))) throw new FlowError("That karigar can't take this job. Use a karigar_id from the quote.");
+  if (!basket && !offersForCheck(phone, quoteIds[0], String(input.karigar_id ?? ""))) throw new FlowError("That karigar can't take this job. Use a karigar_id from the quote.");
   const payer = String(input.payer_name ?? "").trim();
   // The PayPal link is texted to whoever pays: the family member's number, or the caller's own.
   const rawPayerPhone = String(input.payer_phone ?? "").trim();
@@ -170,26 +192,35 @@ export async function voiceBook(input: { phone?: unknown; name?: unknown; addres
   if (payer && !rawPayerPhone) throw new FlowError(`Ask for ${payer}'s mobile number, so the payment link can be sent by SMS.`);
   if (rawPayerPhone && !/^[6-9]\d{9}$/.test(payerPhone)) throw new FlowError("That mobile number doesn't look right. Ask for the 10-digit number again.");
   const { account, newPin } = await customerForCall(phone, name, address);
+  const customer = findCustomer(phone) ?? account;
   const slots = pickupSlots();
   const idx = Math.min(Math.max(0, Number(input.slot_index) || 0), slots.length - 1);
-  const order = await createOrder({
-    customer: findCustomer(phone) ?? account,
-    quoteId,
-    karigarId: String(input.karigar_id ?? ""),
-    bookedBy: "phone",
-    pickupSlot: slots[idx],
-    familyPay: { name: payer || firstName(account.name), relation: String(input.payer_relation ?? "").trim() || (payer ? "family" : "self"), phone: payerPhone || phone },
-  });
+  const familyPay = { name: payer || firstName(account.name), relation: String(input.payer_relation ?? "").trim() || (payer ? "family" : "self"), phone: payerPhone || phone };
+  const at = customer.lat !== undefined && customer.lng !== undefined ? { lat: customer.lat, lng: customer.lng } : { lat: config.demoCenter.lat, lng: config.demoCenter.lng };
+  const order = basket
+    ? await createBasketOrder({
+        customer,
+        // Each item goes to its best karigar for that job, as on the website's Ghar Safai page.
+        items: quotes.map((q) => ({ quoteId: q!.id, karigarId: offersFor(q!, at)[0]?.karigar.id ?? "" })),
+        bookedBy: "phone",
+        pickupSlot: slots[idx],
+        familyPay,
+      })
+    : await createOrder({ customer, quoteId: quoteIds[0], karigarId: String(input.karigar_id ?? ""), bookedBy: "phone", pickupSlot: slots[idx], familyPay });
   const texts = await notifyOrder(order.id, "booked_phone");
   const linkTo = maskPhone(payerPhone || phone);
+  const total = Math.round(order.total * INR_PER_USD);
   return {
     order_id: order.id,
-    total_inr: Math.round(order.total * INR_PER_USD),
+    basket,
+    items: basket ? order.jobs?.map((j) => j.item) : [order.item],
+    pickup_fee_inr: Math.round(order.pickupFee * INR_PER_USD),
+    total_inr: total,
     pickup: order.pickupSlot ? slotHi(order.pickupSlot) : "",
     pay_link: payLink(order),
     pay_link_sms: { to: linkTo, status: texts[0]?.status ?? "not_sent" },
     new_account_pin: newPin ?? null,
-    say: `आपकी बुकिंग हो गई है, नंबर ${order.id.split("").join(" ")}. कुल ${Math.round(order.total * INR_PER_USD)} रुपये। भुगतान PayPal से होगा और पैसा तभी कटेगा जब सामान ठीक होकर आपके पास वापस आएगा। भुगतान का लिंक ${payer ? `${payer} के नंबर` : "आपके नंबर"} पर SMS से भेज दिया है, जो ${linkTo.slice(-4).split("").join(" ")} पर ख़त्म होता है। पैसा जमा होते ही पिकअप का OTP आपको SMS से मिलेगा।${newPin ? ` आपका Sudhaar PIN ${newPin.split("").join(" ")} है, इसे अपने नंबर के साथ वेबसाइट पर इस्तेमाल कर सकते हैं।` : ""}`,
+    say: `${basket ? `आपकी घर सफ़ाई टोकरी बुक हो गई है: ${order.jobs?.length} चीज़ें, एक ही पिकअप।` : "आपकी बुकिंग हो गई है।"} नंबर ${order.id.split("").join(" ")}. कुल ${total} रुपये। भुगतान PayPal से होगा और पैसा तभी कटेगा जब सामान ठीक होकर आपके पास वापस आएगा। भुगतान का लिंक ${payer ? `${payer} के नंबर` : "आपके नंबर"} पर SMS से भेज दिया है, जो ${linkTo.slice(-4).split("").join(" ")} पर ख़त्म होता है। पैसा जमा होते ही पिकअप का OTP आपको SMS से मिलेगा।${newPin ? ` आपका Sudhaar PIN ${newPin.split("").join(" ")} है, इसे अपने नंबर के साथ वेबसाइट पर इस्तेमाल कर सकते हैं।` : ""}`,
   };
 }
 
@@ -272,14 +303,47 @@ export async function voiceComplaint(input: { phone?: unknown; order_id?: unknow
 export async function voiceSendOtp(input: { phone?: unknown; order_id?: unknown }) {
   const phone = callerPhone(input.phone);
   const orders = callerOrders(phone);
-  const o = orders.find((x) => x.id === String(input.order_id ?? "").trim().toUpperCase()) ?? orders.find((x) => ["authorized", "out_for_delivery", "repaired", "repairing"].includes(x.status));
-  if (!o) throw new FlowError("No repair on this number needs an OTP right now.");
+  const o =
+    orders.find((x) => x.id === String(input.order_id ?? "").trim().toUpperCase()) ??
+    orders.find((x) => ["authorized", "out_for_delivery", "repaired", "repairing"].includes(x.status)) ??
+    orders.find((x) => x.status === "awaiting_payment");
+  if (!o) throw new FlowError("No repair on this number needs an OTP or a payment right now.");
+  // Not paid yet: there is no OTP. "My son didn't get the link" — text the PayPal link to the payer again.
+  if (o.status === "awaiting_payment") {
+    const recent = (readDB().smsLog ?? []).filter((m) => m.orderId === o.id && m.kind === "pay_reminder" && Date.now() - Date.parse(m.at) < 30 * 60_000);
+    if (recent.length >= 2) throw new FlowError("The payment link was already sent twice in the last 30 minutes. Ask them to check their messages.");
+    const sent = await notifyOrder(o.id, "pay_reminder");
+    return { order_id: o.id, payment_pending: true, sent_to: sent[0]?.to, say: `अभी भुगतान बाकी है, इसलिए OTP नहीं बना। मैंने PayPal का लिंक ${o.familyPay?.name ?? ""} के नंबर पर फिर से भेज दिया है।` };
+  }
   const r = await resendOtp(o.id);
   if (!r.ok) {
     if (r.reason === "too_many") throw new FlowError("The OTP was already sent 3 times in the last 30 minutes. Ask them to check their messages.");
     throw new FlowError("This repair doesn't need an OTP right now.");
   }
   return { order_id: o.id, sent_to: r.to, say: `OTP आपके रजिस्टर्ड नंबर पर SMS से भेज दिया है। इसे सिर्फ़ साथी या कारीगर को सामने बताइए।` };
+}
+
+/**
+ * "I want to talk to a person": the agent can't solve everything. The request goes to the admin
+ * console (and the team's notification bell), and the caller gets an SMS that someone will call.
+ * With a team phone number set up in Bolna's Transfer Call tool, urgent calls can also be transferred live.
+ */
+export async function voiceCallback(input: { phone?: unknown; reason?: unknown; order_id?: unknown }) {
+  const phone = callerPhone(input.phone);
+  const reason = String(input.reason ?? "").trim().slice(0, 300) || "Caller asked to speak to a person.";
+  const a = findCustomer(phone);
+  const orderId = String(input.order_id ?? "").trim().toUpperCase() || callerOrders(phone)[0]?.id;
+  const open = (readDB().callbacks ?? []).find((c) => c.phone === phone && c.status === "open");
+  if (open) return { callback_id: open.id, already_requested: true, say: "आपका अनुरोध पहले से दर्ज है, Sudhaar टीम जल्द ही आपको फ़ोन करेगी।" };
+  const id = `CB${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+  await updateDB((db) => {
+    db.callbacks ??= [];
+    db.callbacks.unshift({ id, at: new Date().toISOString(), phone, name: a?.name, reason, orderId: orderId || undefined, customerId: a?.id, status: "open" });
+    if (db.callbacks.length > 200) db.callbacks.length = 200;
+    notify(db, db.accounts.filter((x) => x.role === "admin").map((x) => x.id), "nCallback", { name: a ? firstName(a.name) : maskPhone(phone) }, "/admin?tab=phone");
+  });
+  await sendSms(phone, "callback", `Sudhaar: ${a ? `${firstName(a.name)} जी, ` : ""}आपकी बात दर्ज हो गई है। Sudhaar टीम का एक व्यक्ति जल्द ही आपको फ़ोन करेगा।`, { accountId: a?.id });
+  return { callback_id: id, say: "ठीक है, मैंने आपकी बात टीम को दे दी है। Sudhaar टीम का एक व्यक्ति जल्द ही आपको इसी नंबर पर फ़ोन करेगा।" };
 }
 
 /** Bolna's post-call webhook: keep a short log for the admin console. */
@@ -301,6 +365,11 @@ export async function logCall(body: Record<string, unknown>) {
     if (summary) call.summary = String(summary).slice(0, 600);
     if (transcript) call.transcript = transcript;
     if (orderIds.length) call.orderIds = orderIds;
+    call.direction ??= "inbound";
+    if (!call.customerId && call.from) {
+      const digits = normalisePhone(call.from);
+      call.customerId = db.accounts.find((a) => a.role === "customer" && a.phone === digits)?.id;
+    }
     if (!existing) db.voiceCalls.unshift(call);
     if (db.voiceCalls.length > 100) db.voiceCalls.length = 100;
     return call;
