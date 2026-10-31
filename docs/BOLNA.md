@@ -77,6 +77,12 @@ Never put these values in the code or in chat. Set them only in Render (and in y
 6. **Post-call webhook (Analytics / Webhook)**: set it to `https://YOUR-SUDHAAR-SITE/api/voice/webhook?token=YOUR_VOICE_API_TOKEN`. Calls then appear in **Admin console → Phone line** with their status, duration, summary and transcript.
 7. **Test** with Bolna's "Talk to agent" in the browser, then call the number.
 
+## Keep the server awake during calls (important on Render's free plan)
+
+Render's free plan puts the server to sleep after about 15 minutes without traffic, and waking it can take 30–60 seconds: long enough for a Bolna tool call to time out mid-conversation. Before demos and judging, use a free uptime service (e.g. cron-job.org or UptimeRobot) to open `https://YOUR-SUDHAAR-SITE/api/config` every 10 minutes. The paid Render plan doesn't sleep.
+
+The tools also accept what Bolna sends when the agent skips an optional field (`None`, an empty value or an unfilled `%(name)s`), and take the caller's number from `from_number` / `contact_number` if the tool's `phone` is empty.
+
 ## Outbound calls: one prompt, both directions
 
 Outbound calls use the same agent. Sudhaar sends Bolna `user_data` with the same variables an incoming call gets, plus `call_reason` (`payment_reminder`, `pickup_reminder`, `status_update` or `callback_from_website`), `order_id`, `item`, `customer_name`, `payer_name`, `total_inr` and `pickup_time`. For an incoming call, `call_reason` is `incoming`. The prompt tells the agent what to say first for each reason. OTPs are never in `user_data`.
