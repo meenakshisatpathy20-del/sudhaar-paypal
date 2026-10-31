@@ -101,7 +101,7 @@
         "address": "%(address)s",
         "quote_id": "%(quote_id)s",
         "karigar_id": "%(karigar_id)s",
-        "slot_index": "%(slot_index)i",
+        "slot_index": "%(slot_index)s",
         "payer_name": "%(payer_name)s",
         "payer_relation": "%(payer_relation)s",
         "payer_phone": "%(payer_phone)s",

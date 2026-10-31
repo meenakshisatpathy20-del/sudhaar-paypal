@@ -138,6 +138,32 @@ I'm a solo participant, a 3rd-year Computer Science student.
 
 **AI as my coding assistant:** I used Claude Code (Anthropic's AI coding assistant) to turn my design into code. The first commit, the initial app, was generated with Claude Code from my specification. Later changes, fixes and new features were also written with Claude Code, following my product decisions and feedback, and I reviewed and tested them.
 
+## Design decisions (and why)
+
+| Decision | Why |
+|---|---|
+| **Money is only held** (PayPal AUTHORIZE) until the delivery OTP | The customer's item leaves their home. They shouldn't pay for something they haven't got back, and the karigar shouldn't work for money that isn't there. Holding solves both. |
+| **OTPs are never spoken on a call**, only texted to the registered number | Caller ID can be faked. Anyone who calls "as Kamla" could otherwise collect her item. A text only reaches the real phone. |
+| **A person decides every refund**; Gemini only suggests | AI is good at reading a bill and photos, but taking money back from a karigar is a judgement about a person's livelihood. |
+| **The family pays, the elder books** (Family Pay link by SMS) | In India the person who needs the repair and the person with a PayPal account are often different people in different cities. |
+| **Voice first, app optional** | The people who repair most (older people, small towns) are the least likely to install an app. A phone call works on any phone. |
+| **Street karigars, not our own staff** | They already have the skill and the shop; what they lack is customers and safe digital payment. Karigars keep 90% of the repair price. |
+| **The karigar and Saathi get jobs by SMS** | They often don't watch an app either, so the voice-and-SMS layer serves both sides of the market. |
+
+## Unit economics (one mixer repair, from the live pricing rules)
+
+| | ₹ |
+|---|---|
+| Customer pays: repair ₹383 + pickup ₹85 | **468** |
+| Karigar (90% of the repair) | 345 |
+| Repair Saathi (75% of the pickup fee) | 64 |
+| **Sudhaar keeps** (10% of repair + 25% of pickup) | **59** |
+| Phone-line cost for a phone booking: about 3 min of Bolna at $0.06/min (Bolna dashboard) | ≈ 15 |
+| SMS: about 5 texts per order (pay link, OTPs, delivery). Twilio's India rate is per segment and must be checked in the Twilio console; an Indian DLT SMS provider is usually cheaper | a few ₹ to ≈ 30 |
+| PayPal fees | per PayPal's rate for the market |
+
+So a website booking keeps roughly ₹59, and a phone booking still covers its call and texts. Ghar Safai baskets (several items, one pickup) and Sudhaar Care (a monthly subscription) raise the margin per trip. These are prototype prices in the PayPal sandbox (USD shown as ₹ at 85).
+
 ## Sponsor tools
 
 - **AG Grid**: the Admin console at `/admin` (partner side) (orders, payouts, karigars, PayPal webhooks) with sorting, filtering and pagination.

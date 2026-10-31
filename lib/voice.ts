@@ -34,8 +34,26 @@ export function requireVoiceToken(req: Request) {
 export async function voiceInput(req: Request): Promise<Record<string, unknown>> {
   const q = Object.fromEntries(new URL(req.url).searchParams);
   delete q.token;
-  const body = req.method === "POST" ? ((await req.json().catch(() => ({}))) as Record<string, unknown>) : {};
-  return { ...q, ...body };
+  const raw = req.method === "POST" ? await req.text().catch(() => "") : "";
+  let body: Record<string, unknown> = {};
+  try {
+    body = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+  } catch {
+    // Some setups post form-encoded values instead of JSON.
+    body = Object.fromEntries(new URLSearchParams(raw));
+  }
+  const merged: Record<string, unknown> = { ...q, ...body };
+  // When the agent leaves an optional field out, Bolna fills the %(name)s template with text such as
+  // "None" or leaves the placeholder itself. Treat all of those as empty instead of failing the call.
+  for (const [k, v] of Object.entries(merged)) {
+    if (typeof v !== "string") continue;
+    const t = v.trim();
+    if (/^(none|null|undefined|nan|n\/a)$/i.test(t) || /^%\(\w+\)[sdi]$/.test(t) || /^\{\{?\w+\}?\}$/.test(t)) merged[k] = "";
+    else merged[k] = t;
+  }
+  // The caller's number: from the tool's phone field, or whatever call details Bolna sends along.
+  if (!merged.phone) merged.phone = merged.from_number ?? merged.contact_number ?? merged.user_number ?? merged.caller ?? "";
+  return merged;
 }
 
 /** Bolna sends numbers in E.164 (+919876543210); accounts store 10 digits. */
