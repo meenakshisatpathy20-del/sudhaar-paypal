@@ -3,8 +3,7 @@
 **A doorstep repair marketplace for local karigars (informal repairers), built on PayPal + AI.**
 Snap a photo of something broken. AI estimates the repair cost against the price of buying new. A verified local karigar fixes it, a Repair Saathi does the pickup and delivery, and the customer's PayPal payment is **held until the repaired item is back in their hands**. On the delivery OTP, PayPal captures the money and **instantly pays out the karigar and the Saathi**.
 
-> Built by **Meenakshi Satpathy** (solo) for the [PayPal AI Hackathon 2026](https://paypalaihackathon.devpost.com/).
-> 🌐 **Live demo:** the *Website* link in this repository's About section · 🎥 **Demo video:** on the Devpost project page · 📸 **[Screenshots](docs/SCREENSHOTS.md)** · 🧭 **[Demo guide: every page and feature](docs/DEMO-GUIDE.md)** (also in the app at `/guide`)
+> 🌐 **Live demo:** the *Website* link in this repository's About section ·· 📸 **[Screenshots](docs/SCREENSHOTS.md)** · 🧭 **[Demo guide: every page and feature](docs/DEMO-GUIDE.md)** (also in the app at `/guide`)
 
 ---
 
