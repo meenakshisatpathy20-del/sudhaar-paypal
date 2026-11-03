@@ -1,6 +1,4 @@
-# PayPal AI Hackathon: compliance checklist
 
-Tracks every rule in the official rules (paypalaihackathon.devpost.com/rules) and how Sudhaar meets it. Update the status column as we go.
 
 ## Project requirements
 | Rule | How we meet it | Status |
